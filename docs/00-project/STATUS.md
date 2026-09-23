@@ -1,52 +1,40 @@
 # Delivery status
 
-Updated: 2026-09-23 UTC. Work type: **specification authoring**. Product implementation: **NOT_STARTED**.
+Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementation: **NOT_STARTED**.
 
 ## DONE
 
-- Complete supplied PRD read (159 sections).
-- Repository inspected: empty repository, default branch `main`, write access available.
-- Master plan, delivery methodology, architecture overview, dependency graph and milestones authored for initial sequential publication.
-- Initial official research checked WIF, organization billing, query attribution, warehouse metering and Dagster AWS deployment.
+- Complete 159-section PRD read and preserved; original repository was empty.
+- Root master plan, delivery methodology, architecture, dependency graph and milestones published in requested order.
+- Ten ADRs establish canonical boundaries and resolve financial/security/ingestion ambiguities.
+- Domain specifications published file by file:
+
+- [FND — Engineering foundation and local development](../../docs/01-architecture/engineering.md) — 6 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 
-- Establishing canonical ADRs, domain contracts and the implementation task hierarchy.
+Progressive domain deep dives and granular implementation task publication. Local draft domains are not counted as published.
 
 ## NEXT
 
-1. Preserve the PRD and publish ADR structure.
-2. Complete engineering, infrastructure, security and control-plane task specifications.
-3. Complete connectivity, source contracts, durable ingestion, Dagster and dbt specifications.
-4. Complete finance, semantic API, UX, allocation, governance, reporting and optimization specifications.
-5. Complete operations, onboarding and first-customer release specifications.
-6. Validate global links, dependencies, PRD coverage and financial/security consistency; correct through GitHub API.
+Continue the next domain in `docs/tasks/README.md`; after all domains, publish the complete machine index and PRD traceability, audit links/dependencies/formulas/security, and correct through the GitHub API.
 
 ## BLOCKED
 
-No documentation blocker. Live implementation evidence requires AWS/Snowflake environments and real customer inputs later; none have been provisioned or tested in this documentation mission.
+No documentation blocker. No AWS/Snowflake production resources, real customers or payments have been created by this documentation work.
 
 ## DECISIONS MADE
 
-- Honor current PRD: physical `tenant_id`, multi-organization/multi-account support, centralized Snowflake analytics.
-- Separate additive charge ledger from attribution/decomposition and billing reference facts.
-- Track source maturity, reconciliation and financial close independently.
-- Publish file by file directly to `main` using the GitHub API.
+Physical tenant keys; organization-first model; account-specific WIF; identity-bound analytical authorization; manifest acceptance and contiguous coverage; additive charges separate from attribution; signed adjustments; maturity/reconciliation/close separation; versioned configuration publication; sanitize before persistence. See the ADR register.
 
 ## RISKS
 
-- Source latency, retention, edition and reseller permissions can limit financial completeness.
-- Tenant-safe analytical authorization needs live attack tests, including pooled sessions and exports.
-- Snowpipe arrival is not complete-batch publication; durable manifests and receipt gates are mandatory.
-- Vendor documentation evolves; pin and validate versions during implementation.
+Source permissions/retention/latency/reseller limitations; changing vendor/adapter support; central reader-profile identity quotas; incomplete batch publication; silent double counting; scope revocation during cache/export delivery. Required tests and release gates address these risks.
 
 ## OPEN VALIDATIONS
 
-- AWS regional/service quotas and actual environment identifiers.
-- Pinned connector/dbt/Dagster compatibility with WIF and Fargate.
-- Live Snowflake source schemas, grants, retention and financial fixtures.
-- End-to-end isolation, scale, recovery and customer acceptance.
+Pinned-stack WIF and dbt compatibility; AWS region/quotas and actual identifiers; live Snowflake schemas/grants; end-to-end isolation; numerical reconciliation against customer billing; scale and disaster recovery; legal/customer/commercial acceptance. These are future implementation gates, not claimed successes.
 
-## Resume instruction
+## Resume
 
-Continue specification authoring from the first unpublished canonical domain. Product task states remain `NOT_STARTED`. Read the root documents and published ADRs; inspect GitHub before replacing any file and use its current blob SHA.
+Read the master plan, ADRs and last published domain; inspect GitHub before updating files and use current blob SHAs. All implementation tasks remain NOT_STARTED until their own evidence is accepted. Documentation publication is not task execution.

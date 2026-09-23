@@ -12,6 +12,7 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [FND — Engineering foundation and local development](../../docs/01-architecture/engineering.md) — 6 task specifications; implementation NOT_STARTED.
 - [INF — AWS platform, networking and deployment foundation](../../docs/17-devops/platform.md) — 8 task specifications; implementation NOT_STARTED.
 - [SEC — Identity, authorization, isolation and privacy](../../docs/02-security/security.md) — 8 task specifications; implementation NOT_STARTED.
+- [CTL — PostgreSQL control plane, transactional APIs and Redis](../../docs/03-control-plane/control-plane.md) — 7 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

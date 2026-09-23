@@ -15,6 +15,7 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [CTL — PostgreSQL control plane, transactional APIs and Redis](../../docs/03-control-plane/control-plane.md) — 7 task specifications; implementation NOT_STARTED.
 - [CON — Snowflake WIF, discovery and capability onboarding](../../docs/04-snowflake-connectivity/connectivity.md) — 6 task specifications; implementation NOT_STARTED.
 - [ING — Source contracts and durable immutable ingestion](../../docs/05-ingestion/ingestion.md) — 12 task specifications; implementation NOT_STARTED.
+- [ORC — Dagster OSS orchestration and data publication](../../docs/06-dagster/orchestration.md) — 6 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

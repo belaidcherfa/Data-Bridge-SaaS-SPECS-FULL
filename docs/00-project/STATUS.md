@@ -26,6 +26,7 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [INS — Evidence-backed insights, actions and verified savings](../../docs/13-insights/intelligence.md) — 7 task specifications; implementation NOT_STARTED.
 - [RPT — Reporting, rendering and secure scheduled distribution](../../docs/14-reporting/reporting.md) — 5 task specifications; implementation NOT_STARTED.
 - [OPS — Operational quality, security qualification and recovery](../../docs/16-observability/operations.md) — 11 task specifications; implementation NOT_STARTED.
+- [REL — Production readiness and release qualification](../../docs/19-production-readiness/readiness.md) — 4 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

@@ -37,6 +37,7 @@ Start with explicit small nonzero service minima in staging/prod and a documente
 | [INF-005](../tasks/INF/INF-005.md) | Build ECS base services and role separation | INF-003, INF-004 | M1 |
 | [INF-006](../tasks/INF/INF-006.md) | Configure edge, DNS, TLS and private operations access | INF-005 | M1 |
 | [INF-007](../tasks/INF/INF-007.md) | Create OIDC deployment pipeline and staged rollback | INF-005, INF-006 | M1 |
+| [INF-008](../tasks/INF/INF-008.md) | Provision central Snowflake environments and service roles | INF-007 | M1 |
 
 ## Domain acceptance
 

@@ -24,6 +24,8 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [ALC — External tags, allocation, usage groups, showback and chargeback](../../docs/11-allocation/allocation.md) — 8 task specifications; implementation NOT_STARTED.
 - [GOV — Budgets, forecasting, monitors and notification delivery](../../docs/12-budgets-monitoring/governance.md) — 8 task specifications; implementation NOT_STARTED.
 - [INS — Evidence-backed insights, actions and verified savings](../../docs/13-insights/intelligence.md) — 7 task specifications; implementation NOT_STARTED.
+- [RPT — Reporting, rendering and secure scheduled distribution](../../docs/14-reporting/reporting.md) — 5 task specifications; implementation NOT_STARTED.
+- [OPS — Operational quality, security qualification and recovery](../../docs/16-observability/operations.md) — 11 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

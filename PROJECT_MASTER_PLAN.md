@@ -1,10 +1,10 @@
 # Bridge Data FinOps — Project master plan
 
-Specification baseline: 2026-09-23. Product implementation has **not started**. This repository is an engineering delivery specification, not a working SaaS or a claim of production validation.
+Specification baseline: 2026-09-24. Product implementation has **not started**. This repository is an engineering delivery specification, not a working SaaS or a claim of production validation.
 
 ## Authority and outcome
 
-The supplied 159-section PRD is authoritative. It will be preserved verbatim under `docs/00-project/PRD.md`. Architecture decisions resolve omissions and qualify illustrative examples; they do not silently replace the PRD. All specifications are in English for implementation agents.
+The supplied 159-section PRD is authoritative. It is preserved byte-for-byte in [docs/00-project/PRD.md](docs/00-project/PRD.md). Architecture decisions resolve omissions and qualify illustrative examples; they do not silently replace the PRD. All specifications are in English for implementation agents.
 
 Deliver a Snowflake-only FinOps SaaS from a clean checkout through AWS production, organization/account onboarding, available historical synchronization, financial reconciliation, complete customer workflows, and a first paying customer. AWS costs are measured only as Bridge Data's internal cost of delivery, not as a customer multi-cloud FinOps product.
 
@@ -73,3 +73,7 @@ Commercial terms, legal approval, production account identifiers and real custom
 ## Publication
 
 Publish each completed document through the GitHub API to `main`, immediately. Update progress after each domain, then perform a repository-wide dependency, link, PRD coverage and contradiction audit. Preserve a useful starting point after every checkpoint.
+
+## Published delivery inventory
+
+The plan contains20 domain contracts,151 implementation tasks and604 numbered micro-tasks, with13 production milestones and12 ADRs. Start with [TASK_INDEX](TASK_INDEX.md); use [traceability](docs/00-project/TRACEABILITY.md), [validation strategy](docs/15-testing/validation-strategy.md), [research register](docs/00-project/RESEARCH_REGISTER.md), [open implementation gates](docs/00-project/OPEN_VALIDATIONS.md) and [status](docs/00-project/STATUS.md) for evidence and restartability.

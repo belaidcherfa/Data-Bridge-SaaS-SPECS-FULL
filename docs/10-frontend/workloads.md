@@ -19,9 +19,12 @@ Cost/execution, cost/model, executions, querycount, wall-clock duration, executi
 
 ## Drilldown and evidence
 
-Workloads → type → project/application → environment → invocation/activity/task graph → model/hash → query. Each level keeps scope, period, status and metric definitions. dbt unassigned-project/unassigned-invocation buckets and PBI unknownmode are first-class filters. Users can pivot by account/warehouse/user/role/custom tags without losing hierarchy.
+Workloads → type → project/application → environment → invocation/activity/task graph → model/hash → query. Each level keeps scope, period, status and metric definitions. dbt unassigned-project/unassigned-invocation buckets and PBI unknown mode are first-class filters. Users can pivot by account/warehouse/user/role/custom tags without losing hierarchy.
 
 Deep evidence such as GET_QUERY_OPERATOR_STATS is on-demand, permission- and retention-gated, sanitized and bounded. A failure to fetch a plan does not invalidate observed query cost. Never promise operator evidence for all one-year-old queries. Preserve evidence confidence; correlations are hypotheses, not causal proof.
+
+
+The current [GET_QUERY_OPERATOR_STATS contract](https://docs.snowflake.com/en/sql-reference/functions/get_query_operator_stats) covers completed queries from the past14 days and requires OPERATE or MONITOR on the warehouse. Verify MONITOR suffices for the selected customer evidence path and do not extend one-year history claims to query plans.
 
 
 ## Implementation sequence

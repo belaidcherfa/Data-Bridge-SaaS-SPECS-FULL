@@ -17,6 +17,7 @@ Canonical domain contract. Owner: Backend engineer. Implementation state: NOT_ST
 | storage_bytes | Latest or time-weighted snapshot as requested, never sum daily gauges as current storage |
 | attribution_coverage | Assigned absolute eligible charge amount / total absolute eligible charge amount; zero denominator null |
 | budget_variance | Actual net cost − budget; percentage divides by nonzero budget |
+| forecast_variance | Forecast total − budget; percent divides by nonzero budget; distinct from actual budget variance |
 | forecast_total | Actual-to-date + modeled remaining spend; method/interval/coverage explicit |
 | potential_savings | Deduplicated mutually compatible opportunities, with range and confidence |
 | realized_savings | Validated normalized savings for non-overlapping action scopes and measurement windows |

@@ -62,10 +62,10 @@ Audit events are append-only logical records with tenant, actor/service, action,
 | Task | Deliverable | Dependencies | Gate |
 |---|---|---|---|
 | [SEC-001](../tasks/SEC/SEC-001.md) | Model threats and classify sensitive data | INF-002, FND-004 | M1 |
-| [SEC-002](../tasks/SEC/SEC-002.md) | Implement Cognito login, sessions and local MFA | SEC-001, INF-006 | M1 |
-| [SEC-003](../tasks/SEC/SEC-003.md) | Add tenant-bound SAML and OIDC SSO | SEC-002 | M1 |
+| [SEC-002](../tasks/SEC/SEC-002.md) | Implement Cognito login, sessions and local MFA | SEC-001, INF-006, UX-001 | M1 |
+| [SEC-003](../tasks/SEC/SEC-003.md) | Add tenant-bound SAML and OIDC SSO | SEC-002, UX-001 | M1 |
 | [SEC-004](../tasks/SEC/SEC-004.md) | Implement scoped RBAC and tenant RLS foundation | SEC-002, INF-004 | M1 |
-| [SEC-005](../tasks/SEC/SEC-005.md) | Provision identity-bound Snowflake serving policies | SEC-004, INF-005 | M1 |
+| [SEC-005](../tasks/SEC/SEC-005.md) | Provision identity-bound Snowflake serving policies | SEC-004, INF-005, INF-008 | M1 |
 | [SEC-006](../tasks/SEC/SEC-006.md) | Enforce revocation across sessions, jobs and cache | SEC-004, SEC-005 | M1 |
 | [SEC-007](../tasks/SEC/SEC-007.md) | Sanitize SQL, tags and errors before persistence | SEC-001, FND-004 | M1 |
 | [SEC-008](../tasks/SEC/SEC-008.md) | Create audit trail and early isolation attack suite | SEC-006, SEC-007 | M1 |

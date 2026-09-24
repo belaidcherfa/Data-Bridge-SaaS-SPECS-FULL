@@ -1,0 +1,4649 @@
+{
+  "schema_version": 1,
+  "product": "Bridge Data FinOps",
+  "work_type": "implementation_plan",
+  "implementation_status": "NOT_STARTED",
+  "task_count": 151,
+  "topological_order": [
+    "FND-001",
+    "FND-002",
+    "FND-003",
+    "FND-004",
+    "FND-005",
+    "FND-006",
+    "UX-001",
+    "INF-001",
+    "INF-002",
+    "INF-003",
+    "INF-004",
+    "INF-005",
+    "INF-006",
+    "INF-007",
+    "INF-008",
+    "SEC-001",
+    "SEC-002",
+    "SEC-003",
+    "SEC-004",
+    "CTL-001",
+    "CTL-002",
+    "SEC-005",
+    "SEC-006",
+    "SEC-007",
+    "SEC-008",
+    "CTL-003",
+    "CTL-004",
+    "CTL-005",
+    "CTL-006",
+    "CTL-007",
+    "CON-001",
+    "CON-002",
+    "CON-003",
+    "CON-004",
+    "CON-005",
+    "CON-006",
+    "ING-001",
+    "ING-002",
+    "ING-003",
+    "ING-004",
+    "ING-005",
+    "ING-006",
+    "ING-007",
+    "ING-008",
+    "ING-009",
+    "ING-010",
+    "ING-011",
+    "ING-012",
+    "OPS-001",
+    "ORC-001",
+    "ORC-002",
+    "ORC-003",
+    "ORC-004",
+    "ORC-005",
+    "ORC-006",
+    "DBT-001",
+    "DBT-002",
+    "DBT-003",
+    "DBT-004",
+    "DBT-005",
+    "DBT-006",
+    "FIN-001",
+    "FIN-002",
+    "FIN-003",
+    "FIN-004",
+    "FIN-005",
+    "FIN-006",
+    "FIN-008",
+    "FIN-011",
+    "FIN-012",
+    "FIN-013",
+    "FIN-014",
+    "FIN-015",
+    "FIN-016",
+    "FIN-017",
+    "FIN-007",
+    "FIN-018",
+    "FIN-019",
+    "FIN-020",
+    "FIN-021",
+    "FIN-009",
+    "FIN-010",
+    "OPS-002",
+    "API-001",
+    "API-002",
+    "API-003",
+    "API-004",
+    "API-005",
+    "API-006",
+    "UX-002",
+    "ONB-001",
+    "UX-003",
+    "UX-004",
+    "UX-005",
+    "UX-006",
+    "UX-007",
+    "UX-008",
+    "WRK-001",
+    "WRK-002",
+    "WRK-003",
+    "WRK-004",
+    "WRK-005",
+    "ALC-001",
+    "ALC-002",
+    "ALC-003",
+    "ALC-004",
+    "ALC-005",
+    "ALC-006",
+    "ALC-007",
+    "ALC-008",
+    "GOV-001",
+    "GOV-002",
+    "GOV-003",
+    "GOV-004",
+    "GOV-005",
+    "GOV-006",
+    "GOV-007",
+    "GOV-008",
+    "RPT-001",
+    "RPT-002",
+    "RPT-003",
+    "RPT-004",
+    "RPT-005",
+    "INS-001",
+    "INS-002",
+    "INS-003",
+    "INS-004",
+    "INS-005",
+    "INS-006",
+    "INS-007",
+    "OPS-003",
+    "OPS-004",
+    "OPS-005",
+    "OPS-006",
+    "OPS-007",
+    "OPS-008",
+    "OPS-009",
+    "OPS-010",
+    "ONB-002",
+    "OPS-011",
+    "REL-001",
+    "REL-002",
+    "REL-003",
+    "LCH-001",
+    "REL-004",
+    "ONB-003",
+    "ONB-004",
+    "ONB-005",
+    "LCH-002",
+    "LCH-003",
+    "LCH-004"
+  ],
+  "domains": [
+    {
+      "id": "FND",
+      "title": "Engineering foundation and local development",
+      "contract": "docs/01-architecture/engineering.md",
+      "epic": {
+        "id": "E-FND-01",
+        "title": "Engineering foundation and local development"
+      },
+      "owner": "Tech lead"
+    },
+    {
+      "id": "INF",
+      "title": "AWS platform, networking and deployment foundation",
+      "contract": "docs/17-devops/platform.md",
+      "epic": {
+        "id": "E-INF-01",
+        "title": "AWS platform, networking and deployment foundation"
+      },
+      "owner": "DevOps"
+    },
+    {
+      "id": "SEC",
+      "title": "Identity, authorization, isolation and privacy",
+      "contract": "docs/02-security/security.md",
+      "epic": {
+        "id": "E-SEC-01",
+        "title": "Identity, authorization, isolation and privacy"
+      },
+      "owner": "Security"
+    },
+    {
+      "id": "CTL",
+      "title": "PostgreSQL control plane, transactional APIs and Redis",
+      "contract": "docs/03-control-plane/control-plane.md",
+      "epic": {
+        "id": "E-CTL-01",
+        "title": "PostgreSQL control plane, transactional APIs and Redis"
+      },
+      "owner": "Backend"
+    },
+    {
+      "id": "CON",
+      "title": "Snowflake WIF, discovery and capability onboarding",
+      "contract": "docs/04-snowflake-connectivity/connectivity.md",
+      "epic": {
+        "id": "E-CON-01",
+        "title": "Snowflake WIF, discovery and capability onboarding"
+      },
+      "owner": "Snowflake"
+    },
+    {
+      "id": "ING",
+      "title": "Source contracts and durable immutable ingestion",
+      "contract": "docs/05-ingestion/ingestion.md",
+      "epic": {
+        "id": "E-ING-01",
+        "title": "Source contracts and durable immutable ingestion"
+      },
+      "owner": "Data engineer"
+    },
+    {
+      "id": "ORC",
+      "title": "Dagster OSS orchestration and data publication",
+      "contract": "docs/06-dagster/orchestration.md",
+      "epic": {
+        "id": "E-ORC-01",
+        "title": "Dagster OSS orchestration and data publication"
+      },
+      "owner": "Data platform engineer"
+    },
+    {
+      "id": "DBT",
+      "title": "dbt Core deterministic transformation framework",
+      "contract": "docs/07-dbt/transformation.md",
+      "epic": {
+        "id": "E-DBT-01",
+        "title": "dbt Core deterministic transformation framework"
+      },
+      "owner": "Analytics engineer"
+    },
+    {
+      "id": "FIN",
+      "title": "Canonical FinOps ledger, pricing and reconciliation",
+      "contract": "docs/08-finops-ledger/ledger.md",
+      "epic": {
+        "id": "E-FIN-01",
+        "title": "Canonical FinOps ledger, pricing and reconciliation"
+      },
+      "owner": "FinOps / Analytics engineer"
+    },
+    {
+      "id": "API",
+      "title": "Semantic metric registry and analytical API",
+      "contract": "docs/09-api/semantic-api.md",
+      "epic": {
+        "id": "E-API-01",
+        "title": "Semantic metric registry and analytical API"
+      },
+      "owner": "Backend engineer"
+    },
+    {
+      "id": "UX",
+      "title": "Premium product experience and cost exploration",
+      "contract": "docs/10-frontend/product.md",
+      "epic": {
+        "id": "E-UX-01",
+        "title": "Premium product experience and cost exploration"
+      },
+      "owner": "Frontend / UX lead"
+    },
+    {
+      "id": "WRK",
+      "title": "Workload intelligence and execution hierarchies",
+      "contract": "docs/10-frontend/workloads.md",
+      "epic": {
+        "id": "E-WRK-01",
+        "title": "Workload intelligence and execution hierarchies"
+      },
+      "owner": "Data engineer / Frontend"
+    },
+    {
+      "id": "ALC",
+      "title": "External tags, allocation, usage groups, showback and chargeback",
+      "contract": "docs/11-allocation/allocation.md",
+      "epic": {
+        "id": "E-ALC-01",
+        "title": "External tags, allocation, usage groups, showback and chargeback"
+      },
+      "owner": "FinOps / Backend / Frontend"
+    },
+    {
+      "id": "GOV",
+      "title": "Budgets, forecasting, monitors and notification delivery",
+      "contract": "docs/12-budgets-monitoring/governance.md",
+      "epic": {
+        "id": "E-GOV-01",
+        "title": "Budgets, forecasting, monitors and notification delivery"
+      },
+      "owner": "Backend / Data science / Frontend"
+    },
+    {
+      "id": "INS",
+      "title": "Evidence-backed insights, actions and verified savings",
+      "contract": "docs/13-insights/intelligence.md",
+      "epic": {
+        "id": "E-INS-01",
+        "title": "Evidence-backed insights, actions and verified savings"
+      },
+      "owner": "Data science / FinOps / Frontend"
+    },
+    {
+      "id": "RPT",
+      "title": "Reporting, rendering and secure scheduled distribution",
+      "contract": "docs/14-reporting/reporting.md",
+      "epic": {
+        "id": "E-RPT-01",
+        "title": "Reporting, rendering and secure scheduled distribution"
+      },
+      "owner": "Backend / Frontend / QA"
+    },
+    {
+      "id": "OPS",
+      "title": "Operational quality, security qualification and recovery",
+      "contract": "docs/16-observability/operations.md",
+      "epic": {
+        "id": "E-OPS-01",
+        "title": "Operational quality, security qualification and recovery"
+      },
+      "owner": "SRE / Security / QA"
+    },
+    {
+      "id": "REL",
+      "title": "Production readiness and release qualification",
+      "contract": "docs/19-production-readiness/readiness.md",
+      "epic": {
+        "id": "E-REL-01",
+        "title": "Production readiness and release qualification"
+      },
+      "owner": "Delivery manager / DevOps / Security"
+    },
+    {
+      "id": "ONB",
+      "title": "Customer onboarding and first-value acceptance",
+      "contract": "docs/18-customer-onboarding/onboarding.md",
+      "epic": {
+        "id": "E-ONB-01",
+        "title": "Customer onboarding and first-value acceptance"
+      },
+      "owner": "Customer success / Snowflake / FinOps"
+    },
+    {
+      "id": "LCH",
+      "title": "Commercial activation, first release and post-launch validation",
+      "contract": "docs/20-launch/launch.md",
+      "epic": {
+        "id": "E-LCH-01",
+        "title": "Commercial activation, first release and post-launch validation"
+      },
+      "owner": "Product / Delivery / Customer success"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FND-001",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-001",
+      "title": "Create monorepo boundaries and dependency rules",
+      "path": "docs/tasks/FND/FND-001.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-001",
+        "objective": "establish a repository that prevents architecture drift before application code exists."
+      },
+      "micro_task_ids": [
+        "FND-001.1",
+        "FND-001.2",
+        "FND-001.3",
+        "FND-001.4"
+      ],
+      "validation": "docs/tasks/FND/FND-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FND-002",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-002",
+      "title": "Resolve and lock the compatible runtime matrix",
+      "path": "docs/tasks/FND/FND-002.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [
+        "FND-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-002",
+        "objective": "select a reproducible open-source stack that can authenticate without persistent Snowflake credentials."
+      },
+      "micro_task_ids": [
+        "FND-002.1",
+        "FND-002.2",
+        "FND-002.3",
+        "FND-002.4"
+      ],
+      "validation": "docs/tasks/FND/FND-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FND-003",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-003",
+      "title": "Build safe local Compose and developer onboarding",
+      "path": "docs/tasks/FND/FND-003.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [
+        "FND-001",
+        "FND-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-003",
+        "objective": "start the product dependencies locally without a customer account."
+      },
+      "micro_task_ids": [
+        "FND-003.1",
+        "FND-003.2",
+        "FND-003.3",
+        "FND-003.4"
+      ],
+      "validation": "docs/tasks/FND/FND-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FND-004",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-004",
+      "title": "Create golden synthetic tenant and finance fixtures",
+      "path": "docs/tasks/FND/FND-004.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [
+        "FND-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-004",
+        "objective": "make tenant isolation and financial correctness testable before implementation."
+      },
+      "micro_task_ids": [
+        "FND-004.1",
+        "FND-004.2",
+        "FND-004.3",
+        "FND-004.4"
+      ],
+      "validation": "docs/tasks/FND/FND-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FND-005",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-005",
+      "title": "Implement validation dispatcher and evidence schema",
+      "path": "docs/tasks/FND/FND-005.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [
+        "FND-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-005",
+        "objective": "make each task provable and resumable through one stable command."
+      },
+      "micro_task_ids": [
+        "FND-005.1",
+        "FND-005.2",
+        "FND-005.3",
+        "FND-005.4"
+      ],
+      "validation": "docs/tasks/FND/FND-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FND-006",
+      "domain": "FND",
+      "epic": "E-FND-01",
+      "feature": "F-FND-006",
+      "title": "Establish CI quality gates and agent working rules",
+      "path": "docs/tasks/FND/FND-006.md",
+      "milestone": "M0",
+      "owner": "Tech lead",
+      "dependencies": [
+        "FND-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FND-006",
+        "objective": "give future autonomous coding sessions deterministic boundaries and stop conditions."
+      },
+      "micro_task_ids": [
+        "FND-006.1",
+        "FND-006.2",
+        "FND-006.3",
+        "FND-006.4"
+      ],
+      "validation": "docs/tasks/FND/FND-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FND/FND-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-001",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-001",
+      "title": "Create light-theme component system and application shell",
+      "path": "docs/tasks/UX/UX-001.md",
+      "milestone": "M0",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "FND-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-001",
+        "objective": "give every feature a consistent accessible product frame."
+      },
+      "micro_task_ids": [
+        "UX-001.1",
+        "UX-001.2",
+        "UX-001.3",
+        "UX-001.4"
+      ],
+      "validation": "docs/tasks/UX/UX-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-001",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-001",
+      "title": "Bootstrap AWS accounts, state and environment guards",
+      "path": "docs/tasks/INF/INF-001.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "FND-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-001",
+        "objective": "provision infrastructure without accidental cross-environment changes."
+      },
+      "micro_task_ids": [
+        "INF-001.1",
+        "INF-001.2",
+        "INF-001.3",
+        "INF-001.4"
+      ],
+      "validation": "docs/tasks/INF/INF-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-002",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-002",
+      "title": "Create VPC, endpoints and controlled egress",
+      "path": "docs/tasks/INF/INF-002.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-002",
+        "objective": "isolate application and data traffic while allowing approved Snowflake extraction."
+      },
+      "micro_task_ids": [
+        "INF-002.1",
+        "INF-002.2",
+        "INF-002.3",
+        "INF-002.4"
+      ],
+      "validation": "docs/tasks/INF/INF-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-003",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-003",
+      "title": "Provision KMS, buckets, queues and retention boundaries",
+      "path": "docs/tasks/INF/INF-003.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-003",
+        "objective": "create durable transport primitives with independent policies."
+      },
+      "micro_task_ids": [
+        "INF-003.1",
+        "INF-003.2",
+        "INF-003.3",
+        "INF-003.4"
+      ],
+      "validation": "docs/tasks/INF/INF-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-004",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-004",
+      "title": "Provision Aurora and Redis with safe resource budgets",
+      "path": "docs/tasks/INF/INF-004.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-002",
+        "INF-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-004",
+        "objective": "operate private control and cache stores with recoverable failures."
+      },
+      "micro_task_ids": [
+        "INF-004.1",
+        "INF-004.2",
+        "INF-004.3",
+        "INF-004.4"
+      ],
+      "validation": "docs/tasks/INF/INF-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-005",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-005",
+      "title": "Build ECS base services and role separation",
+      "path": "docs/tasks/INF/INF-005.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-003",
+        "INF-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-005",
+        "objective": "launch immutable isolated workloads with narrowly scoped cloud access."
+      },
+      "micro_task_ids": [
+        "INF-005.1",
+        "INF-005.2",
+        "INF-005.3",
+        "INF-005.4"
+      ],
+      "validation": "docs/tasks/INF/INF-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-006",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-006",
+      "title": "Configure edge, DNS, TLS and private operations access",
+      "path": "docs/tasks/INF/INF-006.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-006",
+        "objective": "expose only the secure customer surface and authenticated operator access."
+      },
+      "micro_task_ids": [
+        "INF-006.1",
+        "INF-006.2",
+        "INF-006.3",
+        "INF-006.4"
+      ],
+      "validation": "docs/tasks/INF/INF-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-007",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-007",
+      "title": "Create OIDC deployment pipeline and staged rollback",
+      "path": "docs/tasks/INF/INF-007.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-005",
+        "INF-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-007",
+        "objective": "deploy infrastructure and containers using short-lived CI identity."
+      },
+      "micro_task_ids": [
+        "INF-007.1",
+        "INF-007.2",
+        "INF-007.3",
+        "INF-007.4"
+      ],
+      "validation": "docs/tasks/INF/INF-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INF-008",
+      "domain": "INF",
+      "epic": "E-INF-01",
+      "feature": "F-INF-008",
+      "title": "Provision central Snowflake environments and service roles",
+      "path": "docs/tasks/INF/INF-008.md",
+      "milestone": "M1",
+      "owner": "DevOps",
+      "dependencies": [
+        "INF-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INF-008",
+        "objective": "establish the analytical account and security ownership before policies or ingestion."
+      },
+      "micro_task_ids": [
+        "INF-008.1",
+        "INF-008.2",
+        "INF-008.3",
+        "INF-008.4"
+      ],
+      "validation": "docs/tasks/INF/INF-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INF/INF-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-001",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-001",
+      "title": "Model threats and classify sensitive data",
+      "path": "docs/tasks/SEC/SEC-001.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "INF-002",
+        "FND-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-001",
+        "objective": "identify enforceable controls for every trust boundary."
+      },
+      "micro_task_ids": [
+        "SEC-001.1",
+        "SEC-001.2",
+        "SEC-001.3",
+        "SEC-001.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-002",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-002",
+      "title": "Implement Cognito login, sessions and local MFA",
+      "path": "docs/tasks/SEC/SEC-002.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-001",
+        "INF-006",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-002",
+        "objective": "authenticate users without browser token leakage."
+      },
+      "micro_task_ids": [
+        "SEC-002.1",
+        "SEC-002.2",
+        "SEC-002.3",
+        "SEC-002.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-003",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-003",
+      "title": "Add tenant-bound SAML and OIDC SSO",
+      "path": "docs/tasks/SEC/SEC-003.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-002",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-003",
+        "objective": "support enterprise identity without unsafe automatic account linking."
+      },
+      "micro_task_ids": [
+        "SEC-003.1",
+        "SEC-003.2",
+        "SEC-003.3",
+        "SEC-003.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-004",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-004",
+      "title": "Implement scoped RBAC and tenant RLS foundation",
+      "path": "docs/tasks/SEC/SEC-004.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-002",
+        "INF-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-004",
+        "objective": "make every control-plane transaction fail closed."
+      },
+      "micro_task_ids": [
+        "SEC-004.1",
+        "SEC-004.2",
+        "SEC-004.3",
+        "SEC-004.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-001",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-001",
+      "title": "Extend tenant, organization, account and team schemas",
+      "path": "docs/tasks/CTL/CTL-001.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "SEC-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-001",
+        "objective": "represent multiple Snowflake organizations and account lifecycle without name-based identity."
+      },
+      "micro_task_ids": [
+        "CTL-001.1",
+        "CTL-001.2",
+        "CTL-001.3",
+        "CTL-001.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-002",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-002",
+      "title": "Implement migrations, indexes and bounded connection pools",
+      "path": "docs/tasks/CTL/CTL-002.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-001",
+        "INF-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-002",
+        "objective": "keep control transactions fast and safe during upgrades."
+      },
+      "micro_task_ids": [
+        "CTL-002.1",
+        "CTL-002.2",
+        "CTL-002.3",
+        "CTL-002.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-005",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-005",
+      "title": "Provision identity-bound Snowflake serving policies",
+      "path": "docs/tasks/SEC/SEC-005.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-004",
+        "INF-005",
+        "INF-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-005",
+        "objective": "enforce analytical isolation independently of API filters."
+      },
+      "micro_task_ids": [
+        "SEC-005.1",
+        "SEC-005.2",
+        "SEC-005.3",
+        "SEC-005.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-006",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-006",
+      "title": "Enforce revocation across sessions, jobs and cache",
+      "path": "docs/tasks/SEC/SEC-006.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-004",
+        "SEC-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-006",
+        "objective": "stop access after membership or scope changes."
+      },
+      "micro_task_ids": [
+        "SEC-006.1",
+        "SEC-006.2",
+        "SEC-006.3",
+        "SEC-006.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-007",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-007",
+      "title": "Sanitize SQL, tags and errors before persistence",
+      "path": "docs/tasks/SEC/SEC-007.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-001",
+        "FND-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-007",
+        "objective": "prevent sensitive literals from entering the transport journal."
+      },
+      "micro_task_ids": [
+        "SEC-007.1",
+        "SEC-007.2",
+        "SEC-007.3",
+        "SEC-007.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "SEC-008",
+      "domain": "SEC",
+      "epic": "E-SEC-01",
+      "feature": "F-SEC-008",
+      "title": "Create audit trail and early isolation attack suite",
+      "path": "docs/tasks/SEC/SEC-008.md",
+      "milestone": "M1",
+      "owner": "Security",
+      "dependencies": [
+        "SEC-006",
+        "SEC-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-SEC-008",
+        "objective": "prove traceability and detect tenant leaks before feature development."
+      },
+      "micro_task_ids": [
+        "SEC-008.1",
+        "SEC-008.2",
+        "SEC-008.3",
+        "SEC-008.4"
+      ],
+      "validation": "docs/tasks/SEC/SEC-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/SEC/SEC-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-003",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-003",
+      "title": "Create scoped CRUD, invitations and optimistic concurrency",
+      "path": "docs/tasks/CTL/CTL-003.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-001",
+        "SEC-002",
+        "SEC-008",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-003",
+        "objective": "manage SaaS organizations and members without privilege escalation."
+      },
+      "micro_task_ids": [
+        "CTL-003.1",
+        "CTL-003.2",
+        "CTL-003.3",
+        "CTL-003.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-004",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-004",
+      "title": "Implement transactional outbox and fenced job leases",
+      "path": "docs/tasks/CTL/CTL-004.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-002",
+        "CTL-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-004",
+        "objective": "deliver durable work without cross-database atomicity assumptions."
+      },
+      "micro_task_ids": [
+        "CTL-004.1",
+        "CTL-004.2",
+        "CTL-004.3",
+        "CTL-004.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-005",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-005",
+      "title": "Publish immutable analytical configuration snapshots",
+      "path": "docs/tasks/CTL/CTL-005.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-004",
+        "INF-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-005",
+        "objective": "make rules and semantic configuration reproducible in Snowflake."
+      },
+      "micro_task_ids": [
+        "CTL-005.1",
+        "CTL-005.2",
+        "CTL-005.3",
+        "CTL-005.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-006",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-006",
+      "title": "Implement scoped Redis keys and safe degradation",
+      "path": "docs/tasks/CTL/CTL-006.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-004",
+        "SEC-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-006",
+        "objective": "accelerate reads without weakening authorization or availability."
+      },
+      "micro_task_ids": [
+        "CTL-006.1",
+        "CTL-006.2",
+        "CTL-006.3",
+        "CTL-006.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CTL-007",
+      "domain": "CTL",
+      "epic": "E-CTL-01",
+      "feature": "F-CTL-007",
+      "title": "Add saved views, dashboards and commercial control records",
+      "path": "docs/tasks/CTL/CTL-007.md",
+      "milestone": "M1",
+      "owner": "Backend",
+      "dependencies": [
+        "CTL-003",
+        "CTL-005",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CTL-007",
+        "objective": "persist user configuration and entitlements without analytical duplication."
+      },
+      "micro_task_ids": [
+        "CTL-007.1",
+        "CTL-007.2",
+        "CTL-007.3",
+        "CTL-007.4"
+      ],
+      "validation": "docs/tasks/CTL/CTL-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CTL/CTL-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-001",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-001",
+      "title": "Register account identities and controlled WIF task roles",
+      "path": "docs/tasks/CON/CON-001.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CTL-001",
+        "INF-008",
+        "SEC-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-001",
+        "objective": "bind every customer connection to a single authorized workload identity."
+      },
+      "micro_task_ids": [
+        "CON-001.1",
+        "CON-001.2",
+        "CON-001.3",
+        "CON-001.4"
+      ],
+      "validation": "docs/tasks/CON/CON-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-002",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-002",
+      "title": "Prove WIF connector and dbt compatibility live",
+      "path": "docs/tasks/CON/CON-002.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CON-001",
+        "FND-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-002",
+        "objective": "validate the exact authentication path that extraction and transformations will run."
+      },
+      "micro_task_ids": [
+        "CON-002.1",
+        "CON-002.2",
+        "CON-002.3",
+        "CON-002.4"
+      ],
+      "validation": "docs/tasks/CON/CON-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-003",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-003",
+      "title": "Generate least-privilege installation and revoke scripts",
+      "path": "docs/tasks/CON/CON-003.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CON-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-003",
+        "objective": "give customers reviewable setup instructions with precise permissions."
+      },
+      "micro_task_ids": [
+        "CON-003.1",
+        "CON-003.2",
+        "CON-003.3",
+        "CON-003.4"
+      ],
+      "validation": "docs/tasks/CON/CON-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-004",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-004",
+      "title": "Discover organizations, accounts and lifecycle changes",
+      "path": "docs/tasks/CON/CON-004.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CON-003",
+        "CTL-001",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-004",
+        "objective": "build a truthful organization-first inventory without assuming cross-account authorization."
+      },
+      "micro_task_ids": [
+        "CON-004.1",
+        "CON-004.2",
+        "CON-004.3",
+        "CON-004.4"
+      ],
+      "validation": "docs/tasks/CON/CON-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-005",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-005",
+      "title": "Probe capabilities, source schemas and permission gaps",
+      "path": "docs/tasks/CON/CON-005.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CON-004",
+        "SEC-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-005",
+        "objective": "enable only sources that are actually available and authorized."
+      },
+      "micro_task_ids": [
+        "CON-005.1",
+        "CON-005.2",
+        "CON-005.3",
+        "CON-005.4"
+      ],
+      "validation": "docs/tasks/CON/CON-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "CON-006",
+      "domain": "CON",
+      "epic": "E-CON-01",
+      "feature": "F-CON-006",
+      "title": "Build connection wizard, pause, revoke and recovery UX",
+      "path": "docs/tasks/CON/CON-006.md",
+      "milestone": "M2",
+      "owner": "Snowflake",
+      "dependencies": [
+        "CON-005",
+        "SEC-006",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-CON-006",
+        "objective": "guide a customer to a validated connection and safe lifecycle controls."
+      },
+      "micro_task_ids": [
+        "CON-006.1",
+        "CON-006.2",
+        "CON-006.3",
+        "CON-006.4"
+      ],
+      "validation": "docs/tasks/CON/CON-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/CON/CON-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-001",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-001",
+      "title": "Create executable source contracts and registry validation",
+      "path": "docs/tasks/ING/ING-001.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "CON-005",
+        "FND-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-001",
+        "objective": "make every source query depend on a verified schema and semantics."
+      },
+      "micro_task_ids": [
+        "ING-001.1",
+        "ING-001.2",
+        "ING-001.3",
+        "ING-001.4"
+      ],
+      "validation": "docs/tasks/ING/ING-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-002",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-002",
+      "title": "Implement UTC window planning, overlap and source horizons",
+      "path": "docs/tasks/ING/ING-002.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-001",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-002",
+        "objective": "cover historical and current data without gaps or misleading freshness."
+      },
+      "micro_task_ids": [
+        "ING-002.1",
+        "ING-002.2",
+        "ING-002.3",
+        "ING-002.4"
+      ],
+      "validation": "docs/tasks/ING/ING-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-003",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-003",
+      "title": "Build bounded Arrow extraction with WIF cancellation",
+      "path": "docs/tasks/ING/ING-003.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-002",
+        "CON-002",
+        "SEC-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-003",
+        "objective": "stream source rows with controlled memory and safe retry."
+      },
+      "micro_task_ids": [
+        "ING-003.1",
+        "ING-003.2",
+        "ING-003.3",
+        "ING-003.4"
+      ],
+      "validation": "docs/tasks/ING/ING-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-004",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-004",
+      "title": "Implement typed Parquet schema and size rotation",
+      "path": "docs/tasks/ING/ING-004.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-004",
+        "objective": "preserve exact values and manageable files through serialization."
+      },
+      "micro_task_ids": [
+        "ING-004.1",
+        "ING-004.2",
+        "ING-004.3",
+        "ING-004.4"
+      ],
+      "validation": "docs/tasks/ING/ING-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-005",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-005",
+      "title": "Commit S3 batches and validated manifests",
+      "path": "docs/tasks/ING/ING-005.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-004",
+        "INF-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-005",
+        "objective": "make every completed extraction independently replayable."
+      },
+      "micro_task_ids": [
+        "ING-005.1",
+        "ING-005.2",
+        "ING-005.3",
+        "ING-005.4"
+      ],
+      "validation": "docs/tasks/ING/ING-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-006",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-006",
+      "title": "Provision typed RAW tables, stages and Snowpipe",
+      "path": "docs/tasks/ING/ING-006.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-005",
+        "INF-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-006",
+        "objective": "ingest transport files without embedding transformation logic."
+      },
+      "micro_task_ids": [
+        "ING-006.1",
+        "ING-006.2",
+        "ING-006.3",
+        "ING-006.4"
+      ],
+      "validation": "docs/tasks/ING/ING-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-007",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-007",
+      "title": "Build file receipts and complete-batch acceptance",
+      "path": "docs/tasks/ING/ING-007.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-006",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-007",
+        "objective": "prevent partial RAW data from entering analytics."
+      },
+      "micro_task_ids": [
+        "ING-007.1",
+        "ING-007.2",
+        "ING-007.3",
+        "ING-007.4"
+      ],
+      "validation": "docs/tasks/ING/ING-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-008",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-008",
+      "title": "Advance fenced checkpoints and deterministic source revisions",
+      "path": "docs/tasks/ING/ING-008.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-007",
+        "ING-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-008",
+        "objective": "guarantee retry-safe coverage and correction semantics."
+      },
+      "micro_task_ids": [
+        "ING-008.1",
+        "ING-008.2",
+        "ING-008.3",
+        "ING-008.4"
+      ],
+      "validation": "docs/tasks/ING/ING-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-009",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-009",
+      "title": "Handle schema drift and source BCR changes",
+      "path": "docs/tasks/ING/ING-009.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-009",
+        "objective": "adapt safely to source evolution while preserving unaffected sources."
+      },
+      "micro_task_ids": [
+        "ING-009.1",
+        "ING-009.2",
+        "ING-009.3",
+        "ING-009.4"
+      ],
+      "validation": "docs/tasks/ING/ING-009.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-009.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-010",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-010",
+      "title": "Plan historical backfills and catch-up with fair admission",
+      "path": "docs/tasks/ING/ING-010.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-009",
+        "CON-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-010",
+        "objective": "synchronize requested history without starving existing customers."
+      },
+      "micro_task_ids": [
+        "ING-010.1",
+        "ING-010.2",
+        "ING-010.3",
+        "ING-010.4"
+      ],
+      "validation": "docs/tasks/ING/ING-010.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-010.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-011",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-011",
+      "title": "Implement journal replay and anti-entropy repair",
+      "path": "docs/tasks/ING/ING-011.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-011",
+        "objective": "recover data and late corrections without duplicating business facts."
+      },
+      "micro_task_ids": [
+        "ING-011.1",
+        "ING-011.2",
+        "ING-011.3",
+        "ING-011.4"
+      ],
+      "validation": "docs/tasks/ING/ING-011.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-011.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ING-012",
+      "domain": "ING",
+      "epic": "E-ING-01",
+      "feature": "F-ING-012",
+      "title": "Add bounded hot history and truthful Data Health UX",
+      "path": "docs/tasks/ING/ING-012.md",
+      "milestone": "M3",
+      "owner": "Data engineer",
+      "dependencies": [
+        "ING-011",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ING-012",
+        "objective": "show recent activity and actual synchronization coverage clearly."
+      },
+      "micro_task_ids": [
+        "ING-012.1",
+        "ING-012.2",
+        "ING-012.3",
+        "ING-012.4"
+      ],
+      "validation": "docs/tasks/ING/ING-012.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ING/ING-012.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-001",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-001",
+      "title": "Instrument shared telemetry and operational dashboards",
+      "path": "docs/tasks/OPS/OPS-001.md",
+      "milestone": "M3",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "INF-005",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-001",
+        "objective": "observe every durable transition without exposing customer content."
+      },
+      "micro_task_ids": [
+        "OPS-001.1",
+        "OPS-001.2",
+        "OPS-001.3",
+        "OPS-001.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-001",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-001",
+      "title": "Deploy private OSS control services and metadata database",
+      "path": "docs/tasks/ORC/ORC-001.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "INF-007",
+        "CTL-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-001",
+        "objective": "operate Dagster independently of customer traffic."
+      },
+      "micro_task_ids": [
+        "ORC-001.1",
+        "ORC-001.2",
+        "ORC-001.3",
+        "ORC-001.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-002",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-002",
+      "title": "Define generic assets and bounded partition catalog",
+      "path": "docs/tasks/ORC/ORC-002.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "ORC-001",
+        "ING-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-002",
+        "objective": "represent lineage without generating customer-specific code."
+      },
+      "micro_task_ids": [
+        "ORC-002.1",
+        "ORC-002.2",
+        "ORC-002.3",
+        "ORC-002.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-003",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-003",
+      "title": "Implement fair queues, schedules and idempotent sensors",
+      "path": "docs/tasks/ORC/ORC-003.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "ORC-002",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-003",
+        "objective": "protect routine synchronization during historical onboarding."
+      },
+      "micro_task_ids": [
+        "ORC-003.1",
+        "ORC-003.2",
+        "ORC-003.3",
+        "ORC-003.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-004",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-004",
+      "title": "Integrate dbt assets and Python result dependencies",
+      "path": "docs/tasks/ORC/ORC-004.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "ORC-003",
+        "ING-009",
+        "CON-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-004",
+        "objective": "preserve transformation ownership and model-level lineage."
+      },
+      "micro_task_ids": [
+        "ORC-004.1",
+        "ORC-004.2",
+        "ORC-004.3",
+        "ORC-004.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-005",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-005",
+      "title": "Publish coherent datasets and version notifications",
+      "path": "docs/tasks/ORC/ORC-005.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "ORC-004",
+        "CTL-005",
+        "CTL-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-005",
+        "objective": "make every product read use one accepted analytical version."
+      },
+      "micro_task_ids": [
+        "ORC-005.1",
+        "ORC-005.2",
+        "ORC-005.3",
+        "ORC-005.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ORC-006",
+      "domain": "ORC",
+      "epic": "E-ORC-01",
+      "feature": "F-ORC-006",
+      "title": "Exercise backfill, cancellation and selective recovery",
+      "path": "docs/tasks/ORC/ORC-006.md",
+      "milestone": "M3",
+      "owner": "Data platform engineer",
+      "dependencies": [
+        "ORC-005",
+        "ING-011"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ORC-006",
+        "objective": "prove orchestration can recover without platform-wide rebuilds."
+      },
+      "micro_task_ids": [
+        "ORC-006.1",
+        "ORC-006.2",
+        "ORC-006.3",
+        "ORC-006.4"
+      ],
+      "validation": "docs/tasks/ORC/ORC-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ORC/ORC-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-001",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-001",
+      "title": "Bootstrap dbt Core project, profiles and model contracts",
+      "path": "docs/tasks/DBT/DBT-001.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "ORC-004",
+        "ING-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-001",
+        "objective": "create a deterministic analytical project with no hidden credentials."
+      },
+      "micro_task_ids": [
+        "DBT-001.1",
+        "DBT-001.2",
+        "DBT-001.3",
+        "DBT-001.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-002",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-002",
+      "title": "Implement staging dedup and complete-partition revisions",
+      "path": "docs/tasks/DBT/DBT-002.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "DBT-001",
+        "ING-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-002",
+        "objective": "normalize source types without losing corrections or multiplying rows."
+      },
+      "micro_task_ids": [
+        "DBT-002.1",
+        "DBT-002.2",
+        "DBT-002.3",
+        "DBT-002.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-003",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-003",
+      "title": "Resolve resource history, account membership and workload joins",
+      "path": "docs/tasks/DBT/DBT-003.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "DBT-002",
+        "CTL-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-003",
+        "objective": "enrich facts without rewriting history or introducing fanout."
+      },
+      "micro_task_ids": [
+        "DBT-003.1",
+        "DBT-003.2",
+        "DBT-003.3",
+        "DBT-003.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-004",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-004",
+      "title": "Implement bounded incremental merges and shadow rebuild",
+      "path": "docs/tasks/DBT/DBT-004.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "DBT-003",
+        "ORC-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-004",
+        "objective": "reprocess corrected history safely and economically."
+      },
+      "micro_task_ids": [
+        "DBT-004.1",
+        "DBT-004.2",
+        "DBT-004.3",
+        "DBT-004.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-005",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-005",
+      "title": "Build golden financial tests and tenant-safe CI",
+      "path": "docs/tasks/DBT/DBT-005.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "DBT-004",
+        "FND-005",
+        "SEC-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-005",
+        "objective": "make SQL correctness a merge gate."
+      },
+      "micro_task_ids": [
+        "DBT-005.1",
+        "DBT-005.2",
+        "DBT-005.3",
+        "DBT-005.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "DBT-006",
+      "domain": "DBT",
+      "epic": "E-DBT-01",
+      "feature": "F-DBT-006",
+      "title": "Build serving partition revisions and explainable lineage",
+      "path": "docs/tasks/DBT/DBT-006.md",
+      "milestone": "M4",
+      "owner": "Analytics engineer",
+      "dependencies": [
+        "DBT-005",
+        "SEC-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-DBT-006",
+        "objective": "serve fast authorized aggregates with complete provenance."
+      },
+      "micro_task_ids": [
+        "DBT-006.1",
+        "DBT-006.2",
+        "DBT-006.3",
+        "DBT-006.4"
+      ],
+      "validation": "docs/tasks/DBT/DBT-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/DBT/DBT-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-001",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-001",
+      "title": "Define charge schema, service authority and exact decimal fixtures",
+      "path": "docs/tasks/FIN/FIN-001.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "DBT-005",
+        "ING-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-001",
+        "objective": "create a ledger that can be summed without double counting."
+      },
+      "micro_task_ids": [
+        "FIN-001.1",
+        "FIN-001.2",
+        "FIN-001.3",
+        "FIN-001.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-002",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-002",
+      "title": "Normalize billing, rate sheets and approved pricing",
+      "path": "docs/tasks/FIN/FIN-002.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-001",
+        "DBT-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-002",
+        "objective": "price consumption using traceable contract context."
+      },
+      "micro_task_ids": [
+        "FIN-002.1",
+        "FIN-002.2",
+        "FIN-002.3",
+        "FIN-002.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-003",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-003",
+      "title": "Implement classic warehouse compute, query attribution and idle",
+      "path": "docs/tasks/FIN/FIN-003.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-003",
+        "objective": "explain warehouse consumption while preserving parent totals."
+      },
+      "micro_task_ids": [
+        "FIN-003.1",
+        "FIN-003.2",
+        "FIN-003.3",
+        "FIN-003.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-004",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-004",
+      "title": "Implement Adaptive query-hour compute and maturity",
+      "path": "docs/tasks/FIN/FIN-004.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-004",
+        "objective": "support Adaptive metering without reusing classic assumptions."
+      },
+      "micro_task_ids": [
+        "FIN-004.1",
+        "FIN-004.2",
+        "FIN-004.3",
+        "FIN-004.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-005",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-005",
+      "title": "Implement adjusted cloud services and signed billing entries",
+      "path": "docs/tasks/FIN/FIN-005.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-005",
+        "objective": "use billed adjustments instead of overstating gross usage."
+      },
+      "micro_task_ids": [
+        "FIN-005.1",
+        "FIN-005.2",
+        "FIN-005.3",
+        "FIN-005.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-006",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-006",
+      "title": "Implement storage classes, snapshots and billed reconciliation",
+      "path": "docs/tasks/FIN/FIN-006.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-006",
+        "objective": "explain storage without inventing exact costs from incompatible byte measurements."
+      },
+      "micro_task_ids": [
+        "FIN-006.1",
+        "FIN-006.2",
+        "FIN-006.3",
+        "FIN-006.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-008",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-008",
+      "title": "Implement directional transfer and replication charges",
+      "path": "docs/tasks/FIN/FIN-008.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "FIN-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-008",
+        "objective": "separate native-unit data transfer from replication compute without duplicating transfer charges."
+      },
+      "micro_task_ids": [
+        "FIN-008.1",
+        "FIN-008.2",
+        "FIN-008.3",
+        "FIN-008.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-011",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-011",
+      "title": "Implement file snowpipe and hidden pipe attribution",
+      "path": "docs/tasks/FIN/FIN-011.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-011",
+        "objective": "produce a self-contained ledger model for file snowpipe and hidden pipe attribution."
+      },
+      "micro_task_ids": [
+        "FIN-011.1",
+        "FIN-011.2",
+        "FIN-011.3",
+        "FIN-011.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-011.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-011.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-012",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-012",
+      "title": "Implement snowpipe streaming channel and client components",
+      "path": "docs/tasks/FIN/FIN-012.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-012",
+        "objective": "produce a self-contained ledger model for snowpipe streaming channel and client components."
+      },
+      "micro_task_ids": [
+        "FIN-012.1",
+        "FIN-012.2",
+        "FIN-012.3",
+        "FIN-012.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-012.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-012.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-013",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-013",
+      "title": "Implement serverless tasks and alerts",
+      "path": "docs/tasks/FIN/FIN-013.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-013",
+        "objective": "produce a self-contained ledger model for serverless tasks and alerts."
+      },
+      "micro_task_ids": [
+        "FIN-013.1",
+        "FIN-013.2",
+        "FIN-013.3",
+        "FIN-013.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-013.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-013.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-014",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-014",
+      "title": "Implement automatic clustering",
+      "path": "docs/tasks/FIN/FIN-014.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-014",
+        "objective": "produce a self-contained ledger model for automatic clustering."
+      },
+      "micro_task_ids": [
+        "FIN-014.1",
+        "FIN-014.2",
+        "FIN-014.3",
+        "FIN-014.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-014.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-014.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-015",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-015",
+      "title": "Implement search optimization",
+      "path": "docs/tasks/FIN/FIN-015.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-015",
+        "objective": "produce a self-contained ledger model for search optimization."
+      },
+      "micro_task_ids": [
+        "FIN-015.1",
+        "FIN-015.2",
+        "FIN-015.3",
+        "FIN-015.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-015.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-015.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-016",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-016",
+      "title": "Implement materialized view maintenance",
+      "path": "docs/tasks/FIN/FIN-016.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-016",
+        "objective": "produce a self-contained ledger model for materialized view maintenance."
+      },
+      "micro_task_ids": [
+        "FIN-016.1",
+        "FIN-016.2",
+        "FIN-016.3",
+        "FIN-016.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-016.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-016.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-017",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-017",
+      "title": "Implement query acceleration",
+      "path": "docs/tasks/FIN/FIN-017.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-017",
+        "objective": "produce a self-contained ledger model for query acceleration."
+      },
+      "micro_task_ids": [
+        "FIN-017.1",
+        "FIN-017.2",
+        "FIN-017.3",
+        "FIN-017.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-017.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-017.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-007",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-007",
+      "title": "Validate independent serverless service inclusion and totals",
+      "path": "docs/tasks/FIN/FIN-007.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-011",
+        "FIN-012",
+        "FIN-013",
+        "FIN-014",
+        "FIN-015",
+        "FIN-016",
+        "FIN-017"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-007",
+        "objective": "prove independently implemented serverless services form one complete non-overlapping financial view."
+      },
+      "micro_task_ids": [
+        "FIN-007.1",
+        "FIN-007.2",
+        "FIN-007.3",
+        "FIN-007.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-018",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-018",
+      "title": "Implement current Cortex services and non-overlapping AI attribution",
+      "path": "docs/tasks/FIN/FIN-018.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-018",
+        "objective": "cover AI consumption without counting parent and child services twice."
+      },
+      "micro_task_ids": [
+        "FIN-018.1",
+        "FIN-018.2",
+        "FIN-018.3",
+        "FIN-018.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-018.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-018.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-019",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-019",
+      "title": "Implement SPCS compute-pool and application attribution",
+      "path": "docs/tasks/FIN/FIN-019.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "DBT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-019",
+        "objective": "explain container spend using verified pool metering."
+      },
+      "micro_task_ids": [
+        "FIN-019.1",
+        "FIN-019.2",
+        "FIN-019.3",
+        "FIN-019.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-019.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-019.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-020",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-020",
+      "title": "Implement marketplace purchase and native-app cost separation",
+      "path": "docs/tasks/FIN/FIN-020.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002",
+        "FIN-019"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-020",
+        "objective": "distinguish app fees from resources consumed by an app."
+      },
+      "micro_task_ids": [
+        "FIN-020.1",
+        "FIN-020.2",
+        "FIN-020.3",
+        "FIN-020.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-020.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-020.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-021",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-021",
+      "title": "Cover new billable services, organization fees and unmapped spend",
+      "path": "docs/tasks/FIN/FIN-021.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-021",
+        "objective": "retain every observed financial service even before detailed resource adapters exist."
+      },
+      "micro_task_ids": [
+        "FIN-021.1",
+        "FIN-021.2",
+        "FIN-021.3",
+        "FIN-021.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-021.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-021.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-009",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-009",
+      "title": "Build reconciliation controls and financial health UX",
+      "path": "docs/tasks/FIN/FIN-009.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-004",
+        "FIN-005",
+        "FIN-006",
+        "FIN-007",
+        "FIN-008",
+        "FIN-018",
+        "FIN-019",
+        "FIN-020",
+        "FIN-021"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-009",
+        "objective": "prove totals against independent references and expose differences."
+      },
+      "micro_task_ids": [
+        "FIN-009.1",
+        "FIN-009.2",
+        "FIN-009.3",
+        "FIN-009.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-009.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-009.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "FIN-010",
+      "domain": "FIN",
+      "epic": "E-FIN-01",
+      "feature": "F-FIN-010",
+      "title": "Implement period close, corrections and financial evidence retention",
+      "path": "docs/tasks/FIN/FIN-010.md",
+      "milestone": "M4",
+      "owner": "FinOps / Analytics engineer",
+      "dependencies": [
+        "FIN-009",
+        "SEC-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-FIN-010",
+        "objective": "make final financial outputs traceable and immutable."
+      },
+      "micro_task_ids": [
+        "FIN-010.1",
+        "FIN-010.2",
+        "FIN-010.3",
+        "FIN-010.4"
+      ],
+      "validation": "docs/tasks/FIN/FIN-010.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/FIN/FIN-010.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-002",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-002",
+      "title": "Implement publication quality gates and financial canaries",
+      "path": "docs/tasks/OPS/OPS-002.md",
+      "milestone": "M4",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "DBT-006",
+        "FIN-009",
+        "OPS-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-002",
+        "objective": "block corrupt data before it becomes customer financial truth."
+      },
+      "micro_task_ids": [
+        "OPS-002.1",
+        "OPS-002.2",
+        "OPS-002.3",
+        "OPS-002.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-001",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-001",
+      "title": "Implement metric and dimension registry with compatibility rules",
+      "path": "docs/tasks/API/API-001.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "FIN-009",
+        "DBT-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-001",
+        "objective": "define each KPI once for UI, monitors and reports."
+      },
+      "micro_task_ids": [
+        "API-001.1",
+        "API-001.2",
+        "API-001.3",
+        "API-001.4"
+      ],
+      "validation": "docs/tasks/API/API-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-002",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-002",
+      "title": "Build safe analytical planner and Snowflake query broker",
+      "path": "docs/tasks/API/API-002.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "API-001",
+        "SEC-005",
+        "CTL-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-002",
+        "objective": "execute only bounded authorized analytical queries."
+      },
+      "micro_task_ids": [
+        "API-002.1",
+        "API-002.2",
+        "API-002.3",
+        "API-002.4"
+      ],
+      "validation": "docs/tasks/API/API-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-003",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-003",
+      "title": "Implement response metadata, stable pagination and cache",
+      "path": "docs/tasks/API/API-003.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "API-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-003",
+        "objective": "make analytical results comparable and truthful across navigation."
+      },
+      "micro_task_ids": [
+        "API-003.1",
+        "API-003.2",
+        "API-003.3",
+        "API-003.4"
+      ],
+      "validation": "docs/tasks/API/API-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-004",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-004",
+      "title": "Build asynchronous analysis jobs and cancellation",
+      "path": "docs/tasks/API/API-004.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "API-003",
+        "CTL-004",
+        "ORC-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-004",
+        "objective": "support heavy multi-account analyses without blocking HTTP workers."
+      },
+      "micro_task_ids": [
+        "API-004.1",
+        "API-004.2",
+        "API-004.3",
+        "API-004.4"
+      ],
+      "validation": "docs/tasks/API/API-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-005",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-005",
+      "title": "Implement Explain This Number lineage endpoint",
+      "path": "docs/tasks/API/API-005.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "API-003",
+        "FIN-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-005",
+        "objective": "trace an amount from presentation to source and rules."
+      },
+      "micro_task_ids": [
+        "API-005.1",
+        "API-005.2",
+        "API-005.3",
+        "API-005.4"
+      ],
+      "validation": "docs/tasks/API/API-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "API-006",
+      "domain": "API",
+      "epic": "E-API-01",
+      "feature": "F-API-006",
+      "title": "Add public API credentials, quotas and contract release tests",
+      "path": "docs/tasks/API/API-006.md",
+      "milestone": "M5",
+      "owner": "Backend engineer",
+      "dependencies": [
+        "API-004",
+        "API-005",
+        "SEC-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-API-006",
+        "objective": "make the same secure API usable by customers and the UI."
+      },
+      "micro_task_ids": [
+        "API-006.1",
+        "API-006.2",
+        "API-006.3",
+        "API-006.4"
+      ],
+      "validation": "docs/tasks/API/API-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/API/API-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-002",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-002",
+      "title": "Integrate authenticated scope state and semantic query components",
+      "path": "docs/tasks/UX/UX-002.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-001",
+        "API-003",
+        "SEC-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-002",
+        "objective": "keep all views consistent with current scope and publication."
+      },
+      "micro_task_ids": [
+        "UX-002.1",
+        "UX-002.2",
+        "UX-002.3",
+        "UX-002.4"
+      ],
+      "validation": "docs/tasks/UX/UX-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ONB-001",
+      "domain": "ONB",
+      "epic": "E-ONB-01",
+      "feature": "F-ONB-001",
+      "title": "Build resumable onboarding checklist and guided progress",
+      "path": "docs/tasks/ONB/ONB-001.md",
+      "milestone": "M5",
+      "owner": "Customer success / Snowflake / FinOps",
+      "dependencies": [
+        "CON-006",
+        "ING-012",
+        "UX-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ONB-001",
+        "objective": "guide a customer from registration to trustworthy first data."
+      },
+      "micro_task_ids": [
+        "ONB-001.1",
+        "ONB-001.2",
+        "ONB-001.3",
+        "ONB-001.4"
+      ],
+      "validation": "docs/tasks/ONB/ONB-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ONB/ONB-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-003",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-003",
+      "title": "Build Home and executive drivers experience",
+      "path": "docs/tasks/UX/UX-003.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-002",
+        "FIN-009"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-003",
+        "objective": "show spend, risk and next actions without misleading savings totals."
+      },
+      "micro_task_ids": [
+        "UX-003.1",
+        "UX-003.2",
+        "UX-003.3",
+        "UX-003.4"
+      ],
+      "validation": "docs/tasks/UX/UX-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-004",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-004",
+      "title": "Build Cost Explorer with pivots and saved analyses",
+      "path": "docs/tasks/UX/UX-004.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-003",
+        "CTL-007",
+        "API-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-004",
+        "objective": "let customers follow spend across supported business and technical dimensions."
+      },
+      "micro_task_ids": [
+        "UX-004.1",
+        "UX-004.2",
+        "UX-004.3",
+        "UX-004.4"
+      ],
+      "validation": "docs/tasks/UX/UX-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-005",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-005",
+      "title": "Build warehouse and query cost deep dives",
+      "path": "docs/tasks/UX/UX-005.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-004",
+        "FIN-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-005",
+        "objective": "connect warehouse spend to performance and query evidence."
+      },
+      "micro_task_ids": [
+        "UX-005.1",
+        "UX-005.2",
+        "UX-005.3",
+        "UX-005.4"
+      ],
+      "validation": "docs/tasks/UX/UX-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-006",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-006",
+      "title": "Build storage and serverless resource views",
+      "path": "docs/tasks/UX/UX-006.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-004",
+        "FIN-006",
+        "FIN-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-006",
+        "objective": "explain non warehouse spend with appropriate units and retention context."
+      },
+      "micro_task_ids": [
+        "UX-006.1",
+        "UX-006.2",
+        "UX-006.3",
+        "UX-006.4"
+      ],
+      "validation": "docs/tasks/UX/UX-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-007",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-007",
+      "title": "Build AI/Cortex and SPCS analytical experiences",
+      "path": "docs/tasks/UX/UX-007.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-004",
+        "FIN-018",
+        "FIN-019"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-007",
+        "objective": "present AI and container costs with correct parent-child and resource semantics."
+      },
+      "micro_task_ids": [
+        "UX-007.1",
+        "UX-007.2",
+        "UX-007.3",
+        "UX-007.4"
+      ],
+      "validation": "docs/tasks/UX/UX-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "UX-008",
+      "domain": "UX",
+      "epic": "E-UX-01",
+      "feature": "F-UX-008",
+      "title": "Validate product states, accessibility and navigation end to end",
+      "path": "docs/tasks/UX/UX-008.md",
+      "milestone": "M5",
+      "owner": "Frontend / UX lead",
+      "dependencies": [
+        "UX-005",
+        "UX-006",
+        "UX-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-UX-008",
+        "objective": "prove the exploration experience remains coherent under real failures."
+      },
+      "micro_task_ids": [
+        "UX-008.1",
+        "UX-008.2",
+        "UX-008.3",
+        "UX-008.4"
+      ],
+      "validation": "docs/tasks/UX/UX-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/UX/UX-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "WRK-001",
+      "domain": "WRK",
+      "epic": "E-WRK-01",
+      "feature": "F-WRK-001",
+      "title": "Implement versioned workload classifier and evidence model",
+      "path": "docs/tasks/WRK/WRK-001.md",
+      "milestone": "M5",
+      "owner": "Data engineer / Frontend",
+      "dependencies": [
+        "DBT-003",
+        "SEC-007",
+        "API-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-WRK-001",
+        "objective": "identify workloads without disguising guesses as facts."
+      },
+      "micro_task_ids": [
+        "WRK-001.1",
+        "WRK-001.2",
+        "WRK-001.3",
+        "WRK-001.4"
+      ],
+      "validation": "docs/tasks/WRK/WRK-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/WRK/WRK-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "WRK-002",
+      "domain": "WRK",
+      "epic": "E-WRK-01",
+      "feature": "F-WRK-002",
+      "title": "Build dbt project, invocation and model intelligence",
+      "path": "docs/tasks/WRK/WRK-002.md",
+      "milestone": "M5",
+      "owner": "Data engineer / Frontend",
+      "dependencies": [
+        "WRK-001",
+        "UX-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-WRK-002",
+        "objective": "support dbt analysis from observed query/session context."
+      },
+      "micro_task_ids": [
+        "WRK-002.1",
+        "WRK-002.2",
+        "WRK-002.3",
+        "WRK-002.4"
+      ],
+      "validation": "docs/tasks/WRK/WRK-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/WRK/WRK-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "WRK-003",
+      "domain": "WRK",
+      "epic": "E-WRK-01",
+      "feature": "F-WRK-003",
+      "title": "Build Power BI activity and mode intelligence",
+      "path": "docs/tasks/WRK/WRK-003.md",
+      "milestone": "M5",
+      "owner": "Data engineer / Frontend",
+      "dependencies": [
+        "WRK-001",
+        "UX-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-WRK-003",
+        "objective": "explain Snowflake-side Power BI activity costs and performance."
+      },
+      "micro_task_ids": [
+        "WRK-003.1",
+        "WRK-003.2",
+        "WRK-003.3",
+        "WRK-003.4"
+      ],
+      "validation": "docs/tasks/WRK/WRK-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/WRK/WRK-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "WRK-004",
+      "domain": "WRK",
+      "epic": "E-WRK-01",
+      "feature": "F-WRK-004",
+      "title": "Build tasks, procedures and other workload execution graphs",
+      "path": "docs/tasks/WRK/WRK-004.md",
+      "milestone": "M5",
+      "owner": "Data engineer / Frontend",
+      "dependencies": [
+        "WRK-001",
+        "FIN-013",
+        "UX-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-WRK-004",
+        "objective": "trace nested execution without financial fanout."
+      },
+      "micro_task_ids": [
+        "WRK-004.1",
+        "WRK-004.2",
+        "WRK-004.3",
+        "WRK-004.4"
+      ],
+      "validation": "docs/tasks/WRK/WRK-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/WRK/WRK-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "WRK-005",
+      "domain": "WRK",
+      "epic": "E-WRK-01",
+      "feature": "F-WRK-005",
+      "title": "Implement workload comparison and on-demand deep evidence",
+      "path": "docs/tasks/WRK/WRK-005.md",
+      "milestone": "M5",
+      "owner": "Data engineer / Frontend",
+      "dependencies": [
+        "WRK-002",
+        "WRK-003",
+        "WRK-004",
+        "API-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-WRK-005",
+        "objective": "separate volume, unit-cost and performance regressions with bounded evidence."
+      },
+      "micro_task_ids": [
+        "WRK-005.1",
+        "WRK-005.2",
+        "WRK-005.3",
+        "WRK-005.4"
+      ],
+      "validation": "docs/tasks/WRK/WRK-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/WRK/WRK-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-001",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-001",
+      "title": "Create dimension registry and external tag fact model",
+      "path": "docs/tasks/ALC/ALC-001.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "FIN-009",
+        "WRK-001",
+        "CTL-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-001",
+        "objective": "classify resources with typed versioned ownership metadata."
+      },
+      "micro_task_ids": [
+        "ALC-001.1",
+        "ALC-001.2",
+        "ALC-001.3",
+        "ALC-001.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-002",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-002",
+      "title": "Implement bounded rule evaluation and deterministic conflicts",
+      "path": "docs/tasks/ALC/ALC-002.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-002",
+        "objective": "evaluate classification rules safely and predictably."
+      },
+      "micro_task_ids": [
+        "ALC-002.1",
+        "ALC-002.2",
+        "ALC-002.3",
+        "ALC-002.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-003",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-003",
+      "title": "Build simulation, review and ruleset publication",
+      "path": "docs/tasks/ALC/ALC-003.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-002",
+        "API-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-003",
+        "objective": "preview financial and permission impact before activation."
+      },
+      "micro_task_ids": [
+        "ALC-003.1",
+        "ALC-003.2",
+        "ALC-003.3",
+        "ALC-003.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-004",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-004",
+      "title": "Implement usage group sets and effective hierarchies",
+      "path": "docs/tasks/ALC/ALC-004.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-003",
+        "CTL-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-004",
+        "objective": "support parallel business classifications without multiplying spend."
+      },
+      "micro_task_ids": [
+        "ALC-004.1",
+        "ALC-004.2",
+        "ALC-004.3",
+        "ALC-004.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-005",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-005",
+      "title": "Implement allocation methods and conservation",
+      "path": "docs/tasks/ALC/ALC-005.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-004",
+        "FIN-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-005",
+        "objective": "allocate each charge once per book with exact arithmetic."
+      },
+      "micro_task_ids": [
+        "ALC-005.1",
+        "ALC-005.2",
+        "ALC-005.3",
+        "ALC-005.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-006",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-006",
+      "title": "Build allocation studio and quality remediation",
+      "path": "docs/tasks/ALC/ALC-006.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-005",
+        "UX-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-006",
+        "objective": "make financial ownership and unallocated spend explainable."
+      },
+      "micro_task_ids": [
+        "ALC-006.1",
+        "ALC-006.2",
+        "ALC-006.3",
+        "ALC-006.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-007",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-007",
+      "title": "Build scoped showback portal",
+      "path": "docs/tasks/ALC/ALC-007.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-006",
+        "UX-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-007",
+        "objective": "give business owners a trustworthy view of their allocated spend."
+      },
+      "micro_task_ids": [
+        "ALC-007.1",
+        "ALC-007.2",
+        "ALC-007.3",
+        "ALC-007.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ALC-008",
+      "domain": "ALC",
+      "epic": "E-ALC-01",
+      "feature": "F-ALC-008",
+      "title": "Implement chargeback statements, rounding and adjustments",
+      "path": "docs/tasks/ALC/ALC-008.md",
+      "milestone": "M6",
+      "owner": "FinOps / Backend / Frontend",
+      "dependencies": [
+        "ALC-007",
+        "FIN-010",
+        "API-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ALC-008",
+        "objective": "issue immutable traceable internal cost statements."
+      },
+      "micro_task_ids": [
+        "ALC-008.1",
+        "ALC-008.2",
+        "ALC-008.3",
+        "ALC-008.4"
+      ],
+      "validation": "docs/tasks/ALC/ALC-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ALC/ALC-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-001",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-001",
+      "title": "Implement scoped budgets and actuals",
+      "path": "docs/tasks/GOV/GOV-001.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "ALC-007",
+        "API-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-001",
+        "objective": "compare the same financial truth against explicit budget scopes."
+      },
+      "micro_task_ids": [
+        "GOV-001.1",
+        "GOV-001.2",
+        "GOV-001.3",
+        "GOV-001.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-002",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-002",
+      "title": "Implement calibrated forecasting and model selection",
+      "path": "docs/tasks/GOV/GOV-002.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-001",
+        "WRK-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-002",
+        "objective": "estimate remaining spend with transparent evidence and uncertainty."
+      },
+      "micro_task_ids": [
+        "GOV-002.1",
+        "GOV-002.2",
+        "GOV-002.3",
+        "GOV-002.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-003",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-003",
+      "title": "Define monitor DSL, validation and schedule planner",
+      "path": "docs/tasks/GOV/GOV-003.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-001",
+        "API-006"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-003",
+        "objective": "configure all monitor types through one tested model."
+      },
+      "micro_task_ids": [
+        "GOV-003.1",
+        "GOV-003.2",
+        "GOV-003.3",
+        "GOV-003.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-004",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-004",
+      "title": "Implement partition evaluation, incident state and suppression",
+      "path": "docs/tasks/GOV/GOV-004.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-003",
+        "GOV-002",
+        "ORC-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-004",
+        "objective": "detect actionable changes without alert storms or false recovery."
+      },
+      "micro_task_ids": [
+        "GOV-004.1",
+        "GOV-004.2",
+        "GOV-004.3",
+        "GOV-004.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-005",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-005",
+      "title": "Implement robust anomaly candidates and quality gates",
+      "path": "docs/tasks/GOV/GOV-005.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-005",
+        "objective": "detect statistically unusual spend while disclosing limitations."
+      },
+      "micro_task_ids": [
+        "GOV-005.1",
+        "GOV-005.2",
+        "GOV-005.3",
+        "GOV-005.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-006",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-006",
+      "title": "Implement Email, Slack, Teams and secure webhook adapters",
+      "path": "docs/tasks/GOV/GOV-006.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-004",
+        "SEC-008",
+        "INF-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-006",
+        "objective": "deliver authorized notifications through supported customer destinations."
+      },
+      "micro_task_ids": [
+        "GOV-006.1",
+        "GOV-006.2",
+        "GOV-006.3",
+        "GOV-006.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-007",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-007",
+      "title": "Implement delivery outbox, retries, DLQ and premium alerts",
+      "path": "docs/tasks/GOV/GOV-007.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-006",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-007",
+        "objective": "make notifications recoverable and useful rather than noisy."
+      },
+      "micro_task_ids": [
+        "GOV-007.1",
+        "GOV-007.2",
+        "GOV-007.3",
+        "GOV-007.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "GOV-008",
+      "domain": "GOV",
+      "epic": "E-GOV-01",
+      "feature": "F-GOV-008",
+      "title": "Build incident center and governance E2E acceptance",
+      "path": "docs/tasks/GOV/GOV-008.md",
+      "milestone": "M7",
+      "owner": "Backend / Data science / Frontend",
+      "dependencies": [
+        "GOV-007",
+        "UX-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-GOV-008",
+        "objective": "let teams investigate and resolve monitored risks coherently."
+      },
+      "micro_task_ids": [
+        "GOV-008.1",
+        "GOV-008.2",
+        "GOV-008.3",
+        "GOV-008.4"
+      ],
+      "validation": "docs/tasks/GOV/GOV-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/GOV/GOV-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "RPT-001",
+      "domain": "RPT",
+      "epic": "E-RPT-01",
+      "feature": "F-RPT-001",
+      "title": "Define report schema and reusable component contracts",
+      "path": "docs/tasks/RPT/RPT-001.md",
+      "milestone": "M7",
+      "owner": "Backend / Frontend / QA",
+      "dependencies": [
+        "API-001",
+        "API-004",
+        "UX-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-RPT-001",
+        "objective": "build reports from the same semantic values as customer pages."
+      },
+      "micro_task_ids": [
+        "RPT-001.1",
+        "RPT-001.2",
+        "RPT-001.3",
+        "RPT-001.4"
+      ],
+      "validation": "docs/tasks/RPT/RPT-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/RPT/RPT-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "RPT-002",
+      "domain": "RPT",
+      "epic": "E-RPT-01",
+      "feature": "F-RPT-002",
+      "title": "Implement isolated snapshot and render workers",
+      "path": "docs/tasks/RPT/RPT-002.md",
+      "milestone": "M7",
+      "owner": "Backend / Frontend / QA",
+      "dependencies": [
+        "RPT-001",
+        "ORC-003",
+        "INF-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-RPT-002",
+        "objective": "generate reproducible artifacts without blocking API processes."
+      },
+      "micro_task_ids": [
+        "RPT-002.1",
+        "RPT-002.2",
+        "RPT-002.3",
+        "RPT-002.4"
+      ],
+      "validation": "docs/tasks/RPT/RPT-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/RPT/RPT-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "RPT-003",
+      "domain": "RPT",
+      "epic": "E-RPT-01",
+      "feature": "F-RPT-003",
+      "title": "Implement and visually qualify eight report templates",
+      "path": "docs/tasks/RPT/RPT-003.md",
+      "milestone": "M7",
+      "owner": "Backend / Frontend / QA",
+      "dependencies": [
+        "RPT-002",
+        "ALC-008",
+        "GOV-008",
+        "WRK-005",
+        "UX-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-RPT-003",
+        "objective": "deliver polished decision-specific reports with financial parity."
+      },
+      "micro_task_ids": [
+        "RPT-003.1",
+        "RPT-003.2",
+        "RPT-003.3",
+        "RPT-003.4"
+      ],
+      "validation": "docs/tasks/RPT/RPT-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/RPT/RPT-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "RPT-004",
+      "domain": "RPT",
+      "epic": "E-RPT-01",
+      "feature": "F-RPT-004",
+      "title": "Implement calendar schedules and report occurrence planning",
+      "path": "docs/tasks/RPT/RPT-004.md",
+      "milestone": "M7",
+      "owner": "Backend / Frontend / QA",
+      "dependencies": [
+        "RPT-003",
+        "GOV-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-RPT-004",
+        "objective": "deliver each intended report occurrence predictably."
+      },
+      "micro_task_ids": [
+        "RPT-004.1",
+        "RPT-004.2",
+        "RPT-004.3",
+        "RPT-004.4"
+      ],
+      "validation": "docs/tasks/RPT/RPT-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/RPT/RPT-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "RPT-005",
+      "domain": "RPT",
+      "epic": "E-RPT-01",
+      "feature": "F-RPT-005",
+      "title": "Implement report history, secure access and retention",
+      "path": "docs/tasks/RPT/RPT-005.md",
+      "milestone": "M7",
+      "owner": "Backend / Frontend / QA",
+      "dependencies": [
+        "RPT-004",
+        "SEC-008",
+        "CTL-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-RPT-005",
+        "objective": "make report access auditable and revocable."
+      },
+      "micro_task_ids": [
+        "RPT-005.1",
+        "RPT-005.2",
+        "RPT-005.3",
+        "RPT-005.4"
+      ],
+      "validation": "docs/tasks/RPT/RPT-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/RPT/RPT-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-001",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-001",
+      "title": "Build insight registry and evidence publication",
+      "path": "docs/tasks/INS/INS-001.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "WRK-005",
+        "API-005",
+        "ORC-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-001",
+        "objective": "publish reproducible insight observations with transparent eligibility."
+      },
+      "micro_task_ids": [
+        "INS-001.1",
+        "INS-001.2",
+        "INS-001.3",
+        "INS-001.4"
+      ],
+      "validation": "docs/tasks/INS/INS-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-002",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-002",
+      "title": "Implement warehouse optimization detectors",
+      "path": "docs/tasks/INS/INS-002.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-001",
+        "FIN-004",
+        "UX-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-002",
+        "objective": "surface supported warehouse optimization opportunities with evidence."
+      },
+      "micro_task_ids": [
+        "INS-002.1",
+        "INS-002.2",
+        "INS-002.3",
+        "INS-002.4"
+      ],
+      "validation": "docs/tasks/INS/INS-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-003",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-003",
+      "title": "Implement query and pipeline optimization detectors",
+      "path": "docs/tasks/INS/INS-003.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-001",
+        "WRK-002",
+        "WRK-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-003",
+        "objective": "surface supported query and pipeline optimization opportunities with evidence."
+      },
+      "micro_task_ids": [
+        "INS-003.1",
+        "INS-003.2",
+        "INS-003.3",
+        "INS-003.4"
+      ],
+      "validation": "docs/tasks/INS/INS-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-004",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-004",
+      "title": "Implement storage and ingestion optimization detectors",
+      "path": "docs/tasks/INS/INS-004.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-001",
+        "FIN-006",
+        "FIN-011",
+        "FIN-012"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-004",
+        "objective": "surface supported storage and ingestion optimization opportunities with evidence."
+      },
+      "micro_task_ids": [
+        "INS-004.1",
+        "INS-004.2",
+        "INS-004.3",
+        "INS-004.4"
+      ],
+      "validation": "docs/tasks/INS/INS-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-005",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-005",
+      "title": "Implement Cortex and container optimization detectors",
+      "path": "docs/tasks/INS/INS-005.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-001",
+        "FIN-018",
+        "FIN-019",
+        "UX-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-005",
+        "objective": "surface supported Cortex and container optimization opportunities with evidence."
+      },
+      "micro_task_ids": [
+        "INS-005.1",
+        "INS-005.2",
+        "INS-005.3",
+        "INS-005.4"
+      ],
+      "validation": "docs/tasks/INS/INS-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-006",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-006",
+      "title": "Implement action workflow and immutable baseline capture",
+      "path": "docs/tasks/INS/INS-006.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-002",
+        "INS-003",
+        "INS-004",
+        "INS-005",
+        "CTL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-006",
+        "objective": "record human optimization decisions and their verification plan."
+      },
+      "micro_task_ids": [
+        "INS-006.1",
+        "INS-006.2",
+        "INS-006.3",
+        "INS-006.4"
+      ],
+      "validation": "docs/tasks/INS/INS-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "INS-007",
+      "domain": "INS",
+      "epic": "E-INS-01",
+      "feature": "F-INS-007",
+      "title": "Measure normalized savings and finish optimization acceptance",
+      "path": "docs/tasks/INS/INS-007.md",
+      "milestone": "M8",
+      "owner": "Data science / FinOps / Frontend",
+      "dependencies": [
+        "INS-006",
+        "FIN-009"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-INS-007",
+        "objective": "prove realized savings without counting estimates or overlaps."
+      },
+      "micro_task_ids": [
+        "INS-007.1",
+        "INS-007.2",
+        "INS-007.3",
+        "INS-007.4"
+      ],
+      "validation": "docs/tasks/INS/INS-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/INS/INS-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-003",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-003",
+      "title": "Qualify SLOs, synthetic probes and alert routing",
+      "path": "docs/tasks/OPS/OPS-003.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "OPS-001",
+        "GOV-007",
+        "RPT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-003",
+        "objective": "detect customer-impacting failure with actionable alerts."
+      },
+      "micro_task_ids": [
+        "OPS-003.1",
+        "OPS-003.2",
+        "OPS-003.3",
+        "OPS-003.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-004",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-004",
+      "title": "Run adversarial tenant isolation and security qualification",
+      "path": "docs/tasks/OPS/OPS-004.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "SEC-006",
+        "SEC-008",
+        "API-006",
+        "RPT-005",
+        "GOV-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-004",
+        "objective": "prove every read and mutation boundary enforces tenant scope."
+      },
+      "micro_task_ids": [
+        "OPS-004.1",
+        "OPS-004.2",
+        "OPS-004.3",
+        "OPS-004.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-005",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-005",
+      "title": "Implement retention, deletion and audit verification",
+      "path": "docs/tasks/OPS/OPS-005.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "SEC-007",
+        "SEC-008",
+        "RPT-005",
+        "CTL-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-005",
+        "objective": "honor retention and deletion across active data and recovery workflows."
+      },
+      "micro_task_ids": [
+        "OPS-005.1",
+        "OPS-005.2",
+        "OPS-005.3",
+        "OPS-005.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-006",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-006",
+      "title": "Rehearse control-plane backup and recovery",
+      "path": "docs/tasks/OPS/OPS-006.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "INF-004",
+        "INF-003",
+        "INF-006",
+        "CTL-004",
+        "OPS-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-006",
+        "objective": "restore transactional state without duplicating side effects."
+      },
+      "micro_task_ids": [
+        "OPS-006.1",
+        "OPS-006.2",
+        "OPS-006.3",
+        "OPS-006.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-006.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-006.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-007",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-007",
+      "title": "Implement analytical snapshots and replay recovery drill",
+      "path": "docs/tasks/OPS/OPS-007.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "ING-011",
+        "FIN-010",
+        "OPS-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-007",
+        "objective": "recover financial history beyond raw journal retention."
+      },
+      "micro_task_ids": [
+        "OPS-007.1",
+        "OPS-007.2",
+        "OPS-007.3",
+        "OPS-007.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-007.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-007.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-008",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-008",
+      "title": "Benchmark concurrency, noisy-neighbor protection and capacity",
+      "path": "docs/tasks/OPS/OPS-008.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "API-004",
+        "ORC-006",
+        "OPS-002",
+        "RPT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-008",
+        "objective": "establish measured limits and predictable behavior under load."
+      },
+      "micro_task_ids": [
+        "OPS-008.1",
+        "OPS-008.2",
+        "OPS-008.3",
+        "OPS-008.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-008.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-008.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-009",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-009",
+      "title": "Measure Bridge unit economics and internal cost allocation",
+      "path": "docs/tasks/OPS/OPS-009.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "OPS-008",
+        "FIN-002"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-009",
+        "objective": "attribute operating costs without copying customer analytics into PostgreSQL."
+      },
+      "micro_task_ids": [
+        "OPS-009.1",
+        "OPS-009.2",
+        "OPS-009.3",
+        "OPS-009.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-009.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-009.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-010",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-010",
+      "title": "Publish support runbooks and run incident exercises",
+      "path": "docs/tasks/OPS/OPS-010.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "OPS-003",
+        "OPS-004",
+        "OPS-006",
+        "OPS-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-010",
+        "objective": "make failures recoverable by an on-call engineer with no hidden context."
+      },
+      "micro_task_ids": [
+        "OPS-010.1",
+        "OPS-010.2",
+        "OPS-010.3",
+        "OPS-010.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-010.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-010.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ONB-002",
+      "domain": "ONB",
+      "epic": "E-ONB-01",
+      "feature": "F-ONB-002",
+      "title": "Prepare customer and support documentation with rehearsal",
+      "path": "docs/tasks/ONB/ONB-002.md",
+      "milestone": "M9",
+      "owner": "Customer success / Snowflake / FinOps",
+      "dependencies": [
+        "ONB-001",
+        "OPS-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ONB-002",
+        "objective": "enable independent installation, operation and safe offboarding."
+      },
+      "micro_task_ids": [
+        "ONB-002.1",
+        "ONB-002.2",
+        "ONB-002.3",
+        "ONB-002.4"
+      ],
+      "validation": "docs/tasks/ONB/ONB-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ONB/ONB-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "OPS-011",
+      "domain": "OPS",
+      "epic": "E-OPS-01",
+      "feature": "F-OPS-011",
+      "title": "Complete cross-product QA and release evidence matrix",
+      "path": "docs/tasks/OPS/OPS-011.md",
+      "milestone": "M9",
+      "owner": "SRE / Security / QA",
+      "dependencies": [
+        "OPS-004",
+        "OPS-008",
+        "OPS-010",
+        "INS-007",
+        "RPT-005",
+        "GOV-008",
+        "ALC-008",
+        "UX-008"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-OPS-011",
+        "objective": "prove the complete SaaS journey against shared security and financial oracles."
+      },
+      "micro_task_ids": [
+        "OPS-011.1",
+        "OPS-011.2",
+        "OPS-011.3",
+        "OPS-011.4"
+      ],
+      "validation": "docs/tasks/OPS/OPS-011.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/OPS/OPS-011.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "REL-001",
+      "domain": "REL",
+      "epic": "E-REL-01",
+      "feature": "F-REL-001",
+      "title": "Qualify complete CI/CD promotion and schema compatibility",
+      "path": "docs/tasks/REL/REL-001.md",
+      "milestone": "M10",
+      "owner": "Delivery manager / DevOps / Security",
+      "dependencies": [
+        "INF-007",
+        "OPS-011"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-REL-001",
+        "objective": "promote reproducible artifacts through enforceable release gates."
+      },
+      "micro_task_ids": [
+        "REL-001.1",
+        "REL-001.2",
+        "REL-001.3",
+        "REL-001.4"
+      ],
+      "validation": "docs/tasks/REL/REL-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/REL/REL-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "REL-002",
+      "domain": "REL",
+      "epic": "E-REL-01",
+      "feature": "F-REL-002",
+      "title": "Rehearse production deployment and rollback",
+      "path": "docs/tasks/REL/REL-002.md",
+      "milestone": "M10",
+      "owner": "Delivery manager / DevOps / Security",
+      "dependencies": [
+        "REL-001",
+        "OPS-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-REL-002",
+        "objective": "prove deployment can be reversed while preserving accepted state."
+      },
+      "micro_task_ids": [
+        "REL-002.1",
+        "REL-002.2",
+        "REL-002.3",
+        "REL-002.4"
+      ],
+      "validation": "docs/tasks/REL/REL-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/REL/REL-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "REL-003",
+      "domain": "REL",
+      "epic": "E-REL-01",
+      "feature": "F-REL-003",
+      "title": "Assemble operational, commercial and support readiness pack",
+      "path": "docs/tasks/REL/REL-003.md",
+      "milestone": "M10",
+      "owner": "Delivery manager / DevOps / Security",
+      "dependencies": [
+        "REL-002",
+        "OPS-009"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-REL-003",
+        "objective": "make release responsibilities and customer commitments reviewable."
+      },
+      "micro_task_ids": [
+        "REL-003.1",
+        "REL-003.2",
+        "REL-003.3",
+        "REL-003.4"
+      ],
+      "validation": "docs/tasks/REL/REL-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/REL/REL-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "LCH-001",
+      "domain": "LCH",
+      "epic": "E-LCH-01",
+      "feature": "F-LCH-001",
+      "title": "Define plans, entitlements and manual billing workflow",
+      "path": "docs/tasks/LCH/LCH-001.md",
+      "milestone": "M10",
+      "owner": "Product / Delivery / Customer success",
+      "dependencies": [
+        "REL-003",
+        "CTL-007"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-LCH-001",
+        "objective": "activate a first customer with an auditable commercial basis."
+      },
+      "micro_task_ids": [
+        "LCH-001.1",
+        "LCH-001.2",
+        "LCH-001.3",
+        "LCH-001.4"
+      ],
+      "validation": "docs/tasks/LCH/LCH-001.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/LCH/LCH-001.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "REL-004",
+      "domain": "REL",
+      "epic": "E-REL-01",
+      "feature": "F-REL-004",
+      "title": "Approve immutable release candidate and production gate",
+      "path": "docs/tasks/REL/REL-004.md",
+      "milestone": "M10",
+      "owner": "Delivery manager / DevOps / Security",
+      "dependencies": [
+        "REL-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-REL-004",
+        "objective": "record a falsifiable release decision before onboarding a real customer."
+      },
+      "micro_task_ids": [
+        "REL-004.1",
+        "REL-004.2",
+        "REL-004.3",
+        "REL-004.4"
+      ],
+      "validation": "docs/tasks/REL/REL-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/REL/REL-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ONB-003",
+      "domain": "ONB",
+      "epic": "E-ONB-01",
+      "feature": "F-ONB-003",
+      "title": "Prepare authorized first-customer environment and identities",
+      "path": "docs/tasks/ONB/ONB-003.md",
+      "milestone": "M11",
+      "owner": "Customer success / Snowflake / FinOps",
+      "dependencies": [
+        "REL-004",
+        "ONB-002",
+        "LCH-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ONB-003",
+        "objective": "establish a real customer scope and accountable onboarding owners."
+      },
+      "micro_task_ids": [
+        "ONB-003.1",
+        "ONB-003.2",
+        "ONB-003.3",
+        "ONB-003.4"
+      ],
+      "validation": "docs/tasks/ONB/ONB-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ONB/ONB-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ONB-004",
+      "domain": "ONB",
+      "epic": "E-ONB-01",
+      "feature": "F-ONB-004",
+      "title": "Complete historical synchronization and customer reconciliation",
+      "path": "docs/tasks/ONB/ONB-004.md",
+      "milestone": "M11",
+      "owner": "Customer success / Snowflake / FinOps",
+      "dependencies": [
+        "ONB-003",
+        "ING-010",
+        "FIN-010"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ONB-004",
+        "objective": "deliver historically complete available data and explain financial differences."
+      },
+      "micro_task_ids": [
+        "ONB-004.1",
+        "ONB-004.2",
+        "ONB-004.3",
+        "ONB-004.4"
+      ],
+      "validation": "docs/tasks/ONB/ONB-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ONB/ONB-004.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "ONB-005",
+      "domain": "ONB",
+      "epic": "E-ONB-01",
+      "feature": "F-ONB-005",
+      "title": "Complete first-value workshop and customer acceptance",
+      "path": "docs/tasks/ONB/ONB-005.md",
+      "milestone": "M11",
+      "owner": "Customer success / Snowflake / FinOps",
+      "dependencies": [
+        "ONB-004",
+        "ALC-008",
+        "GOV-008",
+        "INS-007",
+        "RPT-005"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-ONB-005",
+        "objective": "prove the customer can make a financial decision from the product."
+      },
+      "micro_task_ids": [
+        "ONB-005.1",
+        "ONB-005.2",
+        "ONB-005.3",
+        "ONB-005.4"
+      ],
+      "validation": "docs/tasks/ONB/ONB-005.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/ONB/ONB-005.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "LCH-002",
+      "domain": "LCH",
+      "epic": "E-LCH-01",
+      "feature": "F-LCH-002",
+      "title": "Verify first customer acceptance and payment evidence",
+      "path": "docs/tasks/LCH/LCH-002.md",
+      "milestone": "M12",
+      "owner": "Product / Delivery / Customer success",
+      "dependencies": [
+        "ONB-005",
+        "LCH-001"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-LCH-002",
+        "objective": "prove first paying customer status with actual evidence."
+      },
+      "micro_task_ids": [
+        "LCH-002.1",
+        "LCH-002.2",
+        "LCH-002.3",
+        "LCH-002.4"
+      ],
+      "validation": "docs/tasks/LCH/LCH-002.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/LCH/LCH-002.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "LCH-003",
+      "domain": "LCH",
+      "epic": "E-LCH-01",
+      "feature": "F-LCH-003",
+      "title": "Publish first production release and perform monitored rollout",
+      "path": "docs/tasks/LCH/LCH-003.md",
+      "milestone": "M12",
+      "owner": "Product / Delivery / Customer success",
+      "dependencies": [
+        "LCH-002",
+        "REL-004"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-LCH-003",
+        "objective": "release the accepted version with measurable operational control."
+      },
+      "micro_task_ids": [
+        "LCH-003.1",
+        "LCH-003.2",
+        "LCH-003.3",
+        "LCH-003.4"
+      ],
+      "validation": "docs/tasks/LCH/LCH-003.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/LCH/LCH-003.md#definition-of-done",
+      "evidence_required": true
+    },
+    {
+      "id": "LCH-004",
+      "domain": "LCH",
+      "epic": "E-LCH-01",
+      "feature": "F-LCH-004",
+      "title": "Execute first-week and day30 validation with improvement backlog",
+      "path": "docs/tasks/LCH/LCH-004.md",
+      "milestone": "M12",
+      "owner": "Product / Delivery / Customer success",
+      "dependencies": [
+        "LCH-003"
+      ],
+      "status": "NOT_STARTED",
+      "user_story": {
+        "id": "US-LCH-004",
+        "objective": "confirm production value and reliability after initial launch."
+      },
+      "micro_task_ids": [
+        "LCH-004.1",
+        "LCH-004.2",
+        "LCH-004.3",
+        "LCH-004.4"
+      ],
+      "validation": "docs/tasks/LCH/LCH-004.md#testing-and-validation",
+      "definition_of_done": "docs/tasks/LCH/LCH-004.md#definition-of-done",
+      "evidence_required": true
+    }
+  ]
+}

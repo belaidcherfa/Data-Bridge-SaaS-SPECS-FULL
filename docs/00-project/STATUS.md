@@ -18,6 +18,7 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [ORC — Dagster OSS orchestration and data publication](../../docs/06-dagster/orchestration.md) — 6 task specifications; implementation NOT_STARTED.
 - [DBT — dbt Core deterministic transformation framework](../../docs/07-dbt/transformation.md) — 6 task specifications; implementation NOT_STARTED.
 - [FIN — Canonical FinOps ledger, pricing and reconciliation](../../docs/08-finops-ledger/ledger.md) — 21 task specifications; implementation NOT_STARTED.
+- [API — Semantic metric registry and analytical API](../../docs/09-api/semantic-api.md) — 6 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

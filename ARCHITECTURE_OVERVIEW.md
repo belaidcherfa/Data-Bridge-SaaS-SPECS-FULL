@@ -29,13 +29,13 @@ Use separate AWS DEV, STAGING and PROD accounts; default EU region `eu-west-1`, 
 
 Fargate task roles, execution roles and deployment roles are distinct. Account-specific extraction runs receive only their account's WIF identity and S3 write scope. The launcher can pass only explicitly registered roles to approved task definitions. Web requests cannot supply arbitrary IAM ARNs, Snowflake hosts or Dagster run configuration. A separate restricted service publishes ingestion manifests and observes load receipts.
 
-No Snowflake authentication secret is stored. WIF applies to customer readers and central service identities. Human bootstrap uses short-lived interactive credentials with explicit administrative authorization. Customer operator identities are excluded from release one.
+No Snowflake authentication secret is stored. WIF applies to customer readers and central service identities. Human bootstrap uses short-lived interactive credentials with explicit administrative authorization. Bridge identities cannot mutate customer workload resources in release one.
 
 ## Data planes
 
-Operational transactions and outbox records live in Aurora PostgreSQL. Dagster uses a separate database and credentials. All connections set transaction-local tenant context and enforce RLS, including workers. Runtime database roles do not own tables or bypass RLS.
+Operational transactions and outbox records live in Aurora PostgreSQL. Dagster uses a separate database and credentials. Every application control-plane transaction sets transaction-local tenant context and enforces RLS, including workers. Dagster metadata uses its separate service identity/database and is never exposed as a customer query surface. Runtime database roles do not own tables or bypass RLS.
 
-Central Snowflake holds typed RAW, staging, intermediate, service ledgers, algorithm outputs, allocation, marts and serving. `tenant_id` is physical and part of all cross-table keys. The serving security boundary uses constrained tenant identities/roles plus scope enforcement; request-supplied session variables and query tags are not trusted authentication claims. A later canonical security contract fixes the implementation and its scale limits.
+Central Snowflake holds typed RAW, staging, intermediate, service ledgers, algorithm outputs, allocation, marts and serving. `tenant_id` is physical and part of all cross-table keys. The serving security boundary uses constrained tenant identities/roles plus scope enforcement; request-supplied session variables and query tags are not trusted authentication claims. The [security contract](docs/02-security/security.md) and [identity-bound authorization decision](docs/architecture/adr/ADR-005-analytical-authorization.md) define normalized permission-profile identities, current-user row policies, revocation epochs and scale gates.
 
 S3 is append-only at the application layer. Objects are not renamed after ingestion; lifecycle tiers and processing metadata represent archival. A manifest commits a complete immutable batch. Snowpipe may ingest a file before its manifest exists; transformations consume only batches whose manifest and load receipts pass completeness checks. The published dataset is a coherent version, not whatever files have arrived so far.
 
@@ -71,4 +71,8 @@ Organization currency usage is delayed and can change until month close; reselle
 
 Dagster provides an OSS AWS deployment path; production execution must use isolated run workers. [Official AWS deployment guide](https://docs.dagster.io/deployment/oss/deployment-options/aws).
 
-Detailed vendor evidence and live validation obligations are maintained in the domain contracts and research register as they are published.
+Detailed vendor evidence and live validation obligations are maintained in the [research register](docs/00-project/RESEARCH_REGISTER.md) and [open validation register](docs/00-project/OPEN_VALIDATIONS.md).
+
+## Recovery boundary
+
+Raw journal retention and canonical financial retention differ. [ADR-011](docs/architecture/adr/ADR-011-analytical-recovery.md) requires consistent canonical snapshots plus subsequent journal replay, with identity/policy reconstruction and deletion tombstone reapplication before reopening serving. The [operations contract](docs/16-observability/operations.md) owns retention/recovery targets and qualification.

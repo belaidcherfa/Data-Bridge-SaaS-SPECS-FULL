@@ -48,9 +48,9 @@ DRAFT → AWAITING_CUSTOMER_SETUP → VALIDATING → READY → SYNCING → ACTIV
 | [CON-001](../tasks/CON/CON-001.md) | Register account identities and controlled WIF task roles | CTL-001, INF-008, SEC-004 | M2 |
 | [CON-002](../tasks/CON/CON-002.md) | Prove WIF connector and dbt compatibility live | CON-001, FND-002 | M2 |
 | [CON-003](../tasks/CON/CON-003.md) | Generate least-privilege installation and revoke scripts | CON-002 | M2 |
-| [CON-004](../tasks/CON/CON-004.md) | Discover organizations, accounts and lifecycle changes | CON-003, CTL-001 | M2 |
+| [CON-004](../tasks/CON/CON-004.md) | Discover organizations, accounts and lifecycle changes | CON-003, CTL-001, UX-001 | M2 |
 | [CON-005](../tasks/CON/CON-005.md) | Probe capabilities, source schemas and permission gaps | CON-004, SEC-007 | M2 |
-| [CON-006](../tasks/CON/CON-006.md) | Build connection wizard, pause, revoke and recovery UX | CON-005, SEC-006 | M2 |
+| [CON-006](../tasks/CON/CON-006.md) | Build connection wizard, pause, revoke and recovery UX | CON-005, SEC-006, UX-001 | M2 |
 
 ## Domain acceptance
 

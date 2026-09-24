@@ -17,6 +17,7 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [ING — Source contracts and durable immutable ingestion](../../docs/05-ingestion/ingestion.md) — 12 task specifications; implementation NOT_STARTED.
 - [ORC — Dagster OSS orchestration and data publication](../../docs/06-dagster/orchestration.md) — 6 task specifications; implementation NOT_STARTED.
 - [DBT — dbt Core deterministic transformation framework](../../docs/07-dbt/transformation.md) — 6 task specifications; implementation NOT_STARTED.
+- [FIN — Canonical FinOps ledger, pricing and reconciliation](../../docs/08-finops-ledger/ledger.md) — 21 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

@@ -1,6 +1,6 @@
-# Architecture decisions
+# Architecture decision register
 
-Status: accepted design decisions; live validation obligations remain open. Each ADR contains context, decision, alternatives, consequences and revisit conditions. Supersede with a new numbered ADR; preserve the original.
+Accepted design decisions; runtime validation remains governed by the task and release gates. Change a decision only with new evidence and explicit consequences.
 
 - [ADR-001 — Storage responsibilities and physical tenancy](ADR-001-storage-and-tenancy.md)
 - [ADR-002 — Additive charges and non-additive attribution](ADR-002-financial-grains.md)
@@ -12,3 +12,7 @@ Status: accepted design decisions; live validation obligations remain open. Each
 - [ADR-008 — Generic Dagster assets and durable fair queues](ADR-008-queues-and-orchestration.md)
 - [ADR-009 — Sanitize before durable transport](ADR-009-privacy-and-retention.md)
 - [ADR-010 — Pinned open-source stack and evidence-driven launch](ADR-010-versions-and-release.md)
+- [ADR-011 — Recover retained analytics beyond raw journal lifetime](ADR-011-analytical-recovery.md)
+- [ADR-012 — Manual B2B billing for first paying customer](ADR-012-first-customer-commercial.md)
+
+Every ADR records context, decision, alternatives, consequences and revisit conditions. User requirements and authoritative PRD boundaries take precedence over convenience.

@@ -20,6 +20,8 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [FIN — Canonical FinOps ledger, pricing and reconciliation](../../docs/08-finops-ledger/ledger.md) — 21 task specifications; implementation NOT_STARTED.
 - [API — Semantic metric registry and analytical API](../../docs/09-api/semantic-api.md) — 6 task specifications; implementation NOT_STARTED.
 - [UX — Premium product experience and cost exploration](../../docs/10-frontend/product.md) — 8 task specifications; implementation NOT_STARTED.
+- [WRK — Workload intelligence and execution hierarchies](../../docs/10-frontend/workloads.md) — 5 task specifications; implementation NOT_STARTED.
+- [ALC — External tags, allocation, usage groups, showback and chargeback](../../docs/11-allocation/allocation.md) — 8 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 

@@ -87,7 +87,7 @@ Replay validates retained manifests, selects original privacy/config/schema vers
 | [ING-009](../tasks/ING/ING-009.md) | Handle schema drift and source BCR changes | ING-008 | M3 |
 | [ING-010](../tasks/ING/ING-010.md) | Plan historical backfills and catch-up with fair admission | ING-009, CON-006 | M3 |
 | [ING-011](../tasks/ING/ING-011.md) | Implement journal replay and anti-entropy repair | ING-010 | M3 |
-| [ING-012](../tasks/ING/ING-012.md) | Add bounded hot history and truthful Data Health UX | ING-011 | M3 |
+| [ING-012](../tasks/ING/ING-012.md) | Add bounded hot history and truthful Data Health UX | ING-011, UX-001 | M3 |
 
 ## Domain acceptance
 

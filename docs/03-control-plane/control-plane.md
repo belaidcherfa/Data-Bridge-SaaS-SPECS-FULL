@@ -45,11 +45,11 @@ Check authorization before reading cache; never cache permissions as final truth
 |---|---|---|---|
 | [CTL-001](../tasks/CTL/CTL-001.md) | Extend tenant, organization, account and team schemas | SEC-004 | M1 |
 | [CTL-002](../tasks/CTL/CTL-002.md) | Implement migrations, indexes and bounded connection pools | CTL-001, INF-004 | M1 |
-| [CTL-003](../tasks/CTL/CTL-003.md) | Create scoped CRUD, invitations and optimistic concurrency | CTL-001, SEC-002, SEC-008 | M1 |
+| [CTL-003](../tasks/CTL/CTL-003.md) | Create scoped CRUD, invitations and optimistic concurrency | CTL-001, SEC-002, SEC-008, UX-001 | M1 |
 | [CTL-004](../tasks/CTL/CTL-004.md) | Implement transactional outbox and fenced job leases | CTL-002, CTL-003 | M1 |
 | [CTL-005](../tasks/CTL/CTL-005.md) | Publish immutable analytical configuration snapshots | CTL-004, INF-003 | M1 |
 | [CTL-006](../tasks/CTL/CTL-006.md) | Implement scoped Redis keys and safe degradation | CTL-004, SEC-006 | M1 |
-| [CTL-007](../tasks/CTL/CTL-007.md) | Add saved views, dashboards and commercial control records | CTL-003, CTL-005 | M1 |
+| [CTL-007](../tasks/CTL/CTL-007.md) | Add saved views, dashboards and commercial control records | CTL-003, CTL-005, UX-001 | M1 |
 
 ## Domain acceptance
 

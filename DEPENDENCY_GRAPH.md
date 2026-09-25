@@ -12,6 +12,7 @@ flowchart TD
   M5 --> M6["M6 Allocation and accountability"]
   M6 --> M7["M7 Governance and reports"]
   M5 --> M8["M8 Insights and verified savings"]
+  M7 --> M8
   M7 --> M9["M9 Enterprise qualification"]
   M8 --> M9
   M9 --> M10["M10 Production readiness"]
@@ -28,7 +29,7 @@ flowchart TD
 | Financial serving | Accepted RAW → DBT staging/intermediate/revision publication → independent FIN service models → FIN-009 reconciliation → API-001 metrics → API-002 broker → UX exploration |
 | Chargeback | FIN-010 close + canonical charges → ALC tags/rules → simulation/publication → groups → allocation conservation → showback → ALC-008 immutable statements |
 | Reports | Semantic APIs/jobs → RPT component schema → worker → templates after allocation/governance/workloads → schedule → secure history/access |
-| Verified savings | WRK evidence → INS detector framework/families → action and frozen baseline → normalized post-change measurement → verified non-overlapping total |
+| Verified savings | WRK evidence + GOV-005 shared statistics → INS detector framework/families → action and frozen baseline → normalized post-change measurement → verified non-overlapping total |
 | First paying customer | OPS qualification → REL candidate → LCH-001 commercial workflow + ONB authorized setup/history/value → LCH-002 real settlement → monitored release → actual post-launch reviews |
 
 ## Cross-cutting work begins early

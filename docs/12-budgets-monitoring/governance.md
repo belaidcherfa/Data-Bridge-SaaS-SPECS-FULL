@@ -19,7 +19,7 @@ A versioned monitor is dataset + authorized scope + metric + aggregation + evalu
 
 Metric/dimension validation uses the same semantic registry as the API. Partition enumeration is bounded and authorized; unseen groups can be discovered by the generic engine without generating one monitor object per model. Store definitions/workflow in PostgreSQL, evaluated analytical observations and evidence in Snowflake. Null/incomplete data yields INSUFFICIENT_DATA, not zero, firing or automatic recovery. Missing activity requires healthy source coverage; stale ingestion cannot prove no workload ran.
 
-Observation identity includes config, scope partition, time window and input publication. Incident fingerprint excludes changing dataset version and includes tenant/monitor/config condition/partition/window bucket, allowing corrected reevaluation to update the same incident. States OPEN/ACKNOWLEDGED/INVESTIGATING/RESOLVED; occurrence count is bounded workflow metadata. Hysteresis, cooldown and recovery confirmation avoid flapping. Silence windows have owner/reason/expiry and are audited.
+Observation identity includes config, scope partition, logical schedule tick, time window and input publication. Retries reuse the same tick; corrected versions supersede that tick's observation and cannot increment confirmation counters twice. An observation key includes the evaluation window and input publication. An active incident episode key is tenant/monitor/condition-version/partition and deliberately excludes both the moving evaluation window and dataset version. Enforce at most one active episode per key transactionally; successive failing windows and corrected reevaluations attach to that episode. After confirmed recovery, a new sustained breach creates a new episode ID. States OPEN/ACKNOWLEDGED/INVESTIGATING/RESOLVED; occurrence count is bounded workflow metadata. Hysteresis, cooldown and recovery confirmation avoid flapping. Silence windows have owner/reason/expiry and are audited.
 
 ## Notification delivery
 
@@ -32,6 +32,40 @@ Generic webhooks require HTTPS, no URL credentials, bounded payload, signed time
 ## Premium notification content
 
 Include what changed, absolute/relative impact with unit, evaluation period, source as-of/maturity, top verified contributors, confidence/limitations and a secure investigation link. Never invent likely savings or cause. Suppress sensitive SQL and customer identifiers beyond destination policy. Recovery notices reference the same incident and explain whether recovery was observed or a data correction.
+
+
+## Initial executable statistical defaults
+
+These are versioned product defaults, not vendor guarantees. Persist every parameter and expose the chosen method. Fixtures test the exact rules before data scientists tune them.
+
+- Forecast input: complete daily net-cost series in one currency. Separate recurring gross spend from exceptional signed adjustments; approved exceptional items are added explicitly, never silently dropped. Fewer than7 complete days → INSUFFICIENT_HISTORY. From7–27 days, use mean spend per complete day × remaining days and label RUN_RATE_FALLBACK. The15-day fixture therefore forecasts300.
+- With28+ complete days, eligible seasonal-naive forecast for a weekday is the mean of the last four complete occurrences of that weekday. Missing required observations suppress that candidate rather than filling zeros. A robust-trend candidate fits Theil–Sen slope (median pairwise daily slope) and median intercept over the last56 complete days, capped at nonnegative predicted gross daily spend; signed approved adjustments remain separate.
+- Automatic model selection starts only with enough data for four rolling7-day holdout folds, each with at least28 training days. Score mean absolute error in currency units. Choose seasonal-naive unless trend improves MAE by at least10%; ties choose the simpler seasonal-naive. Never train on any point in the evaluated holdout. Before eligible comparison, use the qualified baseline and label the lack of selection evidence.
+- Prediction intervals are optional, not fabricated. A version may publish empirically calibrated intervals only after held-out coverage and width are recorded over at least20 rolling forecast origins. Otherwise return null interval with UNCALIBRATED, plus method/history limitations. A run-rate line is not labelled a calibrated90% confidence interval.
+- Default anomaly baseline is the previous28 complete daily observations, excluding current point. Use same-weekday cohorts only when at least8 prior comparable weekdays exist. Score `abs(current−median)/(1.4826×MAD)`; flag when score≥3.5 and absolute impact≥max(10% of abs(median), one currency minor unit). Positive spend and refund streams are evaluated separately.
+- With MAD=0, equal current/baseline never flags. Use an explicitly labelled ABSOLUTE_DEVIATION rule when impact≥max(20% of abs(median), one minor unit); do not divide by epsilon and report a spurious huge z-score. Fixtures100→101 suppress and100→130 flag under this fallback. Missing days suppress evaluation; zero observed spend on a complete day is valid.
+- Candidate ranking uses absolute monetary impact. Default digest emits at most10 candidates per tenant/evaluation and groups related resources; suppressed candidates remain inspectable. This controls notification volume, not a claimed statistical false-discovery rate. Calibration and false-positive reviews may revise thresholds with a new model version.
+
+## Monitor defaults and command shape
+
+Default evaluation is hourly UTC over the last complete daily window for cost monitors; source-specific availability horizons decide which day is complete. Operational sync/SLA monitors may use5-minute windows. Sustained threshold breach requires2 eligible evaluations; recovery requires2 eligible nonbreaching evaluations. INSUFFICIENT_DATA never increments either counter. Cooldown1h; silence requires expiry, default24h. Manual resolve records a reason and does not claim measured recovery. A still-breaching condition may reopen only after the explicit cooldown/silence policy permits it.
+
+```json
+{
+  "metric": "spend", "metric_version": "v1", "currency": "USD",
+  "scope": {"account_ids": ["authorized-account-uuid"]},
+  "window": {"kind": "last_complete_day", "timezone": "UTC"},
+  "condition": {"type": "static_threshold", "operator": "gt", "value": "100.00"},
+  "partition_by": ["warehouse"], "schedule": {"every_minutes": 60},
+  "coverage_policy": "REQUIRE_COMPLETE", "minimum_data_status": "FINAL",
+  "breach_evaluations": 2, "recovery_evaluations": 2,
+  "cooldown_seconds": 3600, "destination_ids": ["authorized-destination-uuid"]
+}
+```
+
+A static monitor over100 at observations101/102 opens one incident; the next hourly103 attaches to the same incident; incomplete data leaves it open;99/98 confirms recovery. An evaluation retry at102 adds no duplicate occurrence or notification. Distinct partitions have distinct episodes and independent authorization checks.
+
+Forecast date arithmetic uses actual UTC calendar dates, never a compacted sequence with missing days removed. Eligible training windows must be contiguous and complete. Forecast remaining spend begins after the last complete actual date and includes source-lagged unobserved days as estimates; it does not skip them because the wall clock has advanced.
 
 
 ## Implementation sequence

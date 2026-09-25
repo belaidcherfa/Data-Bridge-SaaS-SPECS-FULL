@@ -3840,7 +3840,8 @@
       "dependencies": [
         "WRK-005",
         "API-005",
-        "ORC-005"
+        "ORC-005",
+        "GOV-005"
       ],
       "status": "NOT_STARTED",
       "user_story": {

@@ -129,7 +129,7 @@ The [machine index](docs/00-project/task-index.json) owns IDs, hierarchy, depend
 | 121 | [RPT-003 — Implement and visually qualify eight report templates](docs/tasks/RPT/RPT-003.md) | E-RPT-01 | M7 | RPT-002, ALC-008, GOV-008, WRK-005, UX-007 |
 | 122 | [RPT-004 — Implement calendar schedules and report occurrence planning](docs/tasks/RPT/RPT-004.md) | E-RPT-01 | M7 | RPT-003, GOV-007 |
 | 123 | [RPT-005 — Implement report history, secure access and retention](docs/tasks/RPT/RPT-005.md) | E-RPT-01 | M7 | RPT-004, SEC-008, CTL-007 |
-| 124 | [INS-001 — Build insight registry and evidence publication](docs/tasks/INS/INS-001.md) | E-INS-01 | M8 | WRK-005, API-005, ORC-005 |
+| 124 | [INS-001 — Build insight registry and evidence publication](docs/tasks/INS/INS-001.md) | E-INS-01 | M8 | WRK-005, API-005, ORC-005, GOV-005 |
 | 125 | [INS-002 — Implement warehouse optimization detectors](docs/tasks/INS/INS-002.md) | E-INS-01 | M8 | INS-001, FIN-004, UX-005 |
 | 126 | [INS-003 — Implement query and pipeline optimization detectors](docs/tasks/INS/INS-003.md) | E-INS-01 | M8 | INS-001, WRK-002, WRK-004 |
 | 127 | [INS-004 — Implement storage and ingestion optimization detectors](docs/tasks/INS/INS-004.md) | E-INS-01 | M8 | INS-001, FIN-006, FIN-011, FIN-012 |

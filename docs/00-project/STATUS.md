@@ -1,12 +1,15 @@
 # Delivery status
 
-Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementation: **NOT_STARTED**.
+Updated: 2026-09-25 UTC. Documentation delivery: **COMPLETE**. Product implementation: **NOT_STARTED**.
 
 ## DONE
 
 - Complete 159-section PRD read and preserved; original repository was empty.
 - Root master plan, delivery methodology, architecture, dependency graph and milestones published in requested order.
-- Ten ADRs establish canonical boundaries and resolve financial/security/ingestion ambiguities.
+- Twelve ADRs establish canonical boundaries and resolve financial, security, ingestion, recovery and commercial ambiguities.
+- Delivery inventory: 206 files, including 204 Markdown documents and two JSON indexes; 20 domains, 151 implementation tasks, 604 numbered micro-tasks and 13 production-oriented milestones.
+- [Task index](../../TASK_INDEX.md), [machine execution graph](task-index.json), [59-area / 159-section traceability](TRACEABILITY.md), [research register](RESEARCH_REGISTER.md) and [global coherence audit](COHERENCE_AUDIT.md) completed.
+- Dependency, link, task-format and UX-state checks pass; 17 independent numerical fixture calculations pass. Corrections published file by file through the GitHub API to main.
 - Domain specifications published file by file:
 
 - [FND — Engineering foundation and local development](../../docs/01-architecture/engineering.md) — 6 task specifications; implementation NOT_STARTED.
@@ -27,14 +30,16 @@ Updated: 2026-09-23 UTC. Work type: specification authoring. Product implementat
 - [RPT — Reporting, rendering and secure scheduled distribution](../../docs/14-reporting/reporting.md) — 5 task specifications; implementation NOT_STARTED.
 - [OPS — Operational quality, security qualification and recovery](../../docs/16-observability/operations.md) — 11 task specifications; implementation NOT_STARTED.
 - [REL — Production readiness and release qualification](../../docs/19-production-readiness/readiness.md) — 4 task specifications; implementation NOT_STARTED.
+- [ONB — Customer onboarding and first-value acceptance](../../docs/18-customer-onboarding/onboarding.md) — 5 task specifications; implementation NOT_STARTED.
+- [LCH — Commercial activation, first release and post-launch validation](../../docs/20-launch/launch.md) — 4 task specifications; implementation NOT_STARTED.
 
 ## IN PROGRESS
 
-Progressive domain deep dives and granular implementation task publication. Local draft domains are not counted as published.
+None for specification authoring. No implementation task is claimed complete by this documentation delivery.
 
 ## NEXT
 
-Continue the next domain in `docs/tasks/README.md`; after all domains, publish the complete machine index and PRD traceability, audit links/dependencies/formulas/security, and correct through the GitHub API.
+When implementation is authorized, begin with [FND-001](../tasks/FND/FND-001.md), then select ready tasks from the topological index. Read each canonical contract and exact prerequisites; implement and validate one bounded task at a time. Do not begin product implementation under the completed documentation-only request.
 
 ## BLOCKED
 
@@ -42,7 +47,7 @@ No documentation blocker. No AWS/Snowflake production resources, real customers 
 
 ## DECISIONS MADE
 
-Physical tenant keys; organization-first model; account-specific WIF; identity-bound analytical authorization; manifest acceptance and contiguous coverage; additive charges separate from attribution; signed adjustments; maturity/reconciliation/close separation; versioned configuration publication; sanitize before persistence. See the ADR register.
+Physical tenant keys; organization-first model; account-specific WIF; identity-bound analytical authorization; manifest acceptance and contiguous coverage; additive charges separate from attribution; signed adjustments; maturity/reconciliation/close separation; versioned configuration publication; sanitize before persistence; canonical snapshots beyond raw retention; verified manual B2B payment for the first customer. See the [ADR register](../architecture/adr/README.md).
 
 ## RISKS
 
@@ -50,8 +55,8 @@ Source permissions/retention/latency/reseller limitations; changing vendor/adapt
 
 ## OPEN VALIDATIONS
 
-Pinned-stack WIF and dbt compatibility; AWS region/quotas and actual identifiers; live Snowflake schemas/grants; end-to-end isolation; numerical reconciliation against customer billing; scale and disaster recovery; legal/customer/commercial acceptance. These are future implementation gates, not claimed successes.
+The [open validation register](OPEN_VALIDATIONS.md) assigns owners and milestone gates for pinned-stack WIF/dbt compatibility, actual AWS region/quotas/identifiers, live Snowflake schemas/grants, end-to-end isolation, customer billing reconciliation, scale/recovery, communications, legal/customer approval, actual payment and post-launch reviews. All remain NOT_RUN until implementation produces the required evidence.
 
 ## Resume
 
-Read the master plan, ADRs and last published domain; inspect GitHub before updating files and use current blob SHAs. All implementation tasks remain NOT_STARTED until their own evidence is accepted. Documentation publication is not task execution.
+Read the master plan, ADRs, task index and this status. Inspect GitHub before editing and use current blob SHAs. Preserve the supplied PRD byte-for-byte and keep one canonical definition for each contract. All 151 implementation tasks remain NOT_STARTED until their own evidence is accepted. Documentation publication is not task execution.

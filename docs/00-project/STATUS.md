@@ -1,13 +1,13 @@
 # Delivery status
 
-Updated: 2026-09-26 UTC. Engineering specification delivery: **COMPLETE**. Production implementation: **NOT_STARTED**. UI/UX design and standalone React prototype: **IN PROGRESS**, explicitly authorized as a new phase.
+Updated: 2026-09-26 UTC. Engineering specification delivery: **COMPLETE**. Production implementation: **NOT_STARTED**. UI/UX design and standalone React prototype: **COMPLETE**, explicitly authorized as a new phase.
 
 ## DONE
 
 - Complete 159-section PRD read and preserved; original repository was empty.
 - Root master plan, delivery methodology, architecture, dependency graph and milestones published in requested order.
-- Twelve ADRs establish canonical boundaries and resolve financial, security, ingestion, recovery and commercial ambiguities.
-- Delivery inventory: 206 files, including 204 Markdown documents and two JSON indexes; 20 domains, 151 implementation tasks, 604 numbered micro-tasks and 13 production-oriented milestones.
+- The first twelve ADRs establish canonical boundaries and resolve financial, security, ingestion, recovery and commercial ambiguities.
+- Engineering baseline delivered on 2026-09-25: 206 files, including 204 Markdown documents and two JSON indexes; 20 domains, 151 implementation tasks, 604 numbered micro-tasks and 13 production-oriented milestones.
 - [Task index](../../TASK_INDEX.md), [machine execution graph](task-index.json), [59-area / 159-section traceability](TRACEABILITY.md), [research register](RESEARCH_REGISTER.md) and [global coherence audit](COHERENCE_AUDIT.md) completed.
 - Dependency, link, task-format and UX-state checks pass; 17 independent numerical fixture calculations pass. Corrections published file by file through the GitHub API to main.
 - Domain specifications published file by file:
@@ -35,7 +35,7 @@ Updated: 2026-09-26 UTC. Engineering specification delivery: **COMPLETE**. Produ
 
 ## IN PROGRESS
 
-New UI/UX phase: detailed ASCII screens, reusable visual foundations and an independent React mockup in `prototypes/finops-react`. Reference identity reviewed from `belaidcherfa/snowbridge-finops-mvp`; application logic is rebuilt from the canonical Bridge specs. Publish each coherent file/unit to main. Original production tasks remain NOT_STARTED.
+No open design/prototype implementation item. Final publication verification compares local files with main. Production backend, security and cloud work remain NOT_STARTED.
 
 ## NEXT
 
@@ -61,9 +61,20 @@ The [open validation register](OPEN_VALIDATIONS.md) assigns owners and milestone
 
 Read the master plan, ADRs, task index and this status. Inspect GitHub before editing and use current blob SHAs. Preserve the supplied PRD byte-for-byte and keep one canonical definition for each contract. All 151 implementation tasks remain NOT_STARTED until their own evidence is accepted. Documentation publication is not task execution.
 
-## UI/UX continuation
+## UI/UX delivery — 2026-09-26
 
-DONE: reference identity and canonical product contracts inspected; design workbench opened.
-IN PROGRESS: screen specifications and clean React application.
-NEXT: page catalog, domain wireframes, interactive shared components, browser checks and publication audit.
-BLOCKED: none.
+DONE:
+
+- [87 screen designs](../21-ui-ux/SCREEN_INDEX.md), across 26 page documents: each route has desktop ASCII, specific KPIs/columns, dialog, mobile structure, 13 UX requirements and validation criteria.
+- [Shared foundations/components](../21-ui-ux/COMPONENTS.md) and conserved synthetic financial fixtures; [ADR-013](../architecture/adr/ADR-013-ui-design-prototype.md) records the clean prototype boundary.
+- [Standalone React prototype](../../prototypes/finops-react/README.md), with imported shared components, all routes, charts, tables, scope, Explain, local forms, simulation, review states and responsive navigation.
+- Nine unit/contract/financial tests pass. Nine browser test cases pass, including all 87 routes and automated accessibility on six key compositions; the tablet monetary-wrap regression also passes its targeted rerun.
+- TypeScript and production build pass; desktop/mobile/reflow visual review completed. [Design validation report](../21-ui-ux/VALIDATION.md) records evidence and limits.
+- Published sequentially through GitHub API to main. The reference repository was read for identity only.
+
+IN PROGRESS: none for this bounded design/mockup delivery.
+NEXT: review the ASCII catalog and run the prototype; use the original task graph when production implementation is authorized.
+BLOCKED: none for design delivery.
+DECISIONS MADE: separate clean prototype; synthetic fixtures; explicit fixed scopes; no reference backend/code import; no production task completion implied.
+RISKS: mock identity/denial states cannot establish real tenant security; required-only prototype forms do not replace server validation.
+OPEN VALIDATIONS: production APIs, authentication/authorization, WIF/Snowflake/AWS, real financial reconciliation, notification/report jobs, payment and assistive-technology qualification remain in the original validation register.

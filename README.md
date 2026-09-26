@@ -1,6 +1,8 @@
 # Bridge Data FinOps — Engineering delivery system
 
-Implementation-ready specification for the journey from an empty repository to the first paying production customer. **Product implementation has not started.** This repository contains the plan, canonical contracts, decisions and validation requirements; no AWS deployment, Snowflake customer connection or payment is claimed.
+Implementation-ready specification for the journey from an empty repository to the first paying production customer. **Production implementation has not started.** This repository contains the plan, canonical contracts, decisions and validation requirements; no AWS deployment, Snowflake customer connection or payment is claimed.
+
+A new authorized design phase adds [87 detailed ASCII screens](docs/21-ui-ux/SCREEN_INDEX.md) and a [standalone React prototype](prototypes/finops-react/README.md), with shared components, synthetic KPI fixtures and interactive review states. [Design workbench](docs/21-ui-ux/README.md).
 
 Start with [PROJECT_MASTER_PLAN](PROJECT_MASTER_PLAN.md), [DELIVERY_METHODOLOGY](DELIVERY_METHODOLOGY.md), [ARCHITECTURE_OVERVIEW](ARCHITECTURE_OVERVIEW.md), [DEPENDENCY_GRAPH](DEPENDENCY_GRAPH.md) and [MILESTONES](MILESTONES.md).
 

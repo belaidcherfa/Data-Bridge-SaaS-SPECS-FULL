@@ -2,7 +2,7 @@
 
 Design unit: `warehouses`. Owner: UX / Frontend / QA. [Design index](../SCREEN_INDEX.md) · [Shared foundations](../FOUNDATIONS.md) · [Canonical domain](../../10-frontend/workloads.md).
 
-This file covers 2 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
+This file covers 3 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
 
 ## warehouses — Warehouses
 
@@ -28,7 +28,7 @@ Goal: Find the balance between performance and spend.
 | 20,000 minus 14,000  ||  7,488 Finance + 4,992 Marketing                                                 |
 +----------------------------------------------------------------------------------------------------------+
 +----------------------------------------------------------------------------------------------------------+
-| SUBPAGES: ANALYTICS_PROD [>]                                                                             |
+| SUBPAGES: ANALYTICS_PROD [>] | Warehouse performance [>]                                                 |
 +----------------------------------------------------------------------------------------------------------+
 +----------------------------------------------------------------------------------------------------------+
 | COST BY WAREHOUSE                                                                                        |
@@ -73,7 +73,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 - **Efficiency**: Classic query 14,000 + idle 6,000 = warehouse 20,000. Adaptive warehouses do not expose fabricated classic idle.
 - **DataTable** columns, in order: Warehouse, Type, Cost USD, Owner. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
 - **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
-- **Drilldowns**: `/warehouse-detail`. Use named links; never assume every row represents the same execution.
+- **Drilldowns**: `/warehouse-detail`, `/warehouse-performance`. Use named links; never assume every row represents the same execution.
 
 ### Detail / dialog composition
 
@@ -104,7 +104,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 | Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
 | Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
 | Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
-| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Related routes: warehouse-detail. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Related routes: warehouse-detail, warehouse-performance. |
 | Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
 | Acceptance criteria | Fixture values equal the KPI contract; An unavailable resource is not included in totals; label its capability and data coverage. |
 
@@ -287,6 +287,149 @@ At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels on
 - [ ] Open `#/warehouse-detail` directly and through the named navigation; heading and browser history agree.
 - [ ] Assert every KPI above against its fixture scope; verify `warehouse` explanation and status.
 - [ ] Inspect exact columns: Workload, Query compute USD, Share, Evidence. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## warehouse-performance — Warehouse performance
+
+Route: `/warehouse-performance` (prototype `#/warehouse-performance`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Queue, utilization and failures qualified by observation coverage.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Warehouse performance                                                 |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Queue, utilization and failures qualified by observation coverage.                                       |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| P95 EXECUTION: 18.6 s [i]  ||  COMPLETED QUERIES: 12,480 [i]                                             |
+| Individual query percentile · synthetic  ||  7,488 Finance + 4,992 Marketing                             |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| FAILED EXECUTIONS: 0 [i]  ||  WAREHOUSE UTILIZATION: — [i]                                               |
+| Fully observed selected fixture  ||  Unavailable: telemetry not observed                                 |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| CAPACITY CONTEXT                                                                                         |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Warehouse type, size, cluster policy, queue time and spill must be read together; a high cost alone does |
+| not prove oversizing.                                                                                    |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| PEOPLE AND APPLICATIONS                                                                                  |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Known service aliases are query metadata, not proof of human ownership. Business tags remain the         |
+| ownership layer.                                                                                         |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Measure                   | Value                     | Unit                      | Method                    |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| P50 duration              | 2.4                       | seconds                   | Individual executions     |
+| P95 duration              | 18.6                      | seconds                   | Individual executions     |
+| Utilization               | —                         | percent                   | Not observed              |
+| Failures                  | 0                         | executions                | Complete query fixture    |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| Utilization unavailable is never zero. Resource modifications require a separately approved action.      |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `p95` | P95 execution: **18.6 s** | Individual query percentile · synthetic | August 2026 / synthetic; Observed |
+| `queries` | Completed queries: **12,480** | 7,488 Finance + 4,992 Marketing | August 2026 / synthetic; Observed |
+| `failed` | Failed executions: **0** | Fully observed selected fixture | August 2026 / synthetic; Observed |
+| `utilization` | Warehouse utilization: **—** | Unavailable: telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Capacity context**: Warehouse type, size, cluster policy, queue time and spill must be read together; a high cost alone does not prove oversizing.
+- **People and applications**: Known service aliases are query metadata, not proof of human ownership. Business tags remain the ownership layer.
+- **DataTable** columns, in order: Measure, Value, Unit, Method. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `warehouses`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Queue, utilization and failures qualified by observation coverage. |
+| Entry point | Parent route /warehouses; deep link supported. |
+| Happy path | Read context → inspect Capacity context → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No warehouse performance for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; Utilization unavailable is never zero. Resource modifications require a separately approved action. |
+
+### Domain subtleties
+
+Utilization unavailable is never zero. Resource modifications require a separately approved action.
+
+Known service aliases are query metadata, not proof of human ownership. Business tags remain the ownership layer.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Warehouse performance                    |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Capacity context                         |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/warehouse-performance` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `p95` explanation and status.
+- [ ] Inspect exact columns: Measure, Value, Unit, Method. Search an existing row and a nonexistent token; sorting and exported rows agree.
 - [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
 - [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
 - [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.

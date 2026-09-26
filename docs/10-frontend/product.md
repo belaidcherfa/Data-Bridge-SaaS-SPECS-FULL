@@ -46,3 +46,7 @@ Every page task below specifies persona, goal, entry, happy path, all states, dr
 ## Domain acceptance
 
 Each task must satisfy its numerical/security/recovery oracle and the [global delivery standard](../../DELIVERY_METHODOLOGY.md). All customer-visible features must carry the documented UX states. No live test has been performed by this specification.
+
+## Detailed design extension
+
+The authorized UI/UX phase provides [87 screen specifications in ASCII](../21-ui-ux/SCREEN_INDEX.md), [shared component contracts](../21-ui-ux/COMPONENTS.md), [fixture scope](../21-ui-ux/FIXTURES_AND_SCOPE.md) and a [standalone React mockup](../../prototypes/finops-react/README.md). [ADR-013](../architecture/adr/ADR-013-ui-design-prototype.md) records its boundaries. This extends presentation detail without changing canonical production metrics, tenancy or implementation gates.

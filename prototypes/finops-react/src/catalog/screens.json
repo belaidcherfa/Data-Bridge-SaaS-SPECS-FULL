@@ -1,0 +1,3017 @@
+[
+  {
+    "id": "home",
+    "route": "/home",
+    "group": "Overview",
+    "title": "Your spend, in focus",
+    "description": "A clear view of cost, ownership and the next best action.",
+    "kind": "home",
+    "metrics": ["spend", "warehouse", "allocation", "potential"],
+    "columns": ["Driver", "Cost USD", "Comparison", "Next step"],
+    "rows": [
+      ["Warehouse compute", "20,000.00", "Unavailable", "Explore"],
+      ["Serverless", "1,800.00", "Unavailable", "Explore"],
+      ["Storage", "1,200.00", "Unavailable", "Explore"]
+    ],
+    "panels": [
+      {
+        "title": "Spend over time",
+        "body": "Daily signed net spend. Hover for exact USD; View data opens the same series."
+      },
+      {
+        "title": "What needs attention",
+        "body": "One invoice mismatch, one allocation decision, one warehouse opportunity. Prioritize separately from monetary totals."
+      },
+      {
+        "title": "Ownership snapshot",
+        "body": "Warehouse book: Finance 12,000; Marketing 8,000. Applies to 20,000 compute, not all organizational spend."
+      }
+    ],
+    "note": "August 2026 synthetic closed-period charges total 27,000 USD. Potential savings and September forecast are separate estimate contexts.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/product.md",
+    "children": [],
+    "persona": "FinOps lead / executive",
+    "document": "pages/home.md"
+  },
+  {
+    "id": "explorer",
+    "route": "/explorer",
+    "group": "Explore",
+    "title": "Cost Explorer",
+    "description": "Understand what changed, then follow the cost to its source.",
+    "kind": "explorer",
+    "metrics": ["spend", "warehouse", "storage", "orgnet"],
+    "columns": ["Service", "Net cost USD", "Basis", "Maturity"],
+    "rows": [
+      ["Warehouse", "20,000.00", "Charge", "RECONCILED"],
+      ["Cloud services", "1,000.00", "Net adjustment", "RECONCILED"],
+      ["Storage", "1,200.00", "Billed", "RECONCILED"],
+      ["Serverless", "1,800.00", "Charge", "RECONCILED"],
+      ["AI / Cortex", "600.00", "Charge", "RECONCILED"],
+      ["SPCS", "800.00", "Pool charge", "RECONCILED"],
+      ["Data transfer", "400.00", "Charge", "RECONCILED"],
+      ["Application fees", "1,000.00", "Charge", "RECONCILED"],
+      ["Organization support", "500.00", "Org only", "RECONCILED"],
+      ["Organization rebate", "-300.00", "Org only", "RECONCILED"]
+    ],
+    "panels": [
+      {
+        "title": "Daily spend",
+        "body": "Stack by approved service dimensions; signed rebates remain visible in the table."
+      },
+      {
+        "title": "Contribution to change",
+        "body": "Compare complete, equally covered periods only. July is unavailable in this fixture; no invented delta."
+      },
+      {
+        "title": "Analysis builder",
+        "body": "Select service or account grouping; retain filters in URL; export visible authorized rows."
+      }
+    ],
+    "note": "Only CHARGE facts contribute to spend. Query/idle attribution does not add to warehouse cost.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "08-finops-ledger/ledger.md",
+    "children": ["ledger", "services"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/explorer.md"
+  },
+  {
+    "id": "ledger",
+    "route": "/ledger",
+    "group": "Explore",
+    "title": "Billing ledger",
+    "description": "Every charge, adjustment and explanation in one place.",
+    "kind": "table",
+    "metrics": ["spend", "accountcost", "orgnet", "recon"],
+    "columns": ["Charge", "Scope", "Amount USD", "Evidence"],
+    "rows": [
+      ["Warehouse compute", "PRODUCTION", "20,000.00", "Metered"],
+      ["Cloud services net", "PRODUCTION", "1,000.00", "Daily adjusted"],
+      ["Storage", "PRODUCTION", "1,200.00", "Invoice basis"],
+      ["Serverless", "PRODUCTION", "1,800.00", "Service meter"],
+      ["Cortex", "PRODUCTION", "600.00", "Service meter"],
+      ["SPCS", "PRODUCTION", "800.00", "Pool meter"],
+      ["Transfer", "PRODUCTION", "400.00", "Metered"],
+      ["Application fees", "PRODUCTION", "1,000.00", "Contract"],
+      ["Support", "Organization", "500.00", "Statement"],
+      ["Rebate", "Organization", "-300.00", "Credit note"]
+    ],
+    "panels": [
+      {
+        "title": "Charge inspector",
+        "body": "Inspect charge ID, service, time grain, signed amount, price source and source lineage."
+      },
+      {
+        "title": "Version comparison",
+        "body": "Published v1=27,000. A hypothetical storage correction v2=26,900 is never silently substituted into a closed statement."
+      }
+    ],
+    "note": "Refunds are negative. Organization adjustments are not repeated under every account.",
+    "parent": "explorer",
+    "form": [],
+    "action": "Save view",
+    "contract": "08-finops-ledger/ledger.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/explorer.md"
+  },
+  {
+    "id": "services",
+    "route": "/services",
+    "group": "Explore",
+    "title": "Service breakdown",
+    "description": "Compare native cost components without double counting.",
+    "kind": "table",
+    "metrics": ["warehouse", "serverless", "cortex", "spcs"],
+    "columns": ["Service", "Amount USD", "Native unit", "Detail"],
+    "rows": [
+      ["Warehouse", "20,000.00", "Credits", "Warehouses"],
+      ["Serverless", "1,800.00", "Service credits", "Serverless"],
+      ["Cortex", "600.00", "Service dependent", "AI / Cortex"],
+      ["SPCS", "800.00", "Pool credits", "SPCS"]
+    ],
+    "panels": [
+      {
+        "title": "Service map",
+        "body": "Service families retain native units. Do not add tokens, credits, bytes and runtime."
+      },
+      {
+        "title": "Coverage",
+        "body": "A missing family is unavailable, not zero. Costs only become comparable after currency/basis alignment."
+      }
+    ],
+    "note": "Storage and transfer appear in the full explorer. This panel shows four compute-related service families.",
+    "parent": "explorer",
+    "form": [],
+    "action": "Save view",
+    "contract": "08-finops-ledger/ledger.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/explorer.md"
+  },
+  {
+    "id": "warehouses",
+    "route": "/warehouses",
+    "group": "Explore",
+    "title": "Warehouses",
+    "description": "Find the balance between performance and spend.",
+    "kind": "table",
+    "metrics": ["warehouse", "querycompute", "idle", "queries"],
+    "columns": ["Warehouse", "Type", "Cost USD", "Owner"],
+    "rows": [
+      ["ANALYTICS_PROD", "Classic", "20,000.00", "Finance"],
+      ["ADAPTIVE_LAB", "Adaptive", "—", "Not observed"]
+    ],
+    "panels": [
+      {
+        "title": "Cost by warehouse",
+        "body": "Only ANALYTICS_PROD contributes to the closed-period fixture; unavailable adaptive costs stay null."
+      },
+      {
+        "title": "Efficiency",
+        "body": "Classic query 14,000 + idle 6,000 = warehouse 20,000. Adaptive warehouses do not expose fabricated classic idle."
+      }
+    ],
+    "note": "An unavailable resource is not included in totals; label its capability and data coverage.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["warehouse-detail", "warehouse-performance"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/warehouses.md"
+  },
+  {
+    "id": "warehouse-detail",
+    "route": "/warehouse-detail",
+    "group": "Explore",
+    "title": "ANALYTICS_PROD",
+    "description": "Classic warehouse · PRODUCTION · Finance owned",
+    "kind": "warehouse",
+    "metrics": ["warehouse", "querycompute", "idle", "queries"],
+    "columns": ["Workload", "Query compute USD", "Share", "Evidence"],
+    "rows": [
+      ["finance_daily", "8,400.00", "60%", "Verified"],
+      ["marketing_refresh", "5,600.00", "40%", "Verified"]
+    ],
+    "panels": [
+      {
+        "title": "Cost composition",
+        "body": "20,000 billed warehouse = 14,000 query compute attribution + 6,000 idle; cloud services excluded."
+      },
+      {
+        "title": "Performance",
+        "body": "P50 2.4 s, P95 18.6 s; 12,480 completed executions. Percentiles computed over individual queries."
+      },
+      {
+        "title": "Configuration evidence",
+        "body": "Size Medium; auto suspend 300 s in synthetic evidence. Recommendations require an observation window, not one instantaneous setting."
+      }
+    ],
+    "note": "Tabs: Overview, Queries, Workloads, Performance, Evidence. Evidence is descriptive; this mockup never changes Snowflake configuration.",
+    "parent": "warehouses",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/warehouses.md"
+  },
+  {
+    "id": "queries",
+    "route": "/queries",
+    "group": "Explore",
+    "title": "Queries",
+    "description": "Cost and execution evidence, with privacy built in.",
+    "kind": "table",
+    "metrics": ["querycompute", "queries", "p95", "failed"],
+    "columns": ["Query group", "Count", "Compute USD", "Workload"],
+    "rows": [
+      ["Finance models", "7,488", "8,400.00", "dbt"],
+      ["Marketing refreshes", "4,992", "5,600.00", "Power BI"]
+    ],
+    "panels": [
+      {
+        "title": "Query cost distribution",
+        "body": "Grouped counts total 12,480; compute attribution totals 14,000. This is not total Snowflake spend."
+      },
+      {
+        "title": "Execution filters",
+        "body": "Filter by sanitized hash, status, workload, warehouse or complete UTC execution window."
+      }
+    ],
+    "note": "Table rows are grouped fixtures. Opening a representative execution does not imply all grouped executions have identical costs.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["query-detail", "query-executions"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/queries.md"
+  },
+  {
+    "id": "query-detail",
+    "route": "/query-detail",
+    "group": "Explore",
+    "title": "Query · q_demo_042",
+    "description": "Sanitized execution · completed · ANALYTICS_PROD",
+    "kind": "execution",
+    "metrics": ["singlequery", "duration", "queue", "rows"],
+    "columns": ["Stage", "Duration", "Evidence", "Status"],
+    "rows": [
+      ["Compilation", "0.4 s", "Query history", "Complete"],
+      ["Queue", "0.2 s", "Query history", "Complete"],
+      ["Execution", "11.8 s", "Query history", "Complete"]
+    ],
+    "panels": [
+      {
+        "title": "Execution timeline",
+        "body": "Compile 0.4 + queue 0.2 + execution 11.8 = total 12.4 seconds in this synthetic non-overlapping fixture."
+      },
+      {
+        "title": "Sanitized SQL",
+        "body": "SELECT region, SUM(amount) FROM analytics.sales WHERE customer_id = ? GROUP BY region; no raw literals, identity values or secrets."
+      },
+      {
+        "title": "Profile availability",
+        "body": "Historical August execution exceeds the on-demand plan window. Explain unavailable profile instead of drawing invented operator nodes."
+      }
+    ],
+    "note": "Cost 2.80 USD is query compute only and belongs inside the finance workload; never add it again to parent totals.",
+    "parent": "queries",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/queries.md"
+  },
+  {
+    "id": "workloads",
+    "route": "/workloads",
+    "group": "Explore",
+    "title": "Workloads",
+    "description": "Connect technical activity to business purpose.",
+    "kind": "table",
+    "metrics": ["querycompute", "queries", "classified", "unknown"],
+    "columns": ["Workload", "Type", "Compute USD", "Evidence"],
+    "rows": [
+      ["finance_daily", "dbt", "8,400.00", "Explicit metadata"],
+      ["marketing_refresh", "Power BI", "5,600.00", "Verified activity"]
+    ],
+    "panels": [
+      {
+        "title": "Workload mix",
+        "body": "Group by verified application type. Unknown metadata remains unknown, not force classified."
+      },
+      {
+        "title": "Execution hierarchy",
+        "body": "Project/application → environment → invocation/activity → model/hash → query. Native pipelines use verified parent IDs."
+      }
+    ],
+    "note": "Confidence and missing identifiers remain visible at every drilldown.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [
+      "dbt",
+      "power-bi",
+      "pipelines",
+      "procedures",
+      "dynamic-tables",
+      "native-apps",
+      "custom-apps",
+      "ad-hoc"
+    ],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "dbt",
+    "route": "/dbt",
+    "group": "Explore",
+    "title": "dbt intelligence",
+    "description": "Projects, invocations and model costs in context.",
+    "kind": "table",
+    "metrics": ["dbtcost", "dbtruns", "dbtmodels", "dbtfail"],
+    "columns": ["Project", "Environment", "Compute USD", "Identification"],
+    "rows": [
+      ["finance_daily", "Production", "8,400.00", "Verified query metadata"]
+    ],
+    "panels": [
+      {
+        "title": "Project trend",
+        "body": "Observed query compute, not a second billed cost stream."
+      },
+      {
+        "title": "Coverage",
+        "body": "The fixture contains verified invocation IDs. Without IDs, production shows inferred session groups without exact run-count claims."
+      }
+    ],
+    "note": "No artifact upload is required for baseline coverage; lineage detail is conditional on evidence.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["dbt-project"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "dbt-project",
+    "route": "/dbt-project",
+    "group": "Explore",
+    "title": "finance_daily",
+    "description": "dbt project · Production · Finance",
+    "kind": "table",
+    "metrics": ["dbtcost", "dbtruns", "dbtmodels", "dbtfail"],
+    "columns": ["Invocation", "Started UTC", "Cost USD", "Status"],
+    "rows": [
+      ["inv_0828", "Aug 28 02:00", "280.00", "Success"],
+      ["inv_0829", "Aug 29 02:00", "280.00", "Success"],
+      ["inv_0830", "Aug 30 02:00", "280.00", "Success"]
+    ],
+    "panels": [
+      {
+        "title": "Project performance",
+        "body": "30 observed invocations, three model groups, 8,400 total query compute over August."
+      },
+      {
+        "title": "Model contribution",
+        "body": "fct_sales 4,200; dim_customer 2,520; agg_revenue 1,680. These sum to project compute."
+      }
+    ],
+    "note": "Three displayed invocations are a sample of 30; sample subtotal 840 is not the full project total.",
+    "parent": "dbt",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["dbt-invocation", "dbt-model"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "dbt-invocation",
+    "route": "/dbt-invocation",
+    "group": "Explore",
+    "title": "Invocation · inv_0830",
+    "description": "finance_daily · Aug 30 02:00 UTC · verified invocation ID",
+    "kind": "pipeline",
+    "metrics": ["runcost", "runduration", "runmodels", "runstatus"],
+    "columns": ["Model", "Compute USD", "Wall time", "Status"],
+    "rows": [
+      ["fct_sales", "140.00", "8 min", "Success"],
+      ["dim_customer", "84.00", "4 min", "Success"],
+      ["agg_revenue", "56.00", "5 min", "Success"]
+    ],
+    "panels": [
+      {
+        "title": "Execution graph",
+        "body": "dim_customer and fct_sales run concurrently; agg_revenue follows. Wall duration 13 min; sum of model durations 17 min."
+      },
+      {
+        "title": "Critical path",
+        "body": "fct_sales → agg_revenue. Cost 140 + 84 + 56 = 280; overlap changes duration, not conserved cost."
+      }
+    ],
+    "note": "Graph links are verified in this fixture; missing lineage must not create inferred exact dependencies.",
+    "parent": "dbt-project",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "dbt-model",
+    "route": "/dbt-model",
+    "group": "Explore",
+    "title": "fct_sales",
+    "description": "Model history · finance_daily · sanitized query hash",
+    "kind": "table",
+    "metrics": ["modelcost", "modelruns", "modelp95", "modelfailure"],
+    "columns": ["Run", "Compute USD", "Rows processed", "Status"],
+    "rows": [
+      ["inv_0828", "140.00", "1.2 M", "Success"],
+      ["inv_0829", "140.00", "1.2 M", "Success"],
+      ["inv_0830", "140.00", "1.2 M", "Success"]
+    ],
+    "panels": [
+      {
+        "title": "Cost per execution",
+        "body": "30 observed model executions at 140 USD = 4,200 USD. Normalized cost uses actual processed units when available."
+      },
+      {
+        "title": "Regression investigation",
+        "body": "Compare common complete observations; distinguish changed query hash and changed data volume before claiming regression."
+      }
+    ],
+    "note": "No percentiles averaged across daily percentiles.",
+    "parent": "dbt-project",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "power-bi",
+    "route": "/power-bi",
+    "group": "Explore",
+    "title": "Power BI workloads",
+    "description": "Understand Snowflake cost behind business reporting.",
+    "kind": "table",
+    "metrics": ["pbicost", "pbiactivities", "pbiqueries", "unknown"],
+    "columns": ["Application", "Mode", "Compute USD", "Identification"],
+    "rows": [
+      ["Marketing reporting", "Import", "5,600.00", "Verified ActivityId"]
+    ],
+    "panels": [
+      {
+        "title": "Refresh and query patterns",
+        "body": "Import refreshes versus DirectQuery are separate classifications. Dataset/report identity is optional."
+      },
+      {
+        "title": "Scope of cost",
+        "body": "Only Snowflake compute is shown. Fabric capacity units and Power BI licensing are excluded."
+      }
+    ],
+    "note": "Unknown mode or missing ActivityId remains explicit.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["power-bi-activity"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "power-bi-activity",
+    "route": "/power-bi-activity",
+    "group": "Explore",
+    "title": "Activity · pbi_0830",
+    "description": "Marketing reporting · Import refresh · verified ActivityId",
+    "kind": "execution",
+    "metrics": ["pbiactivitycost", "pbiduration", "pbiquerycount", "runstatus"],
+    "columns": ["Step", "Queries", "Compute USD", "Evidence"],
+    "rows": [
+      ["Dimension refresh", "8", "56.00", "ActivityId"],
+      ["Fact refresh", "24", "168.00", "ActivityId"]
+    ],
+    "panels": [
+      {
+        "title": "Activity timeline",
+        "body": "32 queries in the representative activity; 224 USD belongs inside the 5,600 aggregate."
+      },
+      {
+        "title": "Report context",
+        "body": "Dataset: Marketing semantic model; report identity not observed. Do not guess report ownership from SQL text."
+      }
+    ],
+    "note": "Activity and monthly count metrics use distinct periods labelled in their panels.",
+    "parent": "power-bi",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "pipelines",
+    "route": "/pipelines",
+    "group": "Explore",
+    "title": "Native pipelines",
+    "description": "Tasks, procedures and dynamic tables with verified lineage.",
+    "kind": "table",
+    "metrics": ["pipelinecost", "pipelines", "pipelinefailure", "lag"],
+    "columns": ["Pipeline", "Type", "Cost USD", "Status"],
+    "rows": [
+      ["revenue_refresh", "Serverless task", "700.00", "Healthy"],
+      ["inventory_transform", "Dynamic table", "—", "No observations"]
+    ],
+    "panels": [
+      {
+        "title": "Pipeline overview",
+        "body": "Native IDs provide parent/child links; shared execution charges are attributed once."
+      },
+      {
+        "title": "Freshness",
+        "body": "Target lag is a service objective; distinguish current lag, observation coverage and failed activity."
+      }
+    ],
+    "note": "Serverless task cost is inside serverless 1,800, not an additional charge.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["pipeline-detail"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "pipeline-detail",
+    "route": "/pipeline-detail",
+    "group": "Explore",
+    "title": "revenue_refresh",
+    "description": "Serverless task graph · Finance · verified task IDs",
+    "kind": "pipeline",
+    "metrics": ["pipelinecost", "pipelines", "pipelinefailure", "lag"],
+    "columns": ["Node", "Role", "Cost USD", "Status"],
+    "rows": [
+      ["ingest_events", "Root", "280.00", "Success"],
+      ["aggregate_revenue", "Child", "420.00", "Success"]
+    ],
+    "panels": [
+      {
+        "title": "Dependency graph",
+        "body": "ingest_events precedes aggregate_revenue; total 700 USD once per charge identity."
+      },
+      {
+        "title": "Failure path",
+        "body": "A retry appears as an attempt under the same logical run. Inspect exact failed edge and safe evidence."
+      }
+    ],
+    "note": "No arbitrary customer-specific workflow code is implied.",
+    "parent": "pipelines",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "storage",
+    "route": "/storage",
+    "group": "Explore",
+    "title": "Storage",
+    "description": "Billed cost and retained bytes, clearly separated.",
+    "kind": "table",
+    "metrics": ["storage", "bytes", "retained", "databases"],
+    "columns": ["Database", "Billed USD", "Active bytes", "Retention"],
+    "rows": [
+      ["ANALYTICS", "840.00", "7 TB", "30 days"],
+      ["RAW", "360.00", "3 TB", "7 days"]
+    ],
+    "panels": [
+      {
+        "title": "Storage cost trend",
+        "body": "Billed storage 1,200 USD uses priced billing basis."
+      },
+      {
+        "title": "Byte composition",
+        "body": "10 TB current active gauge; retained 2 TB separately. Latest/time-weighted gauges are not summed across days."
+      }
+    ],
+    "note": "A latest byte reading does not alone explain a monthly storage invoice.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["storage-detail"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/storage.md"
+  },
+  {
+    "id": "storage-detail",
+    "route": "/storage-detail",
+    "group": "Explore",
+    "title": "ANALYTICS storage",
+    "description": "Database · PRODUCTION · byte and billing evidence",
+    "kind": "table",
+    "metrics": ["analyticsstorage", "analyticsbytes", "timeTravel", "failsafe"],
+    "columns": ["Object", "Latest active bytes", "Retention", "Owner"],
+    "rows": [
+      ["FCT_SALES", "5 TB", "30 days", "Finance"],
+      ["DIM_CUSTOMER", "2 TB", "30 days", "Finance"]
+    ],
+    "panels": [
+      {
+        "title": "Retention composition",
+        "body": "Active 7 TB; time travel 1.2 TB; fail-safe 0.4 TB. Different billing eligibility is explained, not assumed additive billed cost."
+      },
+      {
+        "title": "Safe recommendations",
+        "body": "Changing retention is an operational action requiring approvals; the prototype only tracks an action draft."
+      }
+    ],
+    "note": "Table-level billed attribution can be unavailable even when database billed amount exists.",
+    "parent": "storage",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/storage.md"
+  },
+  {
+    "id": "serverless",
+    "route": "/serverless",
+    "group": "Explore",
+    "title": "Serverless services",
+    "description": "The right unit and evidence for each managed service.",
+    "kind": "table",
+    "metrics": ["serverless", "taskcost", "pipecost", "otherServerless"],
+    "columns": ["Service", "Billed USD", "Unit", "Coverage"],
+    "rows": [
+      ["Tasks", "700.00", "Credits", "Complete"],
+      ["Snowpipe", "500.00", "Service units", "Complete"],
+      ["Clustering", "200.00", "Credits", "Complete"],
+      ["Search optimization", "200.00", "Credits", "Complete"],
+      ["Materialized views", "200.00", "Credits", "Complete"]
+    ],
+    "panels": [
+      {
+        "title": "Service distribution",
+        "body": "700 + 500 + 200 + 200 + 200 = 1,800 USD."
+      },
+      {
+        "title": "Resource drilldown",
+        "body": "Keep service-specific usage quantities and source timing; no universal warehouse idle KPI."
+      }
+    ],
+    "note": "Service unit and price basis come from the canonical ledger/source catalog.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["serverless-detail"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/serverless.md"
+  },
+  {
+    "id": "serverless-detail",
+    "route": "/serverless-detail",
+    "group": "Explore",
+    "title": "Snowpipe · ingest_events",
+    "description": "Ingestion service · PRODUCTION · August 2026",
+    "kind": "table",
+    "metrics": ["pipecost", "files", "ingested", "loadfail"],
+    "columns": ["Object", "Billed USD", "Files", "Status"],
+    "rows": [["ingest_events", "500.00", "42,000", "Healthy"]],
+    "panels": [
+      {
+        "title": "Usage and cost",
+        "body": "Files and loaded bytes explain activity but do not establish an invented per-file Snowflake billing rate."
+      },
+      {
+        "title": "Load evidence",
+        "body": "Deduplicated ingestion observations, failed files and replay history are separate from billed totals."
+      }
+    ],
+    "note": "Native fee basis must remain labelled when source or pricing revision changes.",
+    "parent": "serverless",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/serverless.md"
+  },
+  {
+    "id": "ai",
+    "route": "/ai",
+    "group": "Explore",
+    "title": "AI / Cortex",
+    "description": "AI spend with traceable cost layers and native usage.",
+    "kind": "table",
+    "metrics": ["cortex", "aitokens", "aiexecutions", "aicoverage"],
+    "columns": ["Family", "Billed USD", "Unit", "Coverage"],
+    "rows": [
+      ["AI functions", "400.00", "Tokens", "Observed"],
+      ["Cortex Search", "150.00", "Service credits", "Observed"],
+      ["Cortex Analyst", "50.00", "Service units", "Observed"]
+    ],
+    "panels": [
+      {
+        "title": "AI cost layers",
+        "body": "Total 600 USD by additive billed family. Child call allocation explains parent cost; it never adds another charge."
+      },
+      {
+        "title": "Unit discipline",
+        "body": "Tokens only cover token-based AI functions. Search/Analyst do not inherit token metrics without evidence."
+      }
+    ],
+    "note": "Model and token quantities are native evidence, not proof of a fabricated pricing formula.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["ai-family", "ai-search", "ai-analyst"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/ai.md"
+  },
+  {
+    "id": "ai-family",
+    "route": "/ai-family",
+    "group": "Explore",
+    "title": "AI functions",
+    "description": "Model and application usage · observed token-based calls",
+    "kind": "table",
+    "metrics": ["aifunctioncost", "aitokens", "aifunctioncalls", "tokenrate"],
+    "columns": ["Model alias", "Billed USD", "Observed tokens", "Application"],
+    "rows": [
+      ["approved-model-a", "280.00", "8 M", "Support summarizer"],
+      ["approved-model-b", "120.00", "4 M", "Catalog enrichment"]
+    ],
+    "panels": [
+      {
+        "title": "Application attribution",
+        "body": "Use verified request/application identifiers; unknown stays unassigned."
+      },
+      {
+        "title": "Unit economics",
+        "body": "400 USD / 12 M observed tokens = 33.3333 USD per million for this aggregate, an effective ratio rather than a vendor list price."
+      }
+    ],
+    "note": "Input and output token breakdown is unavailable in this fixture; do not invent it.",
+    "parent": "ai",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["ai-execution"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/ai.md"
+  },
+  {
+    "id": "ai-execution",
+    "route": "/ai-execution",
+    "group": "Explore",
+    "title": "AI execution · ai_042",
+    "description": "Support summarizer · verified parent request",
+    "kind": "execution",
+    "metrics": ["aicallcost", "aicalltokens", "aiduration", "runstatus"],
+    "columns": ["Layer", "Cost USD", "Role", "Additive"],
+    "rows": [
+      ["Parent request", "10.00", "Billed parent", "Yes"],
+      ["Child model call", "4.00", "Attribution", "No"],
+      ["Remaining parent", "6.00", "Attribution", "No"]
+    ],
+    "panels": [
+      {
+        "title": "Call tree",
+        "body": "Parent 10 contains child attribution 4 and residual 6. Display as nested composition, never a 20 USD table total."
+      },
+      {
+        "title": "Privacy",
+        "body": "Prompt and response content are unavailable by default. Show sanitized labels and permitted identifiers only."
+      }
+    ],
+    "note": "Representative 10 USD is included in the AI functions 400 USD.",
+    "parent": "ai-family",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/ai.md"
+  },
+  {
+    "id": "spcs",
+    "route": "/spcs",
+    "group": "Explore",
+    "title": "Snowpark Container Services",
+    "description": "Pool cost, service attribution and capacity signals.",
+    "kind": "table",
+    "metrics": ["spcs", "poolcount", "servicecount", "spcsunallocated"],
+    "columns": ["Compute pool", "Billed USD", "Services", "Allocation"],
+    "rows": [["pool_analytics", "800.00", "2", "Shared measured usage"]],
+    "panels": [
+      {
+        "title": "Pool cost",
+        "body": "The billed compute pool is the additive cost authority."
+      },
+      {
+        "title": "Attribution",
+        "body": "Forecast API 500 and feature worker 300 are allocations of the same 800 USD pool."
+      }
+    ],
+    "note": "Pool and service rows cannot be summed as independent billed charges.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["spcs-pool"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/spcs.md"
+  },
+  {
+    "id": "spcs-pool",
+    "route": "/spcs-pool",
+    "group": "Explore",
+    "title": "pool_analytics",
+    "description": "Container compute pool · PRODUCTION · shared",
+    "kind": "table",
+    "metrics": ["spcs", "servicecount", "spcsunallocated", "poolhours"],
+    "columns": ["Service", "Allocated USD", "Method", "Confidence"],
+    "rows": [
+      ["forecast_api", "500.00", "Measured usage", "Observed"],
+      ["feature_worker", "300.00", "Measured usage", "Observed"]
+    ],
+    "panels": [
+      {
+        "title": "Capacity profile",
+        "body": "Node-hours and utilization are operational evidence; absent service telemetry disables finer allocation."
+      },
+      {
+        "title": "Cost composition",
+        "body": "500 + 300 = 800. Unallocated is zero only because all synthetic pool cost is allocated."
+      }
+    ],
+    "note": "Do not multiply pool charge by service count.",
+    "parent": "spcs",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": ["spcs-service"],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/spcs.md"
+  },
+  {
+    "id": "tags",
+    "route": "/tags",
+    "group": "Allocate",
+    "title": "External Tag Studio",
+    "description": "Make cost ownership understandable and reviewable.",
+    "kind": "table",
+    "metrics": ["tagcoverage", "tagrules", "tagconflicts", "unowned"],
+    "columns": ["Dimension", "Values", "Coverage", "Source"],
+    "rows": [
+      ["Team", "Finance, Marketing", "100% warehouse", "External rules"],
+      ["Environment", "Production", "100% observed", "Native evidence"],
+      ["Cost center", "FIN-01, MKT-02", "100% warehouse", "Approved mapping"]
+    ],
+    "panels": [
+      {
+        "title": "Coverage by dimension",
+        "body": "Coverage denominator names its scope. External tags do not modify customer Snowflake tags."
+      },
+      {
+        "title": "Rule governance",
+        "body": "Versioned definitions, effective dates and provenance. Same-priority conflicts block publication."
+      }
+    ],
+    "note": "Access-relevant group changes require authorization review.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": ["tag-rule", "tag-preview"],
+    "persona": "Finance controller / team owner",
+    "document": "pages/tags.md"
+  },
+  {
+    "id": "tag-rule",
+    "route": "/tag-rule",
+    "group": "Allocate",
+    "title": "Rule · Finance ownership",
+    "description": "Typed rule editor · draft version 3",
+    "kind": "editor",
+    "metrics": ["tagmatches", "tagbefore", "tagafter", "tagconflicts"],
+    "columns": ["Condition", "Operator", "Value", "Result"],
+    "rows": [
+      ["project", "equals", "finance_daily", "Matches"],
+      ["environment", "equals", "production", "Matches"]
+    ],
+    "panels": [
+      {
+        "title": "Rule builder",
+        "body": "IF verified project equals finance_daily AND environment equals production THEN team=Finance. No arbitrary SQL/Python."
+      },
+      {
+        "title": "Precedence",
+        "body": "Priority 100; valid from Sep 01. Override is effective-dated and auditable."
+      }
+    ],
+    "note": "Save draft is local in the prototype; preview does not publish production facts.",
+    "parent": "tags",
+    "form": ["Rule name", "Dimension value", "Priority", "Effective from"],
+    "action": "Save rule draft",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/tags.md"
+  },
+  {
+    "id": "tag-preview",
+    "route": "/tag-preview",
+    "group": "Allocate",
+    "title": "Review tagging impact",
+    "description": "Simulation · ruleset v3 · input publication v1",
+    "kind": "review",
+    "metrics": ["tagmatches", "tagbefore", "tagafter", "tagconflicts"],
+    "columns": ["Impact", "Before", "After", "Review"],
+    "rows": [
+      ["Finance-owned workload", "Unclassified", "Finance", "Approved mapping"],
+      ["Query compute ownership", "0%", "100%", "Warehouse subset"]
+    ],
+    "panels": [
+      {
+        "title": "Before / after",
+        "body": "8,400 USD of query compute receives Finance ownership in this isolated rule preview."
+      },
+      {
+        "title": "Approval gate",
+        "body": "Block if any conflict, stale input, expired approval or access-relevant impact lacks security review."
+      }
+    ],
+    "note": "This preview changes one subset; it does not claim organization-wide allocation coverage.",
+    "parent": "tags",
+    "form": [],
+    "action": "Approve demo preview",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/tags.md"
+  },
+  {
+    "id": "allocation",
+    "route": "/allocation",
+    "group": "Allocate",
+    "title": "Allocation Studio",
+    "description": "A conserved, explainable path from cost to ownership.",
+    "kind": "allocation",
+    "metrics": ["warehouse", "financealloc", "marketingalloc", "unallocated"],
+    "columns": ["Target", "Query USD", "Idle USD", "Total USD"],
+    "rows": [
+      ["Finance", "8,400.00", "3,600.00", "12,000.00"],
+      ["Marketing", "5,600.00", "2,400.00", "8,000.00"]
+    ],
+    "panels": [
+      {
+        "title": "Allocation bridge",
+        "body": "Source warehouse 20,000 → query 14,000 + idle 6,000 → Finance 12,000 / Marketing 8,000."
+      },
+      {
+        "title": "Quality",
+        "body": "Book Teams v1 only. Other service costs are outside this book fixture, not silently allocated."
+      }
+    ],
+    "note": "Alternative Products and Teams books are not additive.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": ["allocation-rule", "allocation-preview"],
+    "persona": "Finance controller / team owner",
+    "document": "pages/allocation.md"
+  },
+  {
+    "id": "allocation-rule",
+    "route": "/allocation-rule",
+    "group": "Allocate",
+    "title": "Rule · Shared idle",
+    "description": "Versioned idle policy · warehouse compute only",
+    "kind": "editor",
+    "metrics": ["idle", "eligible", "financeweight", "marketingweight"],
+    "columns": ["Consumer", "Eligible query USD", "Weight", "Idle USD"],
+    "rows": [
+      ["Finance", "8,400.00", "60%", "3,600.00"],
+      ["Marketing", "5,600.00", "40%", "2,400.00"]
+    ],
+    "panels": [
+      {
+        "title": "Method selection",
+        "body": "Proportional to eligible query compute, or route idle to Platform. Zero denominator leaves UNALLOCATED unless approved fallback."
+      },
+      {
+        "title": "Scope and rounding",
+        "body": "Each charge once per book. Stable largest-remainder rounding preserves signed totals."
+      }
+    ],
+    "note": "Changing policy never mutates previously issued statements.",
+    "parent": "allocation",
+    "form": ["Rule name", "Idle policy", "Effective from", "Review reason"],
+    "action": "Save allocation draft",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/allocation.md"
+  },
+  {
+    "id": "allocation-preview",
+    "route": "/allocation-preview",
+    "group": "Allocate",
+    "title": "Allocation simulation",
+    "description": "Compare two policies before publishing",
+    "kind": "review",
+    "metrics": ["warehouse", "financealloc", "marketingalloc", "conservation"],
+    "columns": [
+      "Target",
+      "Proportional USD",
+      "Platform idle USD",
+      "Movement USD"
+    ],
+    "rows": [
+      ["Finance", "12,000.00", "8,400.00", "-3,600.00"],
+      ["Marketing", "8,000.00", "5,600.00", "-2,400.00"],
+      ["Platform", "0.00", "6,000.00", "+6,000.00"]
+    ],
+    "panels": [
+      {
+        "title": "Conservation gate",
+        "body": "Both policy versions total 20,000 USD. Difference is redistribution, not new savings."
+      },
+      {
+        "title": "Version gate",
+        "body": "Publication and rule hash pinned. A data revision invalidates approval and requires a rerun."
+      }
+    ],
+    "note": "Preview is a separate version; never sum before and after columns.",
+    "parent": "allocation",
+    "form": [],
+    "action": "Approve demo preview",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/allocation.md"
+  },
+  {
+    "id": "usage-groups",
+    "route": "/usage-groups",
+    "group": "Allocate",
+    "title": "Usage Groups",
+    "description": "Independent books for teams, products and cost centers.",
+    "kind": "table",
+    "metrics": ["groupbooks", "groupleaves", "unallocated", "groupconflicts"],
+    "columns": ["Book", "Hierarchy", "Source USD", "Status"],
+    "rows": [
+      ["Teams", "Finance / Marketing", "20,000.00", "Published"],
+      ["Products", "Core / Growth", "20,000.00", "Published"]
+    ],
+    "panels": [
+      {
+        "title": "Hierarchy",
+        "body": "Each charge appears once per book; weighted assignments conserve source cost."
+      },
+      {
+        "title": "Membership changes",
+        "body": "Effective-dated moves retain historical hierarchy versions; cycles rejected before preview."
+      }
+    ],
+    "note": "Two 20,000 books do not make 40,000 spend.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": ["usage-group-detail"],
+    "persona": "Finance controller / team owner",
+    "document": "pages/usage-groups.md"
+  },
+  {
+    "id": "usage-group-detail",
+    "route": "/usage-group-detail",
+    "group": "Allocate",
+    "title": "Finance group",
+    "description": "Teams book v1 · Finance ownership",
+    "kind": "table",
+    "metrics": ["financealloc", "financequery", "financeidle", "groupmembers"],
+    "columns": ["Member", "Role", "Scope", "Status"],
+    "rows": [
+      ["Alex Morgan", "Group viewer", "Finance only", "Active"],
+      ["Taylor Chen", "Group manager", "Finance only", "Active"]
+    ],
+    "panels": [
+      {
+        "title": "Group composition",
+        "body": "Finance total 12,000 = query 8,400 + idle allocation 3,600."
+      },
+      {
+        "title": "Permission boundary",
+        "body": "A Finance-only viewer cannot infer Marketing spend from percentages, totals or hidden member counts."
+      }
+    ],
+    "note": "This admin demo includes group context; production group-limited responses must be independently authorized.",
+    "parent": "usage-groups",
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/usage-groups.md"
+  },
+  {
+    "id": "showback",
+    "route": "/showback",
+    "group": "Allocate",
+    "title": "Showback",
+    "description": "Give every team a cost story they can act on.",
+    "kind": "table",
+    "metrics": ["warehouse", "financealloc", "marketingalloc", "allocation"],
+    "columns": ["Team", "Allocated USD", "Share of book", "Owner"],
+    "rows": [
+      ["Finance", "12,000.00", "60%", "Alex Morgan"],
+      ["Marketing", "8,000.00", "40%", "Taylor Chen"]
+    ],
+    "panels": [
+      {
+        "title": "Business view",
+        "body": "One selected book and period. Showback explains costs without transferring money."
+      },
+      {
+        "title": "Team drilldown",
+        "body": "Authorized team portal includes its own trend, workload evidence and approved opportunities."
+      }
+    ],
+    "note": "The portfolio view requires access to both teams; do not expose it to a restricted group viewer.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": ["showback-team"],
+    "persona": "Finance controller / team owner",
+    "document": "pages/showback.md"
+  },
+  {
+    "id": "showback-team",
+    "route": "/showback-team",
+    "group": "Allocate",
+    "title": "Finance showback",
+    "description": "Your team · August 2026 · Teams book v1",
+    "kind": "table",
+    "metrics": [
+      "financealloc",
+      "financequery",
+      "financeidle",
+      "teamopportunity"
+    ],
+    "columns": ["Component", "Allocated USD", "Method", "Evidence"],
+    "rows": [
+      ["Query compute", "8,400.00", "Direct ownership", "Verified workload"],
+      ["Idle share", "3,600.00", "Proportional allocation", "Approved policy"]
+    ],
+    "panels": [
+      {
+        "title": "What drove your cost",
+        "body": "Explain only authorized workload and shared-cost components."
+      },
+      {
+        "title": "Next action",
+        "body": "Review finance model schedule; potential opportunity 800 USD is an estimate, not realized savings."
+      }
+    ],
+    "note": "Do not show hidden tenant-wide denominators to team viewers.",
+    "parent": "showback",
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/showback.md"
+  },
+  {
+    "id": "chargeback",
+    "route": "/chargeback",
+    "group": "Allocate",
+    "title": "Chargeback statements",
+    "description": "Controlled, versioned internal cost statements.",
+    "kind": "table",
+    "metrics": ["statementtotal", "statementcount", "statementdraft", "close"],
+    "columns": ["Statement", "Team", "Amount USD", "Status"],
+    "rows": [
+      ["ST-2026-08-FIN", "Finance", "12,000.00", "Issued"],
+      ["ST-2026-08-MKT", "Marketing", "8,000.00", "Issued"]
+    ],
+    "panels": [
+      {
+        "title": "Statement lifecycle",
+        "body": "Draft → review → approve → issue; final/reconciled policy enforced before issue."
+      },
+      {
+        "title": "Correction",
+        "body": "A correction creates an adjustment/restatement linked to the original; issued lines remain immutable."
+      }
+    ],
+    "note": "These are internal cost statements, not legal sales invoices or customer SaaS billing.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "11-allocation/allocation.md",
+    "children": ["statement"],
+    "persona": "Finance controller / team owner",
+    "document": "pages/chargeback.md"
+  },
+  {
+    "id": "statement",
+    "route": "/statement",
+    "group": "Allocate",
+    "title": "ST-2026-08-FIN",
+    "description": "Finance · issued Sep 02 · immutable statement v1",
+    "kind": "statement",
+    "metrics": ["financealloc", "financequery", "financeidle", "close"],
+    "columns": ["Line", "Basis", "Amount USD", "Version"],
+    "rows": [
+      ["Owned query compute", "Direct", "8,400.00", "Teams v1"],
+      ["Allocated idle", "60% of 6,000", "3,600.00", "Teams v1"]
+    ],
+    "panels": [
+      {
+        "title": "Document header",
+        "body": "Recipient Finance, USD, Aug 01–31 UTC, source pub v1, allocation v1, RECONCILED, CLOSED."
+      },
+      {
+        "title": "Audit trail",
+        "body": "Prepared → reviewed → approved → issued with actor/time; export explains full monetary conservation."
+      }
+    ],
+    "note": "A later 100 USD storage correction lies outside this warehouse-only statement.",
+    "parent": "chargeback",
+    "form": [],
+    "action": "Preview statement",
+    "contract": "11-allocation/allocation.md",
+    "children": [],
+    "persona": "Finance controller / team owner",
+    "document": "pages/chargeback.md"
+  },
+  {
+    "id": "reconciliation",
+    "route": "/reconciliation",
+    "group": "Govern",
+    "title": "Reconciliation",
+    "description": "Know when reported cost agrees with billing.",
+    "kind": "table",
+    "metrics": ["ledgercompare", "invoicecompare", "recondelta", "reconfailed"],
+    "columns": ["Control", "Ledger USD", "Reference USD", "Result"],
+    "rows": [
+      ["Baseline fixture", "27,000.00", "27,000.00", "MATCHED"],
+      ["Mismatch scenario", "27,000.00", "27,100.00", "FAILED"]
+    ],
+    "panels": [
+      {
+        "title": "Control results",
+        "body": "Scenarios are alternatives, not additive references. Primary mismatch scenario is explicitly labelled."
+      },
+      {
+        "title": "Maturity policy",
+        "body": "Mismatch does not permit an unexplained plug. Reviewed reconciliation is distinct from closing the period."
+      }
+    ],
+    "note": "Comparison fixture has delta ledger minus reference = -100 USD; keep it visible until explained.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "08-finops-ledger/ledger.md",
+    "children": ["reconciliation-detail"],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reconciliation.md"
+  },
+  {
+    "id": "reconciliation-detail",
+    "route": "/reconciliation-detail",
+    "group": "Govern",
+    "title": "Investigate · August difference",
+    "description": "Mismatch scenario · ledger vs billing reference",
+    "kind": "review",
+    "metrics": ["ledgercompare", "invoicecompare", "recondelta", "reconfailed"],
+    "columns": ["Candidate", "Ledger USD", "Reference USD", "Difference USD"],
+    "rows": [
+      ["Net total", "27,000.00", "27,100.00", "-100.00"],
+      ["Explanation", "—", "—", "Unresolved"]
+    ],
+    "panels": [
+      {
+        "title": "Evidence checklist",
+        "body": "Align currency, organization scope, usage period, price basis, source completeness and contractual adjustments."
+      },
+      {
+        "title": "Resolution controls",
+        "body": "Record evidence and resolution type; never allow a cosmetic balancing row."
+      }
+    ],
+    "note": "Snapshot is a demo mismatch scenario independent of the matched baseline used by other pages.",
+    "parent": "reconciliation",
+    "form": [],
+    "action": "Record investigation",
+    "contract": "08-finops-ledger/ledger.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reconciliation.md"
+  },
+  {
+    "id": "budgets",
+    "route": "/budgets",
+    "group": "Govern",
+    "title": "Budgets",
+    "description": "Set a boundary. See risk before the month ends.",
+    "kind": "budget",
+    "metrics": ["budget", "budgetactual", "remaining", "forecast"],
+    "columns": ["Budget", "Period", "Actual USD", "Forecast USD"],
+    "rows": [["Organization plan", "Sep 01–30", "15,000.00", "30,000.00"]],
+    "panels": [
+      {
+        "title": "Burn and forecast",
+        "body": "Budget 28,000; actual through 15 complete days 15,000; burn 1,000/day; forecast 30,000."
+      },
+      {
+        "title": "Portfolio discipline",
+        "body": "Overlapping budgets are separate controls; never sum overlapping actuals as spend."
+      }
+    ],
+    "note": "September planning fixture is separate from August closed ledger. Forecast remains an estimate.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": ["budget-detail", "budget-new", "forecast"],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/budgets.md"
+  },
+  {
+    "id": "budget-detail",
+    "route": "/budget-detail",
+    "group": "Govern",
+    "title": "September organization plan",
+    "description": "USD · Sep 01–30 · actuals through Sep 15",
+    "kind": "budget",
+    "metrics": ["budgetactual", "remaining", "forecast", "forecastvariance"],
+    "columns": ["Threshold", "Basis", "Value", "Status"],
+    "rows": [
+      ["80% spent", "Actual / budget", "53.57%", "Not breached"],
+      ["100% forecast", "Forecast / budget", "107.14%", "At risk"]
+    ],
+    "panels": [
+      {
+        "title": "Forecast bridge",
+        "body": "Actual 15,000 + modeled remaining 15,000 = 30,000; forecast variance +2,000 USD / 7.142857%."
+      },
+      {
+        "title": "Policy",
+        "body": "Insufficient or partial observations suppress forecast rather than fabricating confidence intervals."
+      }
+    ],
+    "note": "Budget actual uses signed net cost. Forecast interval unavailable: uncalibrated run-rate fallback.",
+    "parent": "budgets",
+    "form": [],
+    "action": "Save view",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/budgets.md"
+  },
+  {
+    "id": "budget-new",
+    "route": "/budget-new",
+    "group": "Govern",
+    "title": "Create a budget",
+    "description": "Define scope, amount, owner and thresholds.",
+    "kind": "editor",
+    "metrics": ["budget", "budgetactual", "remaining", "forecast"],
+    "columns": ["Field", "Selected value", "Validation", "Reason"],
+    "rows": [
+      ["Currency", "USD", "Required", "No implicit FX"],
+      ["Amount", "28,000.00", "Positive decimal", "Minor-unit precision"],
+      ["Period", "September 2026", "UTC boundaries", "Complete calendar"]
+    ],
+    "panels": [
+      {
+        "title": "Scope builder",
+        "body": "Organization, account, service or authorized group. Preview exactly what will be measured."
+      },
+      {
+        "title": "Notifications",
+        "body": "Choose already-authorized destinations; no external message is sent by the mockup."
+      }
+    ],
+    "note": "Zero budget is allowed by production contract with null percentage variance; editor must explain this edge case.",
+    "parent": "budgets",
+    "form": ["Budget name", "Amount USD", "Owner", "Threshold percent"],
+    "action": "Save budget draft",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/budgets.md"
+  },
+  {
+    "id": "forecast",
+    "route": "/forecast",
+    "group": "Govern",
+    "title": "Forecast methodology",
+    "description": "Understand the estimate before relying on it.",
+    "kind": "table",
+    "metrics": ["forecast", "forecastvariance", "burnday", "history"],
+    "columns": ["Model", "History", "Calibration", "Selection"],
+    "rows": [
+      [
+        "Run-rate fallback",
+        "15 complete days",
+        "No interval",
+        "Eligible baseline"
+      ],
+      [
+        "Seasonal naive",
+        "Requires 28+ days",
+        "Not eligible",
+        "Insufficient history"
+      ]
+    ],
+    "panels": [
+      {
+        "title": "Observed / estimated boundary",
+        "body": "Solid actual line ends Sep 15; dotted estimate begins Sep 16 and includes every remaining calendar day."
+      },
+      {
+        "title": "Model governance",
+        "body": "Show training period, input publication, backtest eligibility and limitations. No invented 90% confidence band."
+      }
+    ],
+    "note": "The mockup illustrates the approved fallback, not a trained ML model.",
+    "parent": "budgets",
+    "form": [],
+    "action": "Save view",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/budgets.md"
+  },
+  {
+    "id": "monitors",
+    "route": "/monitors",
+    "group": "Govern",
+    "title": "Monitors & incidents",
+    "description": "Signals with enough context to make a decision.",
+    "kind": "table",
+    "metrics": ["monitors", "incidents", "insufficient", "silenced"],
+    "columns": ["Monitor", "Condition", "State", "Destination"],
+    "rows": [
+      ["Warehouse daily spend", "Over 100 USD twice", "OPEN", "FinOps email"],
+      [
+        "Missing finance run",
+        "Coverage required",
+        "INSUFFICIENT_DATA",
+        "Platform channel"
+      ]
+    ],
+    "panels": [
+      {
+        "title": "Incident inbox",
+        "body": "One episode per condition/partition; repeated evaluation attaches evidence rather than duplicate incidents."
+      },
+      {
+        "title": "Evaluation health",
+        "body": "Incomplete data never increments breach/recovery counters and never auto-resolves an incident."
+      }
+    ],
+    "note": "External notifications are simulated and labelled; none are sent.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": ["monitor-new", "incident"],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/monitors.md"
+  },
+  {
+    "id": "monitor-new",
+    "route": "/monitor-new",
+    "group": "Govern",
+    "title": "Create a monitor",
+    "description": "Choose a signal, its scope and the response.",
+    "kind": "editor",
+    "metrics": ["monitors", "incidents", "insufficient", "silenced"],
+    "columns": ["Setting", "Value", "Validation", "Purpose"],
+    "rows": [
+      ["Metric", "spend USD", "Registry-backed", "Same formula as explorer"],
+      ["Threshold", "100.00", "Decimal", "Static breach"],
+      ["Confirmations", "2", "Positive integer", "Avoid flapping"]
+    ],
+    "panels": [
+      {
+        "title": "Condition builder",
+        "body": "Dataset, metric, aggregation, complete window, condition, partition dimensions, cadence, severity, maturity and coverage."
+      },
+      {
+        "title": "Preview evaluation",
+        "body": "101, 102 opens one incident; 103 attaches; missing data holds; 99, 98 recovers. Retry 102 does not duplicate."
+      }
+    ],
+    "note": "Destinations are references; never expose webhook credentials in UI.",
+    "parent": "monitors",
+    "form": [
+      "Monitor name",
+      "Threshold USD",
+      "Partition dimension",
+      "Destination"
+    ],
+    "action": "Save monitor draft",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/monitors.md"
+  },
+  {
+    "id": "incident",
+    "route": "/incident",
+    "group": "Govern",
+    "title": "Incident · daily warehouse spend",
+    "description": "High priority · ANALYTICS_PROD · one active episode",
+    "kind": "incident",
+    "metrics": ["incidentvalue", "threshold", "occurrences", "incidentage"],
+    "columns": ["Evaluation", "Value USD", "Coverage", "Outcome"],
+    "rows": [
+      ["09:00 UTC", "101.00", "Complete", "First breach"],
+      ["10:00 UTC", "102.00", "Complete", "Opened"],
+      ["11:00 UTC", "103.00", "Complete", "Attached"],
+      ["12:00 UTC", "—", "Incomplete", "Hold state"]
+    ],
+    "panels": [
+      {
+        "title": "Investigation timeline",
+        "body": "Assign → acknowledge → investigate → resolve. Manual resolve records reason and does not claim measured recovery."
+      },
+      {
+        "title": "Notifications",
+        "body": "Delivery attempts belong to a logical event ID; ambiguous provider timeout may yield duplicate delivery."
+      }
+    ],
+    "note": "This monitor fixture uses its own daily evaluation period, not the August cumulative total.",
+    "parent": "monitors",
+    "form": [],
+    "action": "Acknowledge incident",
+    "contract": "12-budgets-monitoring/governance.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/monitors.md"
+  },
+  {
+    "id": "reports",
+    "route": "/reports",
+    "group": "Govern",
+    "title": "Reports",
+    "description": "Decision-ready reports, built from the same numbers.",
+    "kind": "table",
+    "metrics": [
+      "reporttemplates",
+      "reportschedules",
+      "reportfail",
+      "reportready"
+    ],
+    "columns": ["Template", "Audience", "Basis", "Cadence"],
+    "rows": [
+      ["Executive FinOps", "Leadership", "Signed net spend", "Weekly"],
+      ["CFO Monthly", "Finance", "Ledger / reconciliation", "Monthly"],
+      ["Platform Review", "Engineering", "Cost / performance", "Weekly"],
+      ["Team Showback", "Team owner", "Selected book", "Monthly"],
+      ["Chargeback Statement", "Finance", "Closed statement", "Monthly"],
+      ["Warehouse Review", "Platform", "Warehouse component", "Weekly"],
+      ["dbt Review", "Data team", "Query compute", "Weekly"],
+      ["AI / Cortex Review", "AI owner", "Billed family", "Monthly"]
+    ],
+    "panels": [
+      {
+        "title": "Template library",
+        "body": "Eight approved templates. Widgets use shared metrics and retain scope/maturity/as-of."
+      },
+      {
+        "title": "Delivery history",
+        "body": "Generation, authorization and delivery are separate states; a ready artifact is not proof of delivery."
+      }
+    ],
+    "note": "Prototype offers printable preview and CSV. Production PDF worker and scheduled delivery are not implemented.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "14-reporting/reporting.md",
+    "children": ["report-builder", "report-schedule", "report-history"],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reports.md"
+  },
+  {
+    "id": "report-builder",
+    "route": "/report-builder",
+    "group": "Govern",
+    "title": "Executive FinOps report",
+    "description": "Arrange a narrative from verified metrics.",
+    "kind": "editor",
+    "metrics": ["spend", "warehouse", "storage", "orgnet"],
+    "columns": ["Block", "Metric", "Scope", "Display"],
+    "rows": [
+      ["Summary", "spend", "Organization", "KPI"],
+      ["Cost drivers", "service cost", "Organization", "Breakdown"],
+      ["Ownership", "allocated cost", "Teams book", "Table"]
+    ],
+    "panels": [
+      {
+        "title": "Canvas",
+        "body": "Header → KPI strip → trend → service table → coverage footer. Move optional blocks without changing their formulas."
+      },
+      {
+        "title": "Preview",
+        "body": "Show page breaks, repeated table headers, currency, period, as-of and source publication."
+      }
+    ],
+    "note": "No user HTML, scripts or arbitrary remote URLs in report definitions.",
+    "parent": "reports",
+    "form": ["Report title", "Template", "Owner", "Footer note"],
+    "action": "Save report draft",
+    "contract": "14-reporting/reporting.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reports.md"
+  },
+  {
+    "id": "report-schedule",
+    "route": "/report-schedule",
+    "group": "Govern",
+    "title": "Schedule a report",
+    "description": "Deliver to authorized recipients at a predictable time.",
+    "kind": "editor",
+    "metrics": ["reportschedules", "reportready", "reportfail", "nextdelivery"],
+    "columns": ["Setting", "Value", "Policy", "Preview"],
+    "rows": [
+      ["Cadence", "Monthly", "Day 31 clamps", "Sep 30"],
+      ["Time zone", "UTC", "Explicit IANA zone", "09:00 UTC"],
+      ["Recipients", "Finance group", "Reauthorize at send", "2 demo users"]
+    ],
+    "panels": [
+      {
+        "title": "Calendar subtleties",
+        "body": "DST gap skipped and logged; ambiguous time uses earlier offset once; default catch-up only most recent missed occurrence."
+      },
+      {
+        "title": "Secure distribution",
+        "body": "Authenticated links by default; permission revoked before dispatch pauses/regenerates under narrower scope."
+      }
+    ],
+    "note": "Saving a local schedule never triggers real email.",
+    "parent": "reports",
+    "form": ["Schedule name", "Cadence", "Time UTC", "Recipient group"],
+    "action": "Save schedule draft",
+    "contract": "14-reporting/reporting.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reports.md"
+  },
+  {
+    "id": "report-history",
+    "route": "/report-history",
+    "group": "Govern",
+    "title": "Report history",
+    "description": "Track generation and delivery independently.",
+    "kind": "table",
+    "metrics": [
+      "reportready",
+      "reportfail",
+      "reportschedules",
+      "reporttemplates"
+    ],
+    "columns": ["Run", "Artifact", "Delivery", "Scope"],
+    "rows": [
+      ["Aug CFO", "Ready", "Simulated sent", "Organization"],
+      ["Aug showback", "Ready", "Simulated sent", "Teams"],
+      ["Sep preview", "Failed", "Not attempted", "Organization"]
+    ],
+    "panels": [
+      {
+        "title": "Failure detail",
+        "body": "Render failure offers regenerate on same logical occurrence, with version and permission checks."
+      },
+      {
+        "title": "Access",
+        "body": "Production downloads reauthorize before granting a short-lived artifact access; historical broad export cannot bypass revoked scope."
+      }
+    ],
+    "note": "No real reports or recipient addresses are present.",
+    "parent": "reports",
+    "form": [],
+    "action": "Save view",
+    "contract": "14-reporting/reporting.md",
+    "children": [],
+    "persona": "FinOps lead / finance controller",
+    "document": "pages/reports.md"
+  },
+  {
+    "id": "insights",
+    "route": "/insights",
+    "group": "Optimize",
+    "title": "Insights",
+    "description": "Evidence first. Opportunity second.",
+    "kind": "table",
+    "metrics": [
+      "potential",
+      "insightcount",
+      "highconfidence",
+      "verifiedsavings"
+    ],
+    "columns": ["Opportunity", "Estimated USD", "Confidence", "Status"],
+    "rows": [
+      ["Reduce warehouse idle", "8,000.00", "Medium", "Review evidence"]
+    ],
+    "panels": [
+      {
+        "title": "Opportunity ranking",
+        "body": "Estimated 8,000 belongs to a separate normalized-savings study period; do not claim more current idle saved than observed."
+      },
+      {
+        "title": "Evidence quality",
+        "body": "Baseline, observation window, constraints, expected impact range and overlap group are visible."
+      }
+    ],
+    "note": "Potential is not realized and is not additive across overlapping recommendations.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "13-insights/intelligence.md",
+    "children": ["insight-detail"],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/insights.md"
+  },
+  {
+    "id": "insight-detail",
+    "route": "/insight-detail",
+    "group": "Optimize",
+    "title": "Review warehouse scheduling",
+    "description": "A measured opportunity with an explicit baseline",
+    "kind": "review",
+    "metrics": ["potential", "verifiedsavings", "baseline", "postcost"],
+    "columns": ["Evidence", "Baseline", "After", "Interpretation"],
+    "rows": [
+      ["Comparable units", "100", "120", "Normalize volume"],
+      [
+        "Observed cost USD",
+        "20,000.00",
+        "18,000.00",
+        "Different workload volume"
+      ],
+      ["Expected USD at old rate", "—", "24,000.00", "200 per unit"]
+    ],
+    "panels": [
+      {
+        "title": "Recommendation",
+        "body": "Review schedule and idle evidence; owner must assess operational constraints before any Snowflake change."
+      },
+      {
+        "title": "Savings explanation",
+        "body": "Normalized expected 24,000 minus actual 18,000 = verified 6,000; original estimate 8,000 remains separate."
+      }
+    ],
+    "note": "Before/after study is independent of the August ledger display period.",
+    "parent": "insights",
+    "form": [],
+    "action": "Create action draft",
+    "contract": "13-insights/intelligence.md",
+    "children": [],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/insights.md"
+  },
+  {
+    "id": "actions",
+    "route": "/actions",
+    "group": "Optimize",
+    "title": "Actions",
+    "description": "Turn an accepted insight into an accountable change.",
+    "kind": "table",
+    "metrics": ["actionopen", "actiondone", "verifiedsavings", "potential"],
+    "columns": ["Action", "Owner", "State", "Evidence"],
+    "rows": [
+      [
+        "Review warehouse schedule",
+        "Alex Morgan",
+        "Investigating",
+        "Insight linked"
+      ],
+      ["Validate efficiency change", "Taylor Chen", "Verified", "Savings study"]
+    ],
+    "panels": [
+      {
+        "title": "Lifecycle",
+        "body": "Proposed → accepted → in progress → implemented → verifying → verified / rejected. Store responsible owner and dates."
+      },
+      {
+        "title": "No automatic execution",
+        "body": "Tracking a change is separate from changing Snowflake resources. Mockup never runs administrative SQL."
+      }
+    ],
+    "note": "Action completion alone does not certify realized savings.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "13-insights/intelligence.md",
+    "children": ["action-detail"],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/actions.md"
+  },
+  {
+    "id": "action-detail",
+    "route": "/action-detail",
+    "group": "Optimize",
+    "title": "Review warehouse schedule",
+    "description": "Assigned to Alex Morgan · target Sep 30",
+    "kind": "editor",
+    "metrics": ["actionopen", "potential", "verifiedsavings", "confidence"],
+    "columns": ["Step", "Owner", "State", "Evidence"],
+    "rows": [
+      ["Approve proposal", "FinOps lead", "Done", "Review note"],
+      ["Apply approved change", "Platform owner", "Pending", "Change ticket"],
+      ["Verify savings", "Analyst", "Pending", "Normalized study"]
+    ],
+    "panels": [
+      {
+        "title": "Action timeline",
+        "body": "Keep evidence URLs safe, ownership, due dates, review and rollback plan visible."
+      },
+      {
+        "title": "Verification",
+        "body": "Require baseline/post windows, normalized usage, comparable coverage and overlap exclusion before realized label."
+      }
+    ],
+    "note": "Prototype saves a draft only; no issue tracker or customer platform is modified.",
+    "parent": "actions",
+    "form": ["Action title", "Owner", "Due date", "Review note"],
+    "action": "Save action draft",
+    "contract": "13-insights/intelligence.md",
+    "children": [],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/actions.md"
+  },
+  {
+    "id": "savings",
+    "route": "/savings",
+    "group": "Optimize",
+    "title": "Savings, verified",
+    "description": "Separate opportunity from observed, normalized impact.",
+    "kind": "savings",
+    "metrics": ["verifiedsavings", "potential", "baseline", "postcost"],
+    "columns": ["Study", "Expected USD", "Actual USD", "Realized USD"],
+    "rows": [["Warehouse efficiency", "24,000.00", "18,000.00", "6,000.00"]],
+    "panels": [
+      {
+        "title": "Financial bridge",
+        "body": "Baseline 20,000 / 100 units = 200 per unit; 120 post units imply 24,000 expected; actual 18,000."
+      },
+      {
+        "title": "Overlap and uncertainty",
+        "body": "A study participates once in a non-overlapping savings total. Negative impact remains negative."
+      }
+    ],
+    "note": "Savings study period is pinned and independent of current explorer selection.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "13-insights/intelligence.md",
+    "children": ["savings-detail"],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/savings.md"
+  },
+  {
+    "id": "savings-detail",
+    "route": "/savings-detail",
+    "group": "Optimize",
+    "title": "Warehouse efficiency verification",
+    "description": "Matched usage basis · complete study windows",
+    "kind": "review",
+    "metrics": ["baseline", "normalized", "postcost", "verifiedsavings"],
+    "columns": ["Input", "Value", "Unit", "Evidence"],
+    "rows": [
+      ["Baseline cost", "20,000.00", "USD", "Complete period"],
+      ["Baseline volume", "100", "Units", "Observed"],
+      ["Post volume", "120", "Units", "Observed"],
+      ["Post cost", "18,000.00", "USD", "Observed"]
+    ],
+    "panels": [
+      {
+        "title": "Method",
+        "body": "Expected = baseline unit cost × post volume. Realized = expected − observed. No fabricated causal certainty."
+      },
+      {
+        "title": "Adverse outcome",
+        "body": "Alternative fixture with 26,000 post cost yields -2,000 impact, never clamped to zero."
+      }
+    ],
+    "note": "Alternative adverse fixture is for validation, not an additional study total.",
+    "parent": "savings",
+    "form": [],
+    "action": "Save view",
+    "contract": "13-insights/intelligence.md",
+    "children": [],
+    "persona": "Platform owner / FinOps analyst",
+    "document": "pages/savings.md"
+  },
+  {
+    "id": "dashboards",
+    "route": "/dashboards",
+    "group": "Overview",
+    "title": "Dashboards",
+    "description": "A shared view for each decision and audience.",
+    "kind": "table",
+    "metrics": ["dashboardcount", "sharedviews", "privateviews", "widgets"],
+    "columns": ["Dashboard", "Audience", "Visibility", "Updated"],
+    "rows": [
+      ["Executive overview", "Leadership", "Shared", "Today"],
+      ["Platform operations", "Engineering", "Shared", "Yesterday"],
+      ["My exploration", "You", "Private", "Today"]
+    ],
+    "panels": [
+      {
+        "title": "Saved composition",
+        "body": "KPI, trend, breakdown, waterfall, budget, insight, table and monitor widgets use canonical metrics."
+      },
+      {
+        "title": "Sharing",
+        "body": "Visibility grants do not grant underlying data permissions. Restricted viewers receive restricted widget data."
+      }
+    ],
+    "note": "Saved views are configuration; no analytical facts move to PostgreSQL.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/product.md",
+    "children": ["dashboard-builder"],
+    "persona": "FinOps lead / executive",
+    "document": "pages/dashboards.md"
+  },
+  {
+    "id": "dashboard-builder",
+    "route": "/dashboard-builder",
+    "group": "Overview",
+    "title": "Executive dashboard",
+    "description": "Arrange widgets without losing the metric contract.",
+    "kind": "editor",
+    "metrics": ["spend", "warehouse", "storage", "orgnet"],
+    "columns": ["Widget", "Metric", "Dimension", "Scope"],
+    "rows": [
+      ["Total spend", "spend", "None", "Organization"],
+      ["Service mix", "spend", "Service", "Organization"],
+      ["Ownership", "allocated cost", "Teams", "Warehouse book"]
+    ],
+    "panels": [
+      {
+        "title": "Responsive grid",
+        "body": "12 columns desktop, one column mobile; minimum chart height preserves legends and data access."
+      },
+      {
+        "title": "Widget configuration",
+        "body": "Compatible registry dimensions only; stale widgets keep publication/as-of, not silent zeros."
+      }
+    ],
+    "note": "Prototype draft persists in browser storage; production permissions and version conflicts remain implementation tasks.",
+    "parent": "dashboards",
+    "form": ["Dashboard name", "Audience", "Visibility", "Description"],
+    "action": "Save dashboard draft",
+    "contract": "10-frontend/product.md",
+    "children": [],
+    "persona": "FinOps lead / executive",
+    "document": "pages/dashboards.md"
+  },
+  {
+    "id": "data-health",
+    "route": "/data-health",
+    "group": "Platform",
+    "title": "Data Health",
+    "description": "Know what is complete, delayed or needs attention.",
+    "kind": "table",
+    "metrics": ["coverage", "sources", "sourcefailed", "lastsync"],
+    "columns": ["Stage", "State", "Coverage", "Next action"],
+    "rows": [
+      ["Source extraction", "Healthy", "Complete", "Inspect"],
+      ["Durable delivery", "Healthy", "Complete", "Inspect"],
+      ["Transformations", "Healthy", "Complete", "Inspect"],
+      ["Reconciliation", "Needs review", "Mismatch scenario", "Investigate"]
+    ],
+    "panels": [
+      {
+        "title": "Coverage timeline",
+        "body": "Per source/account show contiguous complete interval and expected availability; source latency differs."
+      },
+      {
+        "title": "Customer language",
+        "body": "Explain what data is missing and affected metrics before support-only implementation evidence."
+      }
+    ],
+    "note": "Availability and financial maturity are different axes.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "05-ingestion/ingestion.md",
+    "children": ["source-detail", "sync-history"],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/data-health.md"
+  },
+  {
+    "id": "source-detail",
+    "route": "/source-detail",
+    "group": "Platform",
+    "title": "Query history coverage",
+    "description": "PRODUCTION · query evidence · source health",
+    "kind": "table",
+    "metrics": ["coverage", "batchcount", "retrycount", "watermark"],
+    "columns": ["Interval UTC", "State", "Rows", "Evidence"],
+    "rows": [
+      ["Aug 01–10", "Accepted", "4,000", "Immutable manifest"],
+      ["Aug 11–20", "Accepted", "4,200", "Immutable manifest"],
+      ["Aug 21–31", "Accepted", "4,280", "Immutable manifest"]
+    ],
+    "panels": [
+      {
+        "title": "Coverage detail",
+        "body": "12,480 query rows across accepted contiguous intervals. Overlap/retries do not duplicate logical query IDs."
+      },
+      {
+        "title": "Recovery",
+        "body": "A quarantined schema change explains blocked fields; replay does not falsely advance coverage before acceptance."
+      }
+    ],
+    "note": "Technical references expand only for authorized support users.",
+    "parent": "data-health",
+    "form": [],
+    "action": "Save view",
+    "contract": "05-ingestion/ingestion.md",
+    "children": [],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/data-health.md"
+  },
+  {
+    "id": "sync-history",
+    "route": "/sync-history",
+    "group": "Platform",
+    "title": "Synchronization history",
+    "description": "Backfill, catch-up and steady state in one timeline.",
+    "kind": "table",
+    "metrics": ["batchcount", "retrycount", "sourcefailed", "coverage"],
+    "columns": ["Batch", "Window", "Attempt", "Result"],
+    "rows": [
+      ["batch_001", "Aug 01–10", "1", "Accepted"],
+      ["batch_002", "Aug 11–20", "2", "Accepted"],
+      ["batch_003", "Aug 21–31", "1", "Accepted"]
+    ],
+    "panels": [
+      {
+        "title": "Retry story",
+        "body": "Attempt 1 of batch_002 timed out after upload; retry reused logical batch identity and acceptance deduplicated."
+      },
+      {
+        "title": "Replay controls",
+        "body": "Bounded scope, impact preview, reason and permission gate. Scheduling replay is not immediate completion."
+      }
+    ],
+    "note": "Prototype recovery actions are simulations only.",
+    "parent": "data-health",
+    "form": [],
+    "action": "Save view",
+    "contract": "05-ingestion/ingestion.md",
+    "children": [],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/data-health.md"
+  },
+  {
+    "id": "integrations",
+    "route": "/integrations",
+    "group": "Platform",
+    "title": "Integration Health",
+    "description": "Connections, permissions and destinations you can trust.",
+    "kind": "table",
+    "metrics": [
+      "connections",
+      "capabilities",
+      "destinationcount",
+      "integrationissues"
+    ],
+    "columns": ["Integration", "Type", "State", "Action"],
+    "rows": [
+      ["Acme Snowflake", "AWS WIF", "Connected", "Inspect"],
+      ["FinOps email", "Email", "Verified demo", "Inspect"],
+      ["Platform channel", "Slack", "Demo configured", "Inspect"],
+      ["Teams workflow", "Teams", "Demo configured", "Inspect"],
+      ["Audit webhook", "Signed HTTPS", "Demo configured", "Inspect"]
+    ],
+    "panels": [
+      {
+        "title": "Identity versus data",
+        "body": "Connected identity does not prove every source permission or completed historical coverage."
+      },
+      {
+        "title": "Destinations",
+        "body": "Secrets masked. Tests are explicit actions with clear test payload and recipient scope."
+      }
+    ],
+    "note": "This prototype contains no credentials and never calls these providers.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "04-snowflake-connectivity/connectivity.md",
+    "children": ["connection-detail", "onboarding"],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/integrations.md"
+  },
+  {
+    "id": "connection-detail",
+    "route": "/connection-detail",
+    "group": "Platform",
+    "title": "Acme Snowflake connection",
+    "description": "Organization · one observed account · AWS WIF",
+    "kind": "table",
+    "metrics": ["connections", "accounts", "capabilities", "integrationissues"],
+    "columns": ["Capability", "State", "Impact", "Remediation"],
+    "rows": [
+      ["Account usage", "Available", "Account analytics", "None"],
+      ["Organization billing", "Available", "Org charges", "None"],
+      [
+        "Operator profiles",
+        "Unavailable historical",
+        "No old plans",
+        "Expected window"
+      ]
+    ],
+    "panels": [
+      {
+        "title": "Connection health",
+        "body": "Organization identity, account locator, last verification and allowed capability matrix."
+      },
+      {
+        "title": "Repair permissions",
+        "body": "Least-privilege instructions and copyable placeholders; never ask for persistent RSA private keys."
+      }
+    ],
+    "note": "Production WIF statements must come from connectivity contract, not invented mock credentials.",
+    "parent": "integrations",
+    "form": [],
+    "action": "Save view",
+    "contract": "04-snowflake-connectivity/connectivity.md",
+    "children": [],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/integrations.md"
+  },
+  {
+    "id": "onboarding",
+    "route": "/onboarding",
+    "group": "Platform",
+    "title": "Connect your Snowflake organization",
+    "description": "A guided path from identity to first reconciled value.",
+    "kind": "wizard",
+    "metrics": ["onboardingsteps", "accounts", "coverage", "connections"],
+    "columns": ["Step", "Owner", "State", "Expected evidence"],
+    "rows": [
+      ["1. Organization", "Admin", "Complete demo", "Identity"],
+      ["2. WIF trust", "Snowflake admin", "Review", "Temporary AWS identity"],
+      ["3. Capabilities", "Platform", "Pending", "Read-only probes"],
+      ["4. History", "Data owner", "Pending", "Coverage"],
+      ["5. First value", "FinOps", "Pending", "Reconciliation"]
+    ],
+    "panels": [
+      {
+        "title": "Wizard sequence",
+        "body": "Organization → account identity → generated WIF instructions → verify grants → source/history coverage → first-value checklist."
+      },
+      {
+        "title": "Partial onboarding",
+        "body": "Insufficient org billing rights can permit account analytics with explicit organization-level limitation."
+      }
+    ],
+    "note": "Continue simulates readiness only. Do not paste real credentials into this mockup.",
+    "parent": "integrations",
+    "form": [
+      "Organization label",
+      "Account locator",
+      "History days",
+      "Contact role"
+    ],
+    "action": "Validate demo connection",
+    "contract": "04-snowflake-connectivity/connectivity.md",
+    "children": [],
+    "persona": "Tenant admin / data platform owner",
+    "document": "pages/integrations.md"
+  },
+  {
+    "id": "settings",
+    "route": "/settings",
+    "group": "Settings",
+    "title": "Workspace settings",
+    "description": "People, access and workspace preferences.",
+    "kind": "settings",
+    "metrics": ["members", "teams", "roles", "auditcount"],
+    "columns": ["Area", "Purpose", "Access", "Destination"],
+    "rows": [
+      ["People & teams", "Membership", "Admin", "People"],
+      ["Security & SSO", "Authentication", "Security admin", "Security"],
+      ["Privacy", "Data policy", "Admin", "Privacy"],
+      ["Billing", "Subscription", "Billing admin", "Billing"]
+    ],
+    "panels": [
+      {
+        "title": "Administration",
+        "body": "Tenant administration changes are audited and effective-dated where relevant."
+      },
+      {
+        "title": "Scope safety",
+        "body": "Settings do not grant hidden analytical access merely by displaying an organization name."
+      }
+    ],
+    "note": "All displayed identities and subscription values are synthetic.",
+    "parent": null,
+    "form": [],
+    "action": "Save view",
+    "contract": "02-security/security.md",
+    "children": [
+      "settings-people",
+      "settings-security",
+      "settings-audit",
+      "settings-privacy",
+      "settings-notifications",
+      "settings-billing",
+      "support",
+      "settings-organizations",
+      "settings-roles"
+    ],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-people",
+    "route": "/settings-people",
+    "group": "Settings",
+    "title": "People & teams",
+    "description": "Clear roles and scoped access from the first invitation.",
+    "kind": "table",
+    "metrics": ["members", "teams", "roles", "pendinginvites"],
+    "columns": ["Member", "Role", "Scope", "Status"],
+    "rows": [
+      ["Alex Morgan", "FinOps admin", "Organization", "Active"],
+      ["Taylor Chen", "Group viewer", "Finance", "Active"],
+      ["Jordan Lee", "Platform admin", "Production", "Active"]
+    ],
+    "panels": [
+      {
+        "title": "Invite dialog",
+        "body": "Email, role, group scope, expiry and confirmation. Server verifies inviter can grant chosen scope."
+      },
+      {
+        "title": "Revocation",
+        "body": "Revoke membership invalidates future access, caches and exports; does not rely on hiding sidebar links."
+      }
+    ],
+    "note": "Demo Invite saves a local draft and sends no invitation.",
+    "parent": "settings",
+    "form": [],
+    "action": "Prepare invitation",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-security",
+    "route": "/settings-security",
+    "group": "Settings",
+    "title": "Security & SSO",
+    "description": "Federation, MFA and session policy.",
+    "kind": "editor",
+    "metrics": ["sso", "mfa", "sessions", "securityevents"],
+    "columns": ["Control", "Policy", "State", "Owner"],
+    "rows": [
+      ["SSO", "SAML / OIDC", "Demo configured", "Security admin"],
+      ["MFA", "Required", "Design preview", "Security admin"],
+      ["Session", "Short-lived tokens", "Design preview", "Platform"]
+    ],
+    "panels": [
+      {
+        "title": "Sign-in policy",
+        "body": "Cognito-backed login in production; SSO callback validates state and tenant routing. Recovery prevents accidental last-admin lockout."
+      },
+      {
+        "title": "Sensitive changes",
+        "body": "Step-up authentication, approval and audited effective policy; no trust in browser role state."
+      }
+    ],
+    "note": "Prototype controls are visual drafts, not authentication/security enforcement.",
+    "parent": "settings",
+    "form": [
+      "Identity provider label",
+      "Allowed domain",
+      "Session minutes",
+      "Change reason"
+    ],
+    "action": "Save policy draft",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-audit",
+    "route": "/settings-audit",
+    "group": "Settings",
+    "title": "Audit log",
+    "description": "An accountable record of sensitive changes.",
+    "kind": "table",
+    "metrics": ["auditcount", "auditactors", "auditfail", "auditretention"],
+    "columns": ["Time UTC", "Actor", "Action", "Outcome"],
+    "rows": [
+      ["Sep 02 09:00", "Alex Morgan", "Statement issued", "Success"],
+      ["Sep 03 11:20", "Jordan Lee", "Capability verified", "Success"],
+      ["Sep 04 15:30", "Taylor Chen", "Forbidden scope request", "Denied"]
+    ],
+    "panels": [
+      {
+        "title": "Audit inspection",
+        "body": "Actor, tenant, action, resource, request correlation and safe changed-field summary. No tokens or raw SQL."
+      },
+      {
+        "title": "Export",
+        "body": "Bounded authorized export; original immutable audit evidence is not editable from UI."
+      }
+    ],
+    "note": "All events are synthetic and cannot certify production security.",
+    "parent": "settings",
+    "form": [],
+    "action": "Save view",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-privacy",
+    "route": "/settings-privacy",
+    "group": "Settings",
+    "title": "Privacy & retention",
+    "description": "Keep the evidence you need, without exposing query secrets.",
+    "kind": "editor",
+    "metrics": ["sanitized", "rawsql", "retention", "privacyexceptions"],
+    "columns": ["Data class", "Policy", "Retention", "Behavior"],
+    "rows": [
+      [
+        "Query text",
+        "Sanitize before persistence",
+        "Contract policy",
+        "No raw literals"
+      ],
+      [
+        "Raw transport",
+        "Private immutable",
+        "Retention policy",
+        "Replay window"
+      ],
+      ["Financial snapshots", "Versioned", "Contract policy", "Close preserved"]
+    ],
+    "panels": [
+      {
+        "title": "Sanitization preview",
+        "body": "Customer literal becomes ?. Unsupported dialect parsing quarantines text rather than leaking raw content."
+      },
+      {
+        "title": "Deletion workflow",
+        "body": "Verify requester, retention/legal obligations, tenant scope and derived artifacts before execution."
+      }
+    ],
+    "note": "Saving a mock policy does not alter stored customer data.",
+    "parent": "settings",
+    "form": [
+      "Policy name",
+      "Sanitized text retention days",
+      "Support access duration minutes",
+      "Approval reason"
+    ],
+    "action": "Save privacy draft",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-notifications",
+    "route": "/settings-notifications",
+    "group": "Settings",
+    "title": "Notification destinations",
+    "description": "A safe route for each alert and report.",
+    "kind": "editor",
+    "metrics": [
+      "destinationcount",
+      "deliverysuccess",
+      "deliveryfailed",
+      "deliverypending"
+    ],
+    "columns": ["Destination", "Type", "State", "Sensitive payload"],
+    "rows": [
+      ["FinOps email", "Email", "Verified demo", "Secure link"],
+      ["Platform channel", "Slack", "Demo configured", "Summary"],
+      ["Teams workflow", "Teams", "Demo configured", "Summary"],
+      ["Audit webhook", "HTTPS", "Demo configured", "Signed event"]
+    ],
+    "panels": [
+      {
+        "title": "Destination editor",
+        "body": "Validated destination reference, owner, allowed scope and payload class. Credentials remain masked."
+      },
+      {
+        "title": "Test delivery",
+        "body": "Explicit test action; show logical delivery ID, attempts and safe response. Mockup only previews payload."
+      }
+    ],
+    "note": "No actual message or network request is generated.",
+    "parent": "settings",
+    "form": ["Destination name", "Type", "Owner", "Allowed scope"],
+    "action": "Preview test payload",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-billing",
+    "route": "/settings-billing",
+    "group": "Settings",
+    "title": "Subscription & billing",
+    "description": "Your Bridge subscription, separate from Snowflake cost.",
+    "kind": "table",
+    "metrics": ["subscription", "billingstatus", "billingcontacts", "renewal"],
+    "columns": ["Item", "Period", "Amount", "State"],
+    "rows": [
+      [
+        "Bridge pilot subscription",
+        "September 2026",
+        "Contract-defined",
+        "Demo pending"
+      ],
+      ["Snowflake charges", "August 2026", "27,000.00 USD", "Separate ledger"]
+    ],
+    "panels": [
+      {
+        "title": "Commercial onboarding",
+        "body": "Verified manual B2B payment at first release; payment acceptance recorded by authorized operator, not inferred from frontend state."
+      },
+      {
+        "title": "Customer documents",
+        "body": "Private authorized order and billing evidence; no invented paid status or automatic processor integration."
+      }
+    ],
+    "note": "SaaS subscription fees do not become customer Snowflake charges.",
+    "parent": "settings",
+    "form": [],
+    "action": "Save view",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "support",
+    "route": "/support",
+    "group": "Settings",
+    "title": "Help & support",
+    "description": "Resolve issues with safe, useful context.",
+    "kind": "editor",
+    "metrics": ["supportopen", "supportresolved", "coverage", "lastsync"],
+    "columns": ["Topic", "Guidance", "Evidence", "Owner"],
+    "rows": [
+      [
+        "Cost mismatch",
+        "Open reconciliation",
+        "Publication and delta",
+        "FinOps"
+      ],
+      ["Missing history", "Open Data Health", "Source coverage", "Platform"],
+      ["Access issue", "Review membership", "Safe request ID", "Admin"]
+    ],
+    "panels": [
+      {
+        "title": "Support request",
+        "body": "Issue category, concise description, affected time/scope and sanitized support bundle preview."
+      },
+      {
+        "title": "Support access",
+        "body": "Time-bounded audited authorization; no standing cross-tenant access or raw credential collection."
+      }
+    ],
+    "note": "Mockup stores a local request draft and contacts nobody.",
+    "parent": "settings",
+    "form": ["Subject", "Category", "Description", "Contact role"],
+    "action": "Save support draft",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "sign-in",
+    "route": "/sign-in",
+    "group": "Access",
+    "title": "Welcome to Bridge",
+    "description": "Your Snowflake cost, with clarity and control.",
+    "kind": "auth",
+    "metrics": [],
+    "columns": ["Method", "Policy", "Outcome", "Next"],
+    "rows": [
+      ["Workspace SSO", "Enterprise identity", "Demo only", "MFA"],
+      ["Recovery", "Admin approved", "No credentials here", "Support"]
+    ],
+    "panels": [
+      {
+        "title": "Sign-in card",
+        "body": "Workspace domain → Continue with SSO. Production redirects to Cognito with validated state/PKCE and exact redirect URIs."
+      },
+      {
+        "title": "Privacy",
+        "body": "Do not put tokens in local storage or URLs. The prototype uses no real identity provider."
+      }
+    ],
+    "note": "No passwords, MFA codes or tokens should be entered in this public synthetic mockup.",
+    "parent": null,
+    "form": ["Workspace domain"],
+    "action": "Continue demo sign-in",
+    "contract": "02-security/security.md",
+    "children": ["mfa"],
+    "persona": "Invited workspace member",
+    "document": "pages/sign-in.md"
+  },
+  {
+    "id": "mfa",
+    "route": "/mfa",
+    "group": "Access",
+    "title": "Verify your sign-in",
+    "description": "A step-up check before sensitive access.",
+    "kind": "auth",
+    "metrics": [],
+    "columns": ["State", "Message", "Action", "Result"],
+    "rows": [
+      [
+        "Pending",
+        "Complete identity-provider challenge",
+        "Continue demo",
+        "Home"
+      ],
+      ["Expired", "Challenge expired", "Restart sign-in", "New challenge"]
+    ],
+    "panels": [
+      {
+        "title": "MFA handoff",
+        "body": "Real MFA challenge is managed by identity provider. Do not create a fake six-digit secret collection form."
+      },
+      {
+        "title": "Recovery",
+        "body": "Use approved recovery flow, with rate limits and audited admin support."
+      }
+    ],
+    "note": "Prototype Continue is navigation only, never proof of authentication.",
+    "parent": "sign-in",
+    "form": [],
+    "action": "Continue to demo",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Invited workspace member",
+    "document": "pages/sign-in.md"
+  },
+  {
+    "id": "procedures",
+    "route": "/procedures",
+    "group": "Explore",
+    "title": "Stored procedures",
+    "description": "Separate parent invocation from attributed child queries.",
+    "kind": "table",
+    "metrics": ["unavailable"],
+    "columns": ["Procedure", "Observed cost", "Child linkage", "Coverage"],
+    "rows": [["rebuild_summary", "—", "Not observed", "Unavailable"]],
+    "panels": [
+      {
+        "title": "Call hierarchy",
+        "body": "Parent procedure and child query links require verified IDs; do not infer exact call structure from similar SQL."
+      },
+      {
+        "title": "Cost accounting",
+        "body": "Charge each query once, then attribute it to the procedure when evidence permits. Parent runtime and summed child runtime differ."
+      }
+    ],
+    "note": "The unobserved sample procedure has no synthetic billed amount. Query compute KPI is broader account context and labelled as such.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "dynamic-tables",
+    "route": "/dynamic-tables",
+    "group": "Explore",
+    "title": "Dynamic tables",
+    "description": "Refresh cost and freshness objectives together.",
+    "kind": "table",
+    "metrics": ["unavailable"],
+    "columns": ["Dynamic table", "Refresh cost", "Target lag", "State"],
+    "rows": [["inventory_transform", "—", "5 min", "No observations"]],
+    "panels": [
+      {
+        "title": "Refresh history",
+        "body": "Refresh mode, timestamps, rows, warehouse and status are evidence fields; missing cost attribution remains null."
+      },
+      {
+        "title": "SLA investigation",
+        "body": "A missed freshness target is distinct from missing refresh telemetry. Link source coverage before calling it a failed refresh."
+      }
+    ],
+    "note": "No fabricated cost or exact refresh count when refresh history is unavailable.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "native-apps",
+    "route": "/native-apps",
+    "group": "Explore",
+    "title": "Native Applications",
+    "description": "Provider fees and execution costs as distinct components.",
+    "kind": "table",
+    "metrics": ["appfees", "unavailable"],
+    "columns": [
+      "Application",
+      "Fee USD",
+      "Compute attribution",
+      "Billing basis"
+    ],
+    "rows": [["Partner analytics", "1,000.00", "—", "Contract fee"]],
+    "panels": [
+      {
+        "title": "Cost layers",
+        "body": "The 1,000 USD application fee is already in the ledger. Compute may belong to warehouse/SPCS parents; do not add allocated compute twice."
+      },
+      {
+        "title": "Ownership",
+        "body": "Verified installation/application IDs map to external ownership. Provider identities and contracts are permission scoped."
+      }
+    ],
+    "note": "Application fee is observed; execution linkage is unavailable in the fixture.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "custom-apps",
+    "route": "/custom-apps",
+    "group": "Explore",
+    "title": "Custom applications",
+    "description": "Verified application identity before cost attribution.",
+    "kind": "table",
+    "metrics": ["unavailable"],
+    "columns": [
+      "Application",
+      "Observed compute",
+      "Identity evidence",
+      "Coverage"
+    ],
+    "rows": [
+      ["Internal planning", "—", "No verified session ID", "Unavailable"]
+    ],
+    "panels": [
+      {
+        "title": "Classification",
+        "body": "Explicit application metadata outranks weak query-type heuristics. Conflicting evidence stays unresolved."
+      },
+      {
+        "title": "Journey",
+        "body": "Application → environment → activity → query. Show unavailable child levels when IDs are missing."
+      }
+    ],
+    "note": "Do not invent application cost by subtracting unrelated known categories.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "ad-hoc",
+    "route": "/ad-hoc",
+    "group": "Explore",
+    "title": "Ad hoc activity",
+    "description": "Make unclassified usage inspectable without exposing query secrets.",
+    "kind": "table",
+    "metrics": ["unavailable"],
+    "columns": ["Category", "Observed cost", "Sanitized hash", "Coverage"],
+    "rows": [["Ad hoc / unknown", "—", "Not observed", "Unavailable"]],
+    "panels": [
+      {
+        "title": "Unknown ownership",
+        "body": "Unknown classification is a valid bucket, not a default assignment to a guessed user or team."
+      },
+      {
+        "title": "Investigation",
+        "body": "Authorized query hashes, sanitized text and role metadata support manual review. Group-restricted viewers receive only their scope."
+      }
+    ],
+    "note": "This unavailable fixture is not evidence of zero ad hoc cost; the two known query groups cover the observed compute example.",
+    "parent": "workloads",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/workloads.md"
+  },
+  {
+    "id": "query-executions",
+    "route": "/query-executions",
+    "group": "Explore",
+    "title": "Execution explorer",
+    "description": "A full query-column contract with safe synthetic examples.",
+    "kind": "table",
+    "metrics": ["singlequery", "duration", "queue", "rows"],
+    "columns": [
+      "Query ID",
+      "Hash",
+      "Compute USD",
+      "Credits",
+      "Warehouse",
+      "User alias",
+      "Role",
+      "Application",
+      "Workload",
+      "Duration s",
+      "Queue s",
+      "Compile s",
+      "Bytes scanned",
+      "Spill bytes",
+      "Tables",
+      "Query tag"
+    ],
+    "rows": [
+      [
+        "q_demo_042",
+        "h_fin_v1",
+        "2.80",
+        "1.40",
+        "ANALYTICS_PROD",
+        "svc_finance",
+        "ANALYST",
+        "dbt",
+        "finance_daily",
+        "12.4",
+        "0.2",
+        "0.4",
+        "120 MB",
+        "0",
+        "analytics.sales",
+        "project=finance_daily"
+      ]
+    ],
+    "panels": [
+      {
+        "title": "Column chooser",
+        "body": "Default subset favors query ID, compute, duration, warehouse and workload; all 16 fields are discoverable through column selection and horizontal scroll."
+      },
+      {
+        "title": "Cost basis",
+        "body": "Representative query uses 1.40 attributed compute credits at fixture rate 2 USD/credit; query cost is a component, not a second billed charge."
+      }
+    ],
+    "note": "One representative execution, not a full export of the 12,480-query month. Parameterized hash version is h_fin_v1; literal text remains sanitized.",
+    "parent": "queries",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/queries.md"
+  },
+  {
+    "id": "warehouse-performance",
+    "route": "/warehouse-performance",
+    "group": "Explore",
+    "title": "Warehouse performance",
+    "description": "Queue, utilization and failures qualified by observation coverage.",
+    "kind": "table",
+    "metrics": ["p95", "queries", "failed", "utilization"],
+    "columns": ["Measure", "Value", "Unit", "Method"],
+    "rows": [
+      ["P50 duration", "2.4", "seconds", "Individual executions"],
+      ["P95 duration", "18.6", "seconds", "Individual executions"],
+      ["Utilization", "—", "percent", "Not observed"],
+      ["Failures", "0", "executions", "Complete query fixture"]
+    ],
+    "panels": [
+      {
+        "title": "Capacity context",
+        "body": "Warehouse type, size, cluster policy, queue time and spill must be read together; a high cost alone does not prove oversizing."
+      },
+      {
+        "title": "People and applications",
+        "body": "Known service aliases are query metadata, not proof of human ownership. Business tags remain the ownership layer."
+      }
+    ],
+    "note": "Utilization unavailable is never zero. Resource modifications require a separately approved action.",
+    "parent": "warehouses",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/warehouses.md"
+  },
+  {
+    "id": "ai-search",
+    "route": "/ai-search",
+    "group": "Explore",
+    "title": "Cortex Search",
+    "description": "Service cost and freshness without token assumptions.",
+    "kind": "table",
+    "metrics": ["aisearchcost", "unavailable"],
+    "columns": ["Service", "Billed USD", "Indexed bytes", "Coverage"],
+    "rows": [["catalog_search", "150.00", "—", "Cost observed"]],
+    "panels": [
+      {
+        "title": "Native usage",
+        "body": "Expose indexing/serving units only when present in the verified source contract. Do not borrow AI-function token formulas."
+      },
+      {
+        "title": "Attribution",
+        "body": "150 USD is inside the 600 USD Cortex family total. Application attribution may be unknown."
+      }
+    ],
+    "note": "No token estimate or guessed price is shown.",
+    "parent": "ai",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/ai.md"
+  },
+  {
+    "id": "ai-analyst",
+    "route": "/ai-analyst",
+    "group": "Explore",
+    "title": "Cortex Analyst",
+    "description": "Request activity with the native billing basis.",
+    "kind": "table",
+    "metrics": ["aianalystcost", "unavailable"],
+    "columns": ["Application", "Billed USD", "Observed requests", "Coverage"],
+    "rows": [["revenue_analyst", "50.00", "—", "Cost observed"]],
+    "panels": [
+      {
+        "title": "Cost authority",
+        "body": "50 USD belongs inside the 600 USD family total; exact source/service model determines supported native units."
+      },
+      {
+        "title": "Privacy",
+        "body": "Semantic request labels can be shown after sanitization; user questions and generated SQL remain protected."
+      }
+    ],
+    "note": "Request count unavailable; do not divide by an invented denominator.",
+    "parent": "ai",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/ai.md"
+  },
+  {
+    "id": "spcs-service",
+    "route": "/spcs-service",
+    "group": "Explore",
+    "title": "forecast_api service",
+    "description": "Service allocation within pool_analytics",
+    "kind": "table",
+    "metrics": ["spcsservicecost", "spcs", "unavailable"],
+    "columns": ["Layer", "Amount USD", "Method", "Additive"],
+    "rows": [
+      ["Pool parent", "800.00", "Billed", "Yes"],
+      ["forecast_api", "500.00", "Measured allocation", "No"],
+      ["Other service", "300.00", "Measured allocation", "No"]
+    ],
+    "panels": [
+      {
+        "title": "Resource context",
+        "body": "Service runtime and node telemetry support the chosen allocation method; pool total remains authoritative."
+      },
+      {
+        "title": "Shared capacity",
+        "body": "500 / 800 = 62.5% of the pool under this published allocation version. A different policy is a new version."
+      }
+    ],
+    "note": "Pool plus service rows do not sum to 1,600 USD.",
+    "parent": "spcs-pool",
+    "form": [],
+    "action": "Save view",
+    "contract": "10-frontend/workloads.md",
+    "children": [],
+    "persona": "FinOps analyst / data engineer",
+    "document": "pages/spcs.md"
+  },
+  {
+    "id": "settings-organizations",
+    "route": "/settings-organizations",
+    "group": "Settings",
+    "title": "Organizations & accounts",
+    "description": "Discover accounts and make capability boundaries explicit.",
+    "kind": "table",
+    "metrics": ["connections", "accounts", "capabilities", "coverage"],
+    "columns": ["Organization", "Account", "Identity", "Coverage"],
+    "rows": [
+      ["Acme Group", "PRODUCTION", "WIF demo verified", "August complete"]
+    ],
+    "panels": [
+      {
+        "title": "Discovery review",
+        "body": "Show discovered, connected, excluded and unreachable accounts separately. An account omitted by privileges cannot be claimed nonexistent."
+      },
+      {
+        "title": "Safe refresh",
+        "body": "Account discovery is repeatable and records verification time/capabilities. It never creates customer-specific pipeline code."
+      }
+    ],
+    "note": "One observed synthetic account does not claim complete coverage of an actual organization.",
+    "parent": "settings",
+    "form": [],
+    "action": "Save view",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  },
+  {
+    "id": "settings-roles",
+    "route": "/settings-roles",
+    "group": "Settings",
+    "title": "Roles & access scopes",
+    "description": "Explicit permissions with group and account boundaries.",
+    "kind": "table",
+    "metrics": ["roles", "members", "teams", "pendinginvites"],
+    "columns": ["Role", "Analytics", "Configuration", "Financial close"],
+    "rows": [
+      [
+        "FinOps admin",
+        "Authorized organization",
+        "Allowed",
+        "Approval required"
+      ],
+      ["Group viewer", "Assigned groups only", "Denied", "Denied"],
+      ["Platform admin", "Assigned accounts", "Connections only", "Denied"]
+    ],
+    "panels": [
+      {
+        "title": "Role editor",
+        "body": "Choose named capabilities, allowed scopes, effective membership and audited reason. Cannot grant broader scope than actor may delegate."
+      },
+      {
+        "title": "Isolation preview",
+        "body": "Client role preview is UX only. Production API and Snowflake/PostgreSQL policies independently reject guessed cross-tenant identifiers."
+      }
+    ],
+    "note": "No frontend role switch is represented as real security enforcement.",
+    "parent": "settings",
+    "form": [],
+    "action": "Save view",
+    "contract": "02-security/security.md",
+    "children": [],
+    "persona": "Tenant admin / security admin",
+    "document": "pages/settings.md"
+  }
+]

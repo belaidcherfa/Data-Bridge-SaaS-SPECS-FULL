@@ -1,0 +1,1463 @@
+{
+  "spend": {
+    "label": "Net Snowflake spend",
+    "value": "$27,000.00",
+    "hint": "Signed charges · USD",
+    "formula": "Signed charges · USD",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 2700000
+  },
+  "warehouse": {
+    "label": "Warehouse compute",
+    "value": "$20,000.00",
+    "hint": "Billed compute · excludes cloud services",
+    "formula": "Billed compute · excludes cloud services",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 2000000
+  },
+  "storage": {
+    "label": "Billed storage",
+    "value": "$1,200.00",
+    "hint": "Priced billing basis",
+    "formula": "Priced billing basis",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 120000
+  },
+  "orgnet": {
+    "label": "Organization net",
+    "value": "$200.00",
+    "hint": "Support 500 less rebate 300",
+    "formula": "Support 500 less rebate 300",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 20000
+  },
+  "accountcost": {
+    "label": "Account charges",
+    "value": "$26,800.00",
+    "hint": "Organization adjustments excluded",
+    "formula": "Organization adjustments excluded",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 2680000
+  },
+  "serverless": {
+    "label": "Serverless cost",
+    "value": "$1,800.00",
+    "hint": "700 + 500 + 200 + 200 + 200",
+    "formula": "700 + 500 + 200 + 200 + 200",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 180000
+  },
+  "cortex": {
+    "label": "AI / Cortex cost",
+    "value": "$600.00",
+    "hint": "Additive family charges",
+    "formula": "Additive family charges",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 60000
+  },
+  "spcs": {
+    "label": "Compute pool cost",
+    "value": "$800.00",
+    "hint": "Billed once per pool",
+    "formula": "Billed once per pool",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 80000
+  },
+  "querycompute": {
+    "label": "Query compute",
+    "value": "$14,000.00",
+    "hint": "Attribution within warehouse charge",
+    "formula": "Attribution within warehouse charge",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 1400000
+  },
+  "idle": {
+    "label": "Classic idle",
+    "value": "$6,000.00",
+    "hint": "20,000 minus 14,000",
+    "formula": "20,000 minus 14,000",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 600000
+  },
+  "dbtcost": {
+    "label": "dbt query compute",
+    "value": "$8,400.00",
+    "hint": "Finance workload subset",
+    "formula": "Finance workload subset",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 840000
+  },
+  "pbicost": {
+    "label": "Power BI compute",
+    "value": "$5,600.00",
+    "hint": "Snowflake only · excludes Fabric",
+    "formula": "Snowflake only · excludes Fabric",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 560000
+  },
+  "modelcost": {
+    "label": "Model compute",
+    "value": "$4,200.00",
+    "hint": "30 model executions × 140",
+    "formula": "30 model executions × 140",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 420000
+  },
+  "pipelinecost": {
+    "label": "Task pipeline cost",
+    "value": "$700.00",
+    "hint": "Included in serverless total",
+    "formula": "Included in serverless total",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 70000
+  },
+  "analyticsstorage": {
+    "label": "Database billed storage",
+    "value": "$840.00",
+    "hint": "ANALYTICS share of billed storage",
+    "formula": "ANALYTICS share of billed storage",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 84000
+  },
+  "taskcost": {
+    "label": "Serverless tasks",
+    "value": "$700.00",
+    "hint": "Task service charge",
+    "formula": "Task service charge",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 70000
+  },
+  "pipecost": {
+    "label": "Snowpipe cost",
+    "value": "$500.00",
+    "hint": "Native billing basis",
+    "formula": "Native billing basis",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 50000
+  },
+  "otherServerless": {
+    "label": "Other serverless",
+    "value": "$600.00",
+    "hint": "Clustering + search + materialized views",
+    "formula": "Clustering + search + materialized views",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 60000
+  },
+  "aifunctioncost": {
+    "label": "AI functions cost",
+    "value": "$400.00",
+    "hint": "Subset of Cortex total",
+    "formula": "Subset of Cortex total",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 40000
+  },
+  "financealloc": {
+    "label": "Finance allocation",
+    "value": "$12,000.00",
+    "hint": "8,400 query + 3,600 idle",
+    "formula": "8,400 query + 3,600 idle",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 1200000
+  },
+  "marketingalloc": {
+    "label": "Marketing allocation",
+    "value": "$8,000.00",
+    "hint": "5,600 query + 2,400 idle",
+    "formula": "5,600 query + 2,400 idle",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 800000
+  },
+  "unallocated": {
+    "label": "Unallocated",
+    "value": "$0.00",
+    "hint": "Warehouse Teams book only",
+    "formula": "Warehouse Teams book only",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 0
+  },
+  "eligible": {
+    "label": "Eligible query cost",
+    "value": "$14,000.00",
+    "hint": "Proportional denominator",
+    "formula": "Proportional denominator",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 1400000
+  },
+  "financequery": {
+    "label": "Owned query compute",
+    "value": "$8,400.00",
+    "hint": "Direct workload ownership",
+    "formula": "Direct workload ownership",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 840000
+  },
+  "financeidle": {
+    "label": "Allocated idle",
+    "value": "$3,600.00",
+    "hint": "60% of 6,000",
+    "formula": "60% of 6,000",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 360000
+  },
+  "statementtotal": {
+    "label": "Issued statement total",
+    "value": "$20,000.00",
+    "hint": "Two statements in one book",
+    "formula": "Two statements in one book",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 2000000
+  },
+  "spcsunallocated": {
+    "label": "Pool unallocated",
+    "value": "$0.00",
+    "hint": "800 minus 500 minus 300",
+    "formula": "800 minus 500 minus 300",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 0
+  },
+  "singlequery": {
+    "label": "Execution compute",
+    "value": "$2.80",
+    "hint": "Included in parent workload",
+    "formula": "Included in parent workload",
+    "scope": "q_demo_042 / Aug 30",
+    "status": "FINAL",
+    "cents": 280
+  },
+  "runcost": {
+    "label": "Invocation compute",
+    "value": "$280.00",
+    "hint": "140 + 84 + 56",
+    "formula": "140 + 84 + 56",
+    "scope": "inv_0830 / Aug 30",
+    "status": "FINAL",
+    "cents": 28000
+  },
+  "pbiactivitycost": {
+    "label": "Activity compute",
+    "value": "$224.00",
+    "hint": "56 + 168",
+    "formula": "56 + 168",
+    "scope": "pbi_0830 / Aug 30",
+    "status": "FINAL",
+    "cents": 22400
+  },
+  "aicallcost": {
+    "label": "Parent request cost",
+    "value": "$10.00",
+    "hint": "Child 4 plus residual 6",
+    "formula": "Child 4 plus residual 6",
+    "scope": "ai_042 / Aug 30",
+    "status": "FINAL",
+    "cents": 1000
+  },
+  "tokenrate": {
+    "label": "Effective cost / M tokens",
+    "value": "$33.33",
+    "hint": "400 USD / 12 M observed tokens",
+    "formula": "400 USD / 12 M observed tokens",
+    "scope": "AI functions / August",
+    "status": "Derived",
+    "cents": 3333
+  },
+  "potential": {
+    "label": "Potential savings",
+    "value": "$8,000.00",
+    "hint": "Estimate · never add to realized",
+    "formula": "Estimate · never add to realized",
+    "scope": "Independent study / synthetic",
+    "status": "ESTIMATE",
+    "cents": 800000
+  },
+  "teamopportunity": {
+    "label": "Team opportunity",
+    "value": "$800.00",
+    "hint": "Estimate only",
+    "formula": "Estimate only",
+    "scope": "Finance study / synthetic",
+    "status": "ESTIMATE",
+    "cents": 80000
+  },
+  "verifiedsavings": {
+    "label": "Verified realized",
+    "value": "$6,000.00",
+    "hint": "24,000 normalized minus 18,000 observed",
+    "formula": "24,000 normalized minus 18,000 observed",
+    "scope": "Independent study / synthetic",
+    "status": "VERIFIED",
+    "cents": 600000
+  },
+  "baseline": {
+    "label": "Baseline cost",
+    "value": "$20,000.00",
+    "hint": "100 observed baseline units",
+    "formula": "100 observed baseline units",
+    "scope": "Independent study / synthetic",
+    "status": "FINAL",
+    "cents": 2000000
+  },
+  "postcost": {
+    "label": "Observed post cost",
+    "value": "$18,000.00",
+    "hint": "120 observed post units",
+    "formula": "120 observed post units",
+    "scope": "Independent study / synthetic",
+    "status": "FINAL",
+    "cents": 1800000
+  },
+  "normalized": {
+    "label": "Normalized expectation",
+    "value": "$24,000.00",
+    "hint": "20,000 / 100 × 120",
+    "formula": "20,000 / 100 × 120",
+    "scope": "Independent study / synthetic",
+    "status": "ESTIMATE",
+    "cents": 2400000
+  },
+  "ledgercompare": {
+    "label": "Ledger comparison",
+    "value": "$27,000.00",
+    "hint": "Selected mismatch scenario",
+    "formula": "Selected mismatch scenario",
+    "scope": "August comparison fixture",
+    "status": "FINAL",
+    "cents": 2700000
+  },
+  "invoicecompare": {
+    "label": "Billing reference",
+    "value": "$27,100.00",
+    "hint": "Selected mismatch scenario",
+    "formula": "Selected mismatch scenario",
+    "scope": "August comparison fixture",
+    "status": "FINAL",
+    "cents": 2710000
+  },
+  "recondelta": {
+    "label": "Unexplained delta",
+    "value": "-$100.00",
+    "hint": "Ledger minus billing reference",
+    "formula": "Ledger minus billing reference",
+    "scope": "August comparison fixture",
+    "status": "FAILED",
+    "cents": -10000
+  },
+  "budget": {
+    "label": "Budget",
+    "value": "$28,000.00",
+    "hint": "Approved September limit",
+    "formula": "Approved September limit",
+    "scope": "Sep 01–30 / synthetic",
+    "status": "PLAN",
+    "cents": 2800000
+  },
+  "budgetactual": {
+    "label": "Actual to date",
+    "value": "$15,000.00",
+    "hint": "15 complete days × 1,000",
+    "formula": "15 complete days × 1,000",
+    "scope": "Sep 01–15 / synthetic",
+    "status": "PROVISIONAL",
+    "cents": 1500000
+  },
+  "remaining": {
+    "label": "Budget remaining",
+    "value": "$13,000.00",
+    "hint": "28,000 minus 15,000",
+    "formula": "28,000 minus 15,000",
+    "scope": "September planning fixture",
+    "status": "Derived",
+    "cents": 1300000
+  },
+  "forecast": {
+    "label": "Month-end forecast",
+    "value": "$30,000.00",
+    "hint": "15,000 actual + 15,000 estimate",
+    "formula": "15,000 actual + 15,000 estimate",
+    "scope": "September planning fixture",
+    "status": "ESTIMATE",
+    "cents": 3000000
+  },
+  "forecastvariance": {
+    "label": "Forecast over budget",
+    "value": "$2,000.00",
+    "hint": "30,000 minus 28,000; +7.14%",
+    "formula": "30,000 minus 28,000; +7.14%",
+    "scope": "September planning fixture",
+    "status": "ESTIMATE",
+    "cents": 200000
+  },
+  "burnday": {
+    "label": "Daily burn",
+    "value": "$1,000.00",
+    "hint": "15,000 / 15 complete days",
+    "formula": "15,000 / 15 complete days",
+    "scope": "September planning fixture",
+    "status": "Derived",
+    "cents": 100000
+  },
+  "incidentvalue": {
+    "label": "Latest eligible value",
+    "value": "$103.00",
+    "hint": "Daily evaluation · 11:00 UTC",
+    "formula": "Daily evaluation · 11:00 UTC",
+    "scope": "Monitor fixture / synthetic",
+    "status": "FINAL",
+    "cents": 10300
+  },
+  "threshold": {
+    "label": "Breach threshold",
+    "value": "$100.00",
+    "hint": "Strictly greater than 100 twice",
+    "formula": "Strictly greater than 100 twice",
+    "scope": "Monitor fixture / synthetic",
+    "status": "POLICY",
+    "cents": 10000
+  },
+  "allocation": {
+    "label": "Warehouse allocation",
+    "value": "100%",
+    "hint": "20,000 allocated / 20,000 absolute source",
+    "formula": "20,000 allocated / 20,000 absolute source",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "recon": {
+    "label": "Baseline reconciliation",
+    "value": "MATCHED",
+    "hint": "Baseline reference equals 27,000",
+    "formula": "Baseline reference equals 27,000",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "queries": {
+    "label": "Completed queries",
+    "value": "12,480",
+    "hint": "7,488 Finance + 4,992 Marketing",
+    "formula": "7,488 Finance + 4,992 Marketing",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "p95": {
+    "label": "P95 execution",
+    "value": "18.6 s",
+    "hint": "Individual query percentile · synthetic",
+    "formula": "Individual query percentile · synthetic",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "failed": {
+    "label": "Failed executions",
+    "value": "0",
+    "hint": "Fully observed selected fixture",
+    "formula": "Fully observed selected fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "duration": {
+    "label": "Total duration",
+    "value": "12.4 s",
+    "hint": "0.4 compile + 0.2 queue + 11.8 execution",
+    "formula": "0.4 compile + 0.2 queue + 11.8 execution",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "queue": {
+    "label": "Queue time",
+    "value": "0.2 s",
+    "hint": "Representative execution",
+    "formula": "Representative execution",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "rows": {
+    "label": "Rows returned",
+    "value": "120,000",
+    "hint": "Representative query evidence",
+    "formula": "Representative query evidence",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "classified": {
+    "label": "Classified compute",
+    "value": "100%",
+    "hint": "14,000 assigned / 14,000 observed",
+    "formula": "14,000 assigned / 14,000 observed",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "unknown": {
+    "label": "Unclassified groups",
+    "value": "0",
+    "hint": "Observed fixture only",
+    "formula": "Observed fixture only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "dbtruns": {
+    "label": "Verified invocations",
+    "value": "30",
+    "hint": "Only count explicit invocation IDs",
+    "formula": "Only count explicit invocation IDs",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "dbtmodels": {
+    "label": "Model groups",
+    "value": "3",
+    "hint": "Verified project models",
+    "formula": "Verified project models",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "dbtfail": {
+    "label": "Failed invocations",
+    "value": "0",
+    "hint": "Complete synthetic observations",
+    "formula": "Complete synthetic observations",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "runduration": {
+    "label": "Wall duration",
+    "value": "13 min",
+    "hint": "Concurrent models; duration sum is 17 min",
+    "formula": "Concurrent models; duration sum is 17 min",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "runmodels": {
+    "label": "Models executed",
+    "value": "3",
+    "hint": "All three succeeded",
+    "formula": "All three succeeded",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "runstatus": {
+    "label": "Execution status",
+    "value": "SUCCESS",
+    "hint": "Complete verified fixture",
+    "formula": "Complete verified fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "modelruns": {
+    "label": "Model executions",
+    "value": "30",
+    "hint": "Verified IDs in August",
+    "formula": "Verified IDs in August",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "modelp95": {
+    "label": "Model P95 duration",
+    "value": "8 min",
+    "hint": "Synthetic individual executions",
+    "formula": "Synthetic individual executions",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "modelfailure": {
+    "label": "Model failure rate",
+    "value": "0%",
+    "hint": "0 / 30 observed executions",
+    "formula": "0 / 30 observed executions",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pbiactivities": {
+    "label": "Verified activities",
+    "value": "25",
+    "hint": "Explicit ActivityId only",
+    "formula": "Explicit ActivityId only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pbiqueries": {
+    "label": "Power BI queries",
+    "value": "4,992",
+    "hint": "August query count",
+    "formula": "August query count",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pbiduration": {
+    "label": "Activity wall time",
+    "value": "8 min",
+    "hint": "Representative activity",
+    "formula": "Representative activity",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pbiquerycount": {
+    "label": "Activity queries",
+    "value": "32",
+    "hint": "8 dimension + 24 fact",
+    "formula": "8 dimension + 24 fact",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pipelines": {
+    "label": "Observed pipeline",
+    "value": "1",
+    "hint": "Verified native task lineage",
+    "formula": "Verified native task lineage",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pipelinefailure": {
+    "label": "Failed task runs",
+    "value": "0",
+    "hint": "Complete observed fixture",
+    "formula": "Complete observed fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "lag": {
+    "label": "Observed freshness lag",
+    "value": "4 min",
+    "hint": "Against 5 min target",
+    "formula": "Against 5 min target",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "bytes": {
+    "label": "Latest active storage",
+    "value": "10 TB",
+    "hint": "Gauge; never sum daily gauges",
+    "formula": "Gauge; never sum daily gauges",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "retained": {
+    "label": "Retained bytes",
+    "value": "2 TB",
+    "hint": "Current retention gauge",
+    "formula": "Current retention gauge",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "databases": {
+    "label": "Observed databases",
+    "value": "2",
+    "hint": "ANALYTICS and RAW",
+    "formula": "ANALYTICS and RAW",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "analyticsbytes": {
+    "label": "Active bytes",
+    "value": "7 TB",
+    "hint": "Latest ANALYTICS gauge",
+    "formula": "Latest ANALYTICS gauge",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "timeTravel": {
+    "label": "Time travel",
+    "value": "1.2 TB",
+    "hint": "Latest gauge; billing eligibility separate",
+    "formula": "Latest gauge; billing eligibility separate",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "failsafe": {
+    "label": "Fail-safe",
+    "value": "0.4 TB",
+    "hint": "Latest gauge; billing eligibility separate",
+    "formula": "Latest gauge; billing eligibility separate",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "files": {
+    "label": "Loaded files",
+    "value": "42,000",
+    "hint": "Deduplicated accepted fixture",
+    "formula": "Deduplicated accepted fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "ingested": {
+    "label": "Loaded volume",
+    "value": "3 TB",
+    "hint": "Observed uncompressed bytes",
+    "formula": "Observed uncompressed bytes",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "loadfail": {
+    "label": "Unresolved load failures",
+    "value": "0",
+    "hint": "Accepted intervals only",
+    "formula": "Accepted intervals only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aitokens": {
+    "label": "Observed tokens",
+    "value": "12 M",
+    "hint": "AI functions only",
+    "formula": "AI functions only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aiexecutions": {
+    "label": "AI function executions",
+    "value": "400",
+    "hint": "Other families use native units",
+    "formula": "Other families use native units",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aicoverage": {
+    "label": "Family cost coverage",
+    "value": "100%",
+    "hint": "Absolute covered billed amount",
+    "formula": "Absolute covered billed amount",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aifunctioncalls": {
+    "label": "Observed function calls",
+    "value": "400",
+    "hint": "Verified synthetic calls",
+    "formula": "Verified synthetic calls",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aicalltokens": {
+    "label": "Observed call tokens",
+    "value": "300,000",
+    "hint": "Representative request",
+    "formula": "Representative request",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "aiduration": {
+    "label": "Request wall time",
+    "value": "3.2 s",
+    "hint": "Representative request",
+    "formula": "Representative request",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "poolcount": {
+    "label": "Compute pools",
+    "value": "1",
+    "hint": "Observed billed pool",
+    "formula": "Observed billed pool",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "servicecount": {
+    "label": "Services in pool",
+    "value": "2",
+    "hint": "Not a cost multiplier",
+    "formula": "Not a cost multiplier",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "poolhours": {
+    "label": "Node-hours",
+    "value": "100",
+    "hint": "Observed usage; no invented unit price",
+    "formula": "Observed usage; no invented unit price",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagcoverage": {
+    "label": "Team tag coverage",
+    "value": "100%",
+    "hint": "Warehouse subset only",
+    "formula": "Warehouse subset only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagrules": {
+    "label": "Published rules",
+    "value": "3",
+    "hint": "Synthetic ruleset registry",
+    "formula": "Synthetic ruleset registry",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagconflicts": {
+    "label": "Blocking conflicts",
+    "value": "0",
+    "hint": "Equal-priority conflicts would block",
+    "formula": "Equal-priority conflicts would block",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "unowned": {
+    "label": "Unowned warehouse groups",
+    "value": "0",
+    "hint": "Selected resource set only",
+    "formula": "Selected resource set only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagmatches": {
+    "label": "Matched workload",
+    "value": "1",
+    "hint": "finance_daily rule preview",
+    "formula": "finance_daily rule preview",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagbefore": {
+    "label": "Before coverage",
+    "value": "0%",
+    "hint": "Isolated Finance subset preview",
+    "formula": "Isolated Finance subset preview",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "tagafter": {
+    "label": "After coverage",
+    "value": "100%",
+    "hint": "Isolated Finance subset preview",
+    "formula": "Isolated Finance subset preview",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "financeweight": {
+    "label": "Finance weight",
+    "value": "60%",
+    "hint": "8,400 / 14,000",
+    "formula": "8,400 / 14,000",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "marketingweight": {
+    "label": "Marketing weight",
+    "value": "40%",
+    "hint": "5,600 / 14,000",
+    "formula": "5,600 / 14,000",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "conservation": {
+    "label": "Conservation",
+    "value": "PASS",
+    "hint": "Each policy version equals 20,000 USD",
+    "formula": "Each policy version equals 20,000 USD",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "groupbooks": {
+    "label": "Independent books",
+    "value": "2",
+    "hint": "Teams and Products; not additive",
+    "formula": "Teams and Products; not additive",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "groupleaves": {
+    "label": "Book leaves",
+    "value": "4",
+    "hint": "2 leaves per independent book",
+    "formula": "2 leaves per independent book",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "groupconflicts": {
+    "label": "Hierarchy conflicts",
+    "value": "0",
+    "hint": "No cycles or invalid weights",
+    "formula": "No cycles or invalid weights",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "groupmembers": {
+    "label": "Group members",
+    "value": "2",
+    "hint": "Synthetic identities",
+    "formula": "Synthetic identities",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "statementcount": {
+    "label": "Issued statements",
+    "value": "2",
+    "hint": "One per team in Teams book",
+    "formula": "One per team in Teams book",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "statementdraft": {
+    "label": "Draft statements",
+    "value": "0",
+    "hint": "Synthetic closed period",
+    "formula": "Synthetic closed period",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "close": {
+    "label": "Close status",
+    "value": "CLOSED",
+    "hint": "Independent of maturity",
+    "formula": "Independent of maturity",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "reconfailed": {
+    "label": "Mismatch control",
+    "value": "FAILED",
+    "hint": "Selected alternative scenario",
+    "formula": "Selected alternative scenario",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "history": {
+    "label": "Complete history",
+    "value": "15 days",
+    "hint": "Insufficient for seasonal model",
+    "formula": "Insufficient for seasonal model",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "monitors": {
+    "label": "Monitor definitions",
+    "value": "2",
+    "hint": "One breach; one missing-data control",
+    "formula": "One breach; one missing-data control",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "incidents": {
+    "label": "Active incidents",
+    "value": "1",
+    "hint": "One episode despite repeated breach",
+    "formula": "One episode despite repeated breach",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "insufficient": {
+    "label": "Insufficient data",
+    "value": "1",
+    "hint": "Never interpreted as recovery",
+    "formula": "Never interpreted as recovery",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "silenced": {
+    "label": "Active silences",
+    "value": "0",
+    "hint": "Owner and expiry required",
+    "formula": "Owner and expiry required",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "occurrences": {
+    "label": "Eligible breaches",
+    "value": "3",
+    "hint": "101, 102 and 103; retry not counted",
+    "formula": "101, 102 and 103; retry not counted",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "incidentage": {
+    "label": "Episode age",
+    "value": "2 h",
+    "hint": "Synthetic timeline",
+    "formula": "Synthetic timeline",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "reporttemplates": {
+    "label": "Report templates",
+    "value": "8",
+    "hint": "All required audience templates",
+    "formula": "All required audience templates",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "reportschedules": {
+    "label": "Active demo schedules",
+    "value": "2",
+    "hint": "No external scheduler connected",
+    "formula": "No external scheduler connected",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "reportfail": {
+    "label": "Failed preview job",
+    "value": "1",
+    "hint": "Synthetic renderer failure",
+    "formula": "Synthetic renderer failure",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "reportready": {
+    "label": "Ready artifacts",
+    "value": "2",
+    "hint": "Synthetic history only",
+    "formula": "Synthetic history only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "nextdelivery": {
+    "label": "Next scheduled date",
+    "value": "Sep 30",
+    "hint": "09:00 UTC; no real delivery",
+    "formula": "09:00 UTC; no real delivery",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "insightcount": {
+    "label": "Opportunity group",
+    "value": "1",
+    "hint": "Non-overlapping study",
+    "formula": "Non-overlapping study",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "highconfidence": {
+    "label": "High-confidence insights",
+    "value": "0",
+    "hint": "One medium-confidence estimate",
+    "formula": "One medium-confidence estimate",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "actionopen": {
+    "label": "Open actions",
+    "value": "1",
+    "hint": "Tracking does not execute SQL",
+    "formula": "Tracking does not execute SQL",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "actiondone": {
+    "label": "Verified actions",
+    "value": "1",
+    "hint": "Evidence-backed study fixture",
+    "formula": "Evidence-backed study fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "confidence": {
+    "label": "Estimate confidence",
+    "value": "MEDIUM",
+    "hint": "Qualitative evidence assessment",
+    "formula": "Qualitative evidence assessment",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "dashboardcount": {
+    "label": "Dashboards",
+    "value": "3",
+    "hint": "Two shared and one private",
+    "formula": "Two shared and one private",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sharedviews": {
+    "label": "Shared dashboards",
+    "value": "2",
+    "hint": "Data permissions still required",
+    "formula": "Data permissions still required",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "privateviews": {
+    "label": "Private dashboards",
+    "value": "1",
+    "hint": "Current demo user only",
+    "formula": "Current demo user only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "widgets": {
+    "label": "Widget families",
+    "value": "8",
+    "hint": "Registry-compatible dimensions",
+    "formula": "Registry-compatible dimensions",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "coverage": {
+    "label": "Observed coverage",
+    "value": "100%",
+    "hint": "Complete selected synthetic intervals",
+    "formula": "Complete selected synthetic intervals",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sources": {
+    "label": "Source contracts",
+    "value": "6",
+    "hint": "Representative coverage subset",
+    "formula": "Representative coverage subset",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sourcefailed": {
+    "label": "Blocked source intervals",
+    "value": "0",
+    "hint": "Selected accepted fixture",
+    "formula": "Selected accepted fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "lastsync": {
+    "label": "Last accepted snapshot",
+    "value": "Sep 01",
+    "hint": "00:00 UTC; synthetic fixed as-of",
+    "formula": "00:00 UTC; synthetic fixed as-of",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "batchcount": {
+    "label": "Logical batches",
+    "value": "3",
+    "hint": "Accepted contiguous intervals",
+    "formula": "Accepted contiguous intervals",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "retrycount": {
+    "label": "Retried batches",
+    "value": "1",
+    "hint": "Same logical batch identity",
+    "formula": "Same logical batch identity",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "watermark": {
+    "label": "Complete through",
+    "value": "Aug 31",
+    "hint": "Inclusive display; exclusive internal boundary Sep 01",
+    "formula": "Inclusive display; exclusive internal boundary Sep 01",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "connections": {
+    "label": "Connected organization",
+    "value": "1",
+    "hint": "Demo connection only",
+    "formula": "Demo connection only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "capabilities": {
+    "label": "Available capabilities",
+    "value": "2 / 3",
+    "hint": "Historical operator profile unavailable",
+    "formula": "Historical operator profile unavailable",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "destinationcount": {
+    "label": "Notification channels",
+    "value": "4",
+    "hint": "Email, Slack, Teams, HTTPS",
+    "formula": "Email, Slack, Teams, HTTPS",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "integrationissues": {
+    "label": "Actionable identity issues",
+    "value": "0",
+    "hint": "Unavailable historical profile is expected",
+    "formula": "Unavailable historical profile is expected",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "accounts": {
+    "label": "Observed accounts",
+    "value": "1",
+    "hint": "PRODUCTION; no fabricated discovered account",
+    "formula": "PRODUCTION; no fabricated discovered account",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "onboardingsteps": {
+    "label": "Onboarding stages",
+    "value": "5",
+    "hint": "Identity, WIF, grants, history, first value",
+    "formula": "Identity, WIF, grants, history, first value",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "members": {
+    "label": "Active members",
+    "value": "3",
+    "hint": "Synthetic names only",
+    "formula": "Synthetic names only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "teams": {
+    "label": "Teams",
+    "value": "2",
+    "hint": "Finance and Marketing",
+    "formula": "Finance and Marketing",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "roles": {
+    "label": "Assigned roles",
+    "value": "3",
+    "hint": "Admin, group viewer, platform admin",
+    "formula": "Admin, group viewer, platform admin",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "auditcount": {
+    "label": "Visible audit events",
+    "value": "3",
+    "hint": "Representative authorized sample",
+    "formula": "Representative authorized sample",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "pendinginvites": {
+    "label": "Pending invitations",
+    "value": "0",
+    "hint": "No messages sent by mockup",
+    "formula": "No messages sent by mockup",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sso": {
+    "label": "Federation",
+    "value": "SAML / OIDC",
+    "hint": "Production Cognito contract",
+    "formula": "Production Cognito contract",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "mfa": {
+    "label": "MFA policy",
+    "value": "REQUIRED",
+    "hint": "Visual draft only",
+    "formula": "Visual draft only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sessions": {
+    "label": "Demo sessions",
+    "value": "3",
+    "hint": "Not authenticated sessions",
+    "formula": "Not authenticated sessions",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "securityevents": {
+    "label": "Unresolved security events",
+    "value": "0",
+    "hint": "Synthetic fixture only",
+    "formula": "Synthetic fixture only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "auditactors": {
+    "label": "Actors in sample",
+    "value": "3",
+    "hint": "No hidden actor enumeration",
+    "formula": "No hidden actor enumeration",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "auditfail": {
+    "label": "Denied requests",
+    "value": "1",
+    "hint": "Recorded access denial fixture",
+    "formula": "Recorded access denial fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "auditretention": {
+    "label": "Audit retention",
+    "value": "Policy",
+    "hint": "Set by canonical tenant/legal policy",
+    "formula": "Set by canonical tenant/legal policy",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "sanitized": {
+    "label": "SQL sanitization",
+    "value": "ENABLED",
+    "hint": "Design requirement; no raw query collection",
+    "formula": "Design requirement; no raw query collection",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "rawsql": {
+    "label": "Raw SQL persistence",
+    "value": "OFF",
+    "hint": "Unsupported parsing quarantines text",
+    "formula": "Unsupported parsing quarantines text",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "retention": {
+    "label": "Data retention",
+    "value": "Policy",
+    "hint": "Contract-specific; not invented legal duration",
+    "formula": "Contract-specific; not invented legal duration",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "privacyexceptions": {
+    "label": "Active privacy exceptions",
+    "value": "0",
+    "hint": "No support elevation in fixture",
+    "formula": "No support elevation in fixture",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "deliverysuccess": {
+    "label": "Simulated deliveries",
+    "value": "2",
+    "hint": "Not evidence of real messages",
+    "formula": "Not evidence of real messages",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "deliveryfailed": {
+    "label": "Simulated failures",
+    "value": "1",
+    "hint": "Synthetic provider timeout",
+    "formula": "Synthetic provider timeout",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "deliverypending": {
+    "label": "Pending deliveries",
+    "value": "0",
+    "hint": "No external outbox connected",
+    "formula": "No external outbox connected",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "subscription": {
+    "label": "Bridge subscription",
+    "value": "Pilot",
+    "hint": "Separate SaaS commercial contract",
+    "formula": "Separate SaaS commercial contract",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "billingstatus": {
+    "label": "Payment status",
+    "value": "DEMO",
+    "hint": "No payment claimed",
+    "formula": "No payment claimed",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "billingcontacts": {
+    "label": "Billing contact role",
+    "value": "1",
+    "hint": "No real address stored",
+    "formula": "No real address stored",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "renewal": {
+    "label": "Renewal date",
+    "value": "Contract",
+    "hint": "Commercial terms required",
+    "formula": "Commercial terms required",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "supportopen": {
+    "label": "Draft support request",
+    "value": "1",
+    "hint": "Local browser only",
+    "formula": "Local browser only",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "supportresolved": {
+    "label": "Resolved demo cases",
+    "value": "2",
+    "hint": "Synthetic history",
+    "formula": "Synthetic history",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "appfees": {
+    "label": "Application fees",
+    "value": "$1,000.00",
+    "hint": "Already included in ledger",
+    "formula": "Already included in ledger",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 100000
+  },
+  "aisearchcost": {
+    "label": "Cortex Search cost",
+    "value": "$150.00",
+    "hint": "Inside Cortex family total",
+    "formula": "Inside Cortex family total",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 15000
+  },
+  "aianalystcost": {
+    "label": "Cortex Analyst cost",
+    "value": "$50.00",
+    "hint": "Inside Cortex family total",
+    "formula": "Inside Cortex family total",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 5000
+  },
+  "spcsservicecost": {
+    "label": "Allocated service cost",
+    "value": "$500.00",
+    "hint": "Allocation inside pool 800 USD",
+    "formula": "Allocation inside pool 800 USD",
+    "scope": "August 2026 / synthetic",
+    "status": "RECONCILED",
+    "cents": 50000
+  },
+  "utilization": {
+    "label": "Warehouse utilization",
+    "value": "—",
+    "hint": "Unavailable: telemetry not observed",
+    "formula": "Unavailable: telemetry not observed",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  },
+  "unavailable": {
+    "label": "Attribution coverage",
+    "value": "—",
+    "hint": "Unavailable: required linkage or usage telemetry not observed",
+    "formula": "Unavailable: required linkage or usage telemetry not observed",
+    "scope": "August 2026 / synthetic",
+    "status": "Observed"
+  }
+}

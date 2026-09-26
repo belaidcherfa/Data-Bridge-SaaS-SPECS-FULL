@@ -15,4 +15,6 @@ Accepted design decisions; runtime validation remains governed by the task and r
 - [ADR-011 — Recover retained analytics beyond raw journal lifetime](ADR-011-analytical-recovery.md)
 - [ADR-012 — Manual B2B billing for first paying customer](ADR-012-first-customer-commercial.md)
 
+- [ADR-013 — Independent UI design prototype](ADR-013-ui-design-prototype.md)
+
 Every ADR records context, decision, alternatives, consequences and revisit conditions. User requirements and authoritative PRD boundaries take precedence over convenience.

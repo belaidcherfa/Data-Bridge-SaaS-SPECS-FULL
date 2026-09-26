@@ -1,6 +1,6 @@
 # Delivery status
 
-Updated: 2026-09-25 UTC. Documentation delivery: **COMPLETE**. Product implementation: **NOT_STARTED**.
+Updated: 2026-09-26 UTC. Engineering specification delivery: **COMPLETE**. Production implementation: **NOT_STARTED**. UI/UX design and standalone React prototype: **IN PROGRESS**, explicitly authorized as a new phase.
 
 ## DONE
 
@@ -35,11 +35,11 @@ Updated: 2026-09-25 UTC. Documentation delivery: **COMPLETE**. Product implement
 
 ## IN PROGRESS
 
-None for specification authoring. No implementation task is claimed complete by this documentation delivery.
+New UI/UX phase: detailed ASCII screens, reusable visual foundations and an independent React mockup in `prototypes/finops-react`. Reference identity reviewed from `belaidcherfa/snowbridge-finops-mvp`; application logic is rebuilt from the canonical Bridge specs. Publish each coherent file/unit to main. Original production tasks remain NOT_STARTED.
 
 ## NEXT
 
-When implementation is authorized, begin with [FND-001](../tasks/FND/FND-001.md), then select ready tasks from the topological index. Read each canonical contract and exact prerequisites; implement and validate one bounded task at a time. Do not begin product implementation under the completed documentation-only request.
+When implementation is authorized, begin with [FND-001](../tasks/FND/FND-001.md), then select ready tasks from the topological index. Read each canonical contract and exact prerequisites; implement and validate one bounded task at a time. The subsequent UI/UX request authorizes a local synthetic-data frontend prototype only; it does not authorize production backend or infrastructure implementation.
 
 ## BLOCKED
 
@@ -60,3 +60,10 @@ The [open validation register](OPEN_VALIDATIONS.md) assigns owners and milestone
 ## Resume
 
 Read the master plan, ADRs, task index and this status. Inspect GitHub before editing and use current blob SHAs. Preserve the supplied PRD byte-for-byte and keep one canonical definition for each contract. All 151 implementation tasks remain NOT_STARTED until their own evidence is accepted. Documentation publication is not task execution.
+
+## UI/UX continuation
+
+DONE: reference identity and canonical product contracts inspected; design workbench opened.
+IN PROGRESS: screen specifications and clean React application.
+NEXT: page catalog, domain wireframes, interactive shared components, browser checks and publication audit.
+BLOCKED: none.

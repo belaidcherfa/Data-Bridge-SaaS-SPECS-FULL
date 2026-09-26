@@ -2,7 +2,7 @@
 
 Design unit: `spcs`. Owner: UX / Frontend / QA. [Design index](../SCREEN_INDEX.md) · [Shared foundations](../FOUNDATIONS.md) · [Canonical domain](../../10-frontend/workloads.md).
 
-This file covers 2 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
+This file covers 3 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
 
 ## spcs — Snowpark Container Services
 
@@ -169,6 +169,9 @@ Goal: Container compute pool · PRODUCTION · shared
 | 800 minus 500 minus 300  ||  Observed usage; no invented unit price                                      |
 +----------------------------------------------------------------------------------------------------------+
 +----------------------------------------------------------------------------------------------------------+
+| SUBPAGES: forecast_api service [>]                                                                       |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
 | CAPACITY PROFILE                                                                                         |
 |      [Context / evidence panel]   [Inspect details >]                                                    |
 | Node-hours and utilization are operational evidence; absent service telemetry disables finer allocation. |
@@ -211,6 +214,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 - **DataTable** columns, in order: Service, Allocated USD, Method, Confidence. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
 - **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
 - **Parent**: `spcs`; breadcrumb and browser Back preserve scope.
+- **Drilldowns**: `/spcs-service`. Use named links; never assume every row represents the same execution.
 
 ### Detail / dialog composition
 
@@ -241,7 +245,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 | Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
 | Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
 | Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
-| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Related routes: spcs-service. |
 | Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
 | Acceptance criteria | Fixture values equal the KPI contract; Do not multiply pool charge by service count. |
 
@@ -277,6 +281,147 @@ At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels on
 - [ ] Open `#/spcs-pool` directly and through the named navigation; heading and browser history agree.
 - [ ] Assert every KPI above against its fixture scope; verify `spcs` explanation and status.
 - [ ] Inspect exact columns: Service, Allocated USD, Method, Confidence. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## spcs-service — forecast_api service
+
+Route: `/spcs-service` (prototype `#/spcs-service`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Service allocation within pool_analytics
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  forecast_api service                                                  |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Service allocation within pool_analytics                                                                 |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ALLOCATED SERVICE COST: $500.00 [i]  ||  COMPUTE POOL COST: $800.00 [i]                                  |
+| Allocation inside pool 800 USD  ||  Billed once per pool                                                 |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ATTRIBUTION COVERAGE: — [i]                                                                              |
+| Unavailable: required linkage or usage telemetry not observed                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| RESOURCE CONTEXT                                                                                         |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Service runtime and node telemetry support the chosen allocation method; pool total remains              |
+| authoritative.                                                                                           |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| SHARED CAPACITY                                                                                          |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| 500 / 800 = 62.5% of the pool under this published allocation version. A different policy is a new       |
+| version.                                                                                                 |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Layer                     | Amount USD                | Method                    | Additive                  |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Pool parent               | 800.00                    | Billed                    | Yes                       |
+| forecast_api              | 500.00                    | Measured allocation       | No                        |
+| Other service             | 300.00                    | Measured allocation       | No                        |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| Pool plus service rows do not sum to 1,600 USD.                                                          |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `spcsservicecost` | Allocated service cost: **$500.00** | Allocation inside pool 800 USD | August 2026 / synthetic; RECONCILED |
+| `spcs` | Compute pool cost: **$800.00** | Billed once per pool | August 2026 / synthetic; RECONCILED |
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Resource context**: Service runtime and node telemetry support the chosen allocation method; pool total remains authoritative.
+- **Shared capacity**: 500 / 800 = 62.5% of the pool under this published allocation version. A different policy is a new version.
+- **DataTable** columns, in order: Layer, Amount USD, Method, Additive. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `spcs-pool`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Service allocation within pool_analytics |
+| Entry point | Parent route /spcs-pool; deep link supported. |
+| Happy path | Read context → inspect Resource context → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No forecast_api service for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; Pool plus service rows do not sum to 1,600 USD. |
+
+### Domain subtleties
+
+Pool plus service rows do not sum to 1,600 USD.
+
+500 / 800 = 62.5% of the pool under this published allocation version. A different policy is a new version.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| forecast_api service                     |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Resource context                         |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/spcs-service` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `spcsservicecost` explanation and status.
+- [ ] Inspect exact columns: Layer, Amount USD, Method, Additive. Search an existing row and a nonexistent token; sorting and exported rows agree.
 - [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
 - [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
 - [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.

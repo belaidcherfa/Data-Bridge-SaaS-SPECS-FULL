@@ -2,7 +2,7 @@
 
 Design unit: `workloads`. Owner: UX / Frontend / QA. [Design index](../SCREEN_INDEX.md) · [Shared foundations](../FOUNDATIONS.md) · [Canonical domain](../../10-frontend/workloads.md).
 
-This file covers 9 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
+This file covers 14 distinct routes. ASCII is a structural design specification; the React prototype supplies the actual light/amber visual treatment. Production scope and authorization come from the canonical contracts.
 
 ## workloads — Workloads
 
@@ -28,7 +28,8 @@ Goal: Connect technical activity to business purpose.
 | 14,000 assigned / 14,000 observed  ||  Observed fixture only                                             |
 +----------------------------------------------------------------------------------------------------------+
 +----------------------------------------------------------------------------------------------------------+
-| SUBPAGES: dbt intelligence [>] | Power BI workloads [>] | Native pipelines [>]                           |
+| SUBPAGES: dbt intelligence [>] | Power BI workloads [>] | Native pipelines [>] | Stored procedures [>] | |
+| Dynamic tables [>] | Native Applications [>] | Custom applications [>] | Ad hoc activity [>]             |
 +----------------------------------------------------------------------------------------------------------+
 +----------------------------------------------------------------------------------------------------------+
 | WORKLOAD MIX                                                                                             |
@@ -73,7 +74,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 - **Execution hierarchy**: Project/application → environment → invocation/activity → model/hash → query. Native pipelines use verified parent IDs.
 - **DataTable** columns, in order: Workload, Type, Compute USD, Evidence. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
 - **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
-- **Drilldowns**: `/dbt`, `/power-bi`, `/pipelines`. Use named links; never assume every row represents the same execution.
+- **Drilldowns**: `/dbt`, `/power-bi`, `/pipelines`, `/procedures`, `/dynamic-tables`, `/native-apps`, `/custom-apps`, `/ad-hoc`. Use named links; never assume every row represents the same execution.
 
 ### Detail / dialog composition
 
@@ -104,7 +105,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 | Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
 | Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
 | Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
-| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Related routes: dbt, power-bi, pipelines. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Related routes: dbt, power-bi, pipelines, procedures, dynamic-tables, native-apps, custom-apps, ad-hoc. |
 | Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
 | Acceptance criteria | Fixture values equal the KPI contract; Confidence and missing identifiers remain visible at every drilldown. |
 
@@ -1274,6 +1275,672 @@ At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels on
 - [ ] Open `#/pipeline-detail` directly and through the named navigation; heading and browser history agree.
 - [ ] Assert every KPI above against its fixture scope; verify `pipelinecost` explanation and status.
 - [ ] Inspect exact columns: Node, Role, Cost USD, Status. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## procedures — Stored procedures
+
+Route: `/procedures` (prototype `#/procedures`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Separate parent invocation from attributed child queries.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Stored procedures                                                     |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Separate parent invocation from attributed child queries.                                                |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ATTRIBUTION COVERAGE: — [i]                                                                              |
+| Unavailable: required linkage or usage telemetry not observed                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| CALL HIERARCHY                                                                                           |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Parent procedure and child query links require verified IDs; do not infer exact call structure from      |
+| similar SQL.                                                                                             |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| COST ACCOUNTING                                                                                          |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Charge each query once, then attribute it to the procedure when evidence permits. Parent runtime and     |
+| summed child runtime differ.                                                                             |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Procedure                 | Observed cost             | Child linkage             | Coverage                  |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| rebuild_summary           | —                         | Not observed              | Unavailable               |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| The unobserved sample procedure has no synthetic billed amount. Query compute KPI is broader account     |
+| context and labelled as such.                                                                            |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Call hierarchy**: Parent procedure and child query links require verified IDs; do not infer exact call structure from similar SQL.
+- **Cost accounting**: Charge each query once, then attribute it to the procedure when evidence permits. Parent runtime and summed child runtime differ.
+- **DataTable** columns, in order: Procedure, Observed cost, Child linkage, Coverage. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `workloads`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Separate parent invocation from attributed child queries. |
+| Entry point | Parent route /workloads; deep link supported. |
+| Happy path | Read context → inspect Call hierarchy → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No stored procedures for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; The unobserved sample procedure has no synthetic billed amount. Query compute KPI is broader account context and labelled as such. |
+
+### Domain subtleties
+
+The unobserved sample procedure has no synthetic billed amount. Query compute KPI is broader account context and labelled as such.
+
+Charge each query once, then attribute it to the procedure when evidence permits. Parent runtime and summed child runtime differ.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Stored procedures                        |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Call hierarchy                           |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/procedures` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `unavailable` explanation and status.
+- [ ] Inspect exact columns: Procedure, Observed cost, Child linkage, Coverage. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## dynamic-tables — Dynamic tables
+
+Route: `/dynamic-tables` (prototype `#/dynamic-tables`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Refresh cost and freshness objectives together.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Dynamic tables                                                        |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Refresh cost and freshness objectives together.                                                          |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ATTRIBUTION COVERAGE: — [i]                                                                              |
+| Unavailable: required linkage or usage telemetry not observed                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| REFRESH HISTORY                                                                                          |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Refresh mode, timestamps, rows, warehouse and status are evidence fields; missing cost attribution       |
+| remains null.                                                                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| SLA INVESTIGATION                                                                                        |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| A missed freshness target is distinct from missing refresh telemetry. Link source coverage before        |
+| calling it a failed refresh.                                                                             |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Dynamic table             | Refresh cost              | Target lag                | State                     |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| inventory_transform       | —                         | 5 min                     | No observations           |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| No fabricated cost or exact refresh count when refresh history is unavailable.                           |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Refresh history**: Refresh mode, timestamps, rows, warehouse and status are evidence fields; missing cost attribution remains null.
+- **SLA investigation**: A missed freshness target is distinct from missing refresh telemetry. Link source coverage before calling it a failed refresh.
+- **DataTable** columns, in order: Dynamic table, Refresh cost, Target lag, State. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `workloads`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Refresh cost and freshness objectives together. |
+| Entry point | Parent route /workloads; deep link supported. |
+| Happy path | Read context → inspect Refresh history → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No dynamic tables for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; No fabricated cost or exact refresh count when refresh history is unavailable. |
+
+### Domain subtleties
+
+No fabricated cost or exact refresh count when refresh history is unavailable.
+
+A missed freshness target is distinct from missing refresh telemetry. Link source coverage before calling it a failed refresh.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Dynamic tables                           |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Refresh history                          |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/dynamic-tables` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `unavailable` explanation and status.
+- [ ] Inspect exact columns: Dynamic table, Refresh cost, Target lag, State. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## native-apps — Native Applications
+
+Route: `/native-apps` (prototype `#/native-apps`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Provider fees and execution costs as distinct components.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Native Applications                                                   |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Provider fees and execution costs as distinct components.                                                |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| APPLICATION FEES: $1,000.00 [i]  ||  ATTRIBUTION COVERAGE: — [i]                                         |
+| Already included in ledger  ||  Unavailable: required linkage or usage telemetry not observed            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| COST LAYERS                                                                                              |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| The 1,000 USD application fee is already in the ledger. Compute may belong to warehouse/SPCS parents; do |
+| not add allocated compute twice.                                                                         |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| OWNERSHIP                                                                                                |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Verified installation/application IDs map to external ownership. Provider identities and contracts are   |
+| permission scoped.                                                                                       |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Application               | Fee USD                   | Compute attribution       | Billing basis             |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Partner analytics         | 1,000.00                  | —                         | Contract fee              |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| Application fee is observed; execution linkage is unavailable in the fixture.                            |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `appfees` | Application fees: **$1,000.00** | Already included in ledger | August 2026 / synthetic; RECONCILED |
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Cost layers**: The 1,000 USD application fee is already in the ledger. Compute may belong to warehouse/SPCS parents; do not add allocated compute twice.
+- **Ownership**: Verified installation/application IDs map to external ownership. Provider identities and contracts are permission scoped.
+- **DataTable** columns, in order: Application, Fee USD, Compute attribution, Billing basis. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `workloads`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Provider fees and execution costs as distinct components. |
+| Entry point | Parent route /workloads; deep link supported. |
+| Happy path | Read context → inspect Cost layers → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No native applications for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; Application fee is observed; execution linkage is unavailable in the fixture. |
+
+### Domain subtleties
+
+Application fee is observed; execution linkage is unavailable in the fixture.
+
+Verified installation/application IDs map to external ownership. Provider identities and contracts are permission scoped.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Native Applications                      |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Cost layers                              |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/native-apps` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `appfees` explanation and status.
+- [ ] Inspect exact columns: Application, Fee USD, Compute attribution, Billing basis. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## custom-apps — Custom applications
+
+Route: `/custom-apps` (prototype `#/custom-apps`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Verified application identity before cost attribution.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Custom applications                                                   |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Verified application identity before cost attribution.                                                   |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ATTRIBUTION COVERAGE: — [i]                                                                              |
+| Unavailable: required linkage or usage telemetry not observed                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| CLASSIFICATION                                                                                           |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Explicit application metadata outranks weak query-type heuristics. Conflicting evidence stays            |
+| unresolved.                                                                                              |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| JOURNEY                                                                                                  |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Application → environment → activity → query. Show unavailable child levels when IDs are missing.        |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Application               | Observed compute          | Identity evidence         | Coverage                  |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Internal planning         | —                         | No verified session ID    | Unavailable               |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| Do not invent application cost by subtracting unrelated known categories.                                |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Classification**: Explicit application metadata outranks weak query-type heuristics. Conflicting evidence stays unresolved.
+- **Journey**: Application → environment → activity → query. Show unavailable child levels when IDs are missing.
+- **DataTable** columns, in order: Application, Observed compute, Identity evidence, Coverage. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `workloads`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Verified application identity before cost attribution. |
+| Entry point | Parent route /workloads; deep link supported. |
+| Happy path | Read context → inspect Classification → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No custom applications for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; Do not invent application cost by subtracting unrelated known categories. |
+
+### Domain subtleties
+
+Do not invent application cost by subtracting unrelated known categories.
+
+Application → environment → activity → query. Show unavailable child levels when IDs are missing.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Custom applications                      |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Classification                           |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/custom-apps` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `unavailable` explanation and status.
+- [ ] Inspect exact columns: Application, Observed compute, Identity evidence, Coverage. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
+- [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
+- [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.
+- [ ] Production-only: verify another tenant/group cannot query the route, autocomplete, export or detail by guessed ID; client review mode is not that proof.
+
+Done for design: route, ASCII, KPI, states, interactions and constraints reviewed. Done for prototype: route renders with synthetic data and declared interactive behavior verified. Done for production remains governed by the original task and live validation gates.
+
+## ad-hoc — Ad hoc activity
+
+Route: `/ad-hoc` (prototype `#/ad-hoc`). Persona: **FinOps analyst / data engineer**.
+
+Goal: Make unclassified usage inspectable without exposing query secrets.
+
+### Desktop composition
+
+```text
++----------------------------------------------------------------------------------------------------------+
+| BRIDGE DATA FINOPS  /  EXPLORE  /  Ad hoc activity                                                       |
+| Acme Group [v] | PRODUCTION / organization scope | Period explicitly named per panel | USD               |
+| Make unclassified usage inspectable without exposing query secrets.                                      |
+| [Demo data]  [Maturity label]  As of fixed publication  |  [Explain] [Save view] [Export CSV]            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| ATTRIBUTION COVERAGE: — [i]                                                                              |
+| Unavailable: required linkage or usage telemetry not observed                                            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| UNKNOWN OWNERSHIP                                                                                        |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Unknown classification is a valid bucket, not a default assignment to a guessed user or team.            |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| INVESTIGATION                                                                                            |
+|      [Context / evidence panel]   [Inspect details >]                                                    |
+| Authorized query hashes, sanitized text and role metadata support manual review. Group-restricted        |
+| viewers receive only their scope.                                                                        |
++----------------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------+
+| TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
++----------------------------------------------------------------------------------------------------------+
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Category                  | Observed cost             | Sanitized hash            | Coverage                  |
++---------------------------+---------------------------+---------------------------+---------------------------+
+| Ad hoc / unknown          | —                         | Not observed              | Unavailable               |
++---------------------------+---------------------------+---------------------------+---------------------------+
++----------------------------------------------------------------------------------------------------------+
+| [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
+| This unavailable fixture is not evidence of zero ad hoc cost; the two known query groups cover the       |
+| observed compute example.                                                                                |
++----------------------------------------------------------------------------------------------------------+
+```
+
+### KPI contract
+
+| Metric ID | Label / fixture value | Unit, formula or qualification | Scope / status |
+|---|---|---|---|
+| `unavailable` | Attribution coverage: **—** | Unavailable: required linkage or usage telemetry not observed | August 2026 / synthetic; Observed |
+
+Display the exact price basis, currency, publication and as-of in Explain. Monetary fixture values are illustrative and independently scoped as labelled; they are not a new production metric registry. See the [semantic contract](../../09-api/semantic-api.md).
+
+### Components and subpage behavior
+
+- **Unknown ownership**: Unknown classification is a valid bucket, not a default assignment to a guessed user or team.
+- **Investigation**: Authorized query hashes, sanitized text and role metadata support manual review. Group-restricted viewers receive only their scope.
+- **DataTable** columns, in order: Category, Observed cost, Sanitized hash, Coverage. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
+- **Parent**: `workloads`; breadcrumb and browser Back preserve scope.
+
+### Detail / dialog composition
+
+```text
++----------------------------------------------------------------------------+
+| Save view                                           [X]                    |
+| Selected metric / resource: [label and identifier]                         |
+| Scope and period: [explicit, retained from entry]                          |
+| Basis / input publication / coverage: [explain]                            |
+| Evidence: [authorized source / parent component]                           |
+| [Inline validation / stale-preview error, if any]                          |
+| [Cancel]  [Save view]                                                      |
+| Prototype: local simulation only; no external write                        |
++----------------------------------------------------------------------------+
+```
+
+### UX state specification
+
+| Requirement | Expected behavior |
+|---|---|
+| Persona | FinOps analyst / data engineer |
+| Goal | Make unclassified usage inspectable without exposing query secrets. |
+| Entry point | Parent route /workloads; deep link supported. |
+| Happy path | Read context → inspect Unknown ownership → search the table → open named evidence/drilldown → retain scope on Back. |
+| Empty state | For fully covered scope with no records: “No ad hoc activity for this selection.” Offer period/filter reset. A search with no matches offers Clear search. |
+| Loading state | Keep heading/scope; skeleton occupies KPI and panel footprint. No transient zero or old-scope values. |
+| Partial-data state | Show missing-source reason and affected metrics. Unknown is —, not 0. Link Data Health; suppress unsupported inference. |
+| Error state | “We could not load this view.” Preserve scope; Retry; safe support reference. Form errors stay beside fields. |
+| Permission-denied state | Replace content with access message; no hidden names/counts/exports. Request approved access; server remains authority. |
+| Success state | Save view reports a specific outcome. Prototype labels it local/demo; exports contain the visible scope only. |
+| Drilldown behavior | Breadcrumb + URL context; selected entity and period stay explicit. Explain drawer gives metric evidence; avoid invented child entities. |
+| Primary actions | Save view; Explain; search/sort/columns; CSV; Back where applicable. |
+| Acceptance criteria | Fixture values equal the KPI contract; This unavailable fixture is not evidence of zero ad hoc cost; the two known query groups cover the observed compute example. |
+
+### Domain subtleties
+
+This unavailable fixture is not evidence of zero ad hoc cost; the two known query groups cover the observed compute example.
+
+Authorized query hashes, sanitized text and role metadata support manual review. Group-restricted viewers receive only their scope.
+
+Production mutations require explicit authorization and idempotency, with stale-version rejection and recovery. A browser-only draft cannot establish production RBAC, reconciliation, notification delivery or customer onboarding.
+
+### Mobile composition and keyboard path
+
+```text
++------------------------------------------+
+| [Menu] Bridge  [Search]                  |
+| Ad hoc activity                          |
+| [Scope / period] [Status]                |
+| KPI 1      |      KPI 2                  |
+| KPI 3      |      KPI 4                  |
+| Unknown ownership                        |
+| [View data / expand evidence]            |
+| Tabs / related routes scroll -->         |
+| Table scrolls within panel -->           |
+| [Save view]                              |
++------------------------------------------+
+```
+
+At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels one; table horizontal scroll is local. Keyboard path: skip link → scope → page action → KPI Explain buttons → related routes → table search/headers/rows → pagination. Escape closes overlays and returns focus to trigger. At 200% zoom no action or error message is clipped.
+
+### Validation and definition of done
+
+- [ ] Open `#/ad-hoc` directly and through the named navigation; heading and browser history agree.
+- [ ] Assert every KPI above against its fixture scope; verify `unavailable` explanation and status.
+- [ ] Inspect exact columns: Category, Observed cost, Sanitized hash, Coverage. Search an existing row and a nonexistent token; sorting and exported rows agree.
 - [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
 - [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
 - [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.

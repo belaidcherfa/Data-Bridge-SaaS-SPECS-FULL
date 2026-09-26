@@ -48,11 +48,11 @@ Goal: A clear view of cost, ownership and the next best action.
 | TABLE TOOLBAR: [Search rows...] [Sort column] [Columns v] [Density v] [CSV]                              |
 +----------------------------------------------------------------------------------------------------------+
 +---------------------------+---------------------------+---------------------------+---------------------------+
-| Driver                    | Cost USD                  | Change                    | Next step                 |
+| Driver                    | Cost USD                  | Comparison                | Next step                 |
 +---------------------------+---------------------------+---------------------------+---------------------------+
-| Warehouse compute         | 20,000.00                 | +6.4%                     | Explore                   |
-| Serverless                | 1,800.00                  | +2.1%                     | Explore                   |
-| Storage                   | 1,200.00                  | -3.2%                     | Explore                   |
+| Warehouse compute         | 20,000.00                 | Unavailable               | Explore                   |
+| Serverless                | 1,800.00                  | Unavailable               | Explore                   |
+| Storage                   | 1,200.00                  | Unavailable               | Explore                   |
 +---------------------------+---------------------------+---------------------------+---------------------------+
 +----------------------------------------------------------------------------------------------------------+
 | [Previous]   Rows are labelled sample or complete in context   [Next]                                    |
@@ -77,7 +77,7 @@ Display the exact price basis, currency, publication and as-of in Explain. Monet
 - **Spend over time**: Daily signed net spend. Hover for exact USD; View data opens the same series.
 - **What needs attention**: One invoice mismatch, one allocation decision, one warehouse opportunity. Prioritize separately from monetary totals.
 - **Ownership snapshot**: Warehouse book: Finance 12,000; Marketing 8,000. Applies to 20,000 compute, not all organizational spend.
-- **DataTable** columns, in order: Driver, Cost USD, Change, Next step. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
+- **DataTable** columns, in order: Driver, Cost USD, Comparison, Next step. Stable sorting, row search, column visibility, density and bounded CSV export; no automatic sum of mixed units or sample rows.
 - **Primary action**: Save view. Opens a review/evidence interaction or saves the current exploration state; it must not imply a production mutation in the prototype.
 
 ### Detail / dialog composition
@@ -144,7 +144,7 @@ At 390px: sidebar becomes a focus-managed menu; cards use two columns, panels on
 
 - [ ] Open `#/home` directly and through the named navigation; heading and browser history agree.
 - [ ] Assert every KPI above against its fixture scope; verify `spend` explanation and status.
-- [ ] Inspect exact columns: Driver, Cost USD, Change, Next step. Search an existing row and a nonexistent token; sorting and exported rows agree.
+- [ ] Inspect exact columns: Driver, Cost USD, Comparison, Next step. Search an existing row and a nonexistent token; sorting and exported rows agree.
 - [ ] Exercise loading, confirmed empty, partial, stale, error/retry and denied states independently. Denied views contain no financial values.
 - [ ] Open overlay with keyboard, tab through controls, Escape, and verify focus returns. Validate required fields before save where applicable.
 - [ ] Review 1440px and 390px screenshots and 200% zoom; inspect actual rendered labels, not just source.

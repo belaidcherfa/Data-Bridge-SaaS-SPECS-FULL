@@ -11,7 +11,7 @@ The workload contract has the right epistemics: evidence over guesses, UNKNOWN a
 1. The metadata the classifier needs (the dbt comment and the Power BI QUERY_TAG) must be extracted **inside the sanitizer at extraction time** (SEC-007, M1). Raw SQL is never persisted, so that extraction is irreversible beyond the 365-day Account Usage window. Yet the allowlist is owned by WRK-001, which is scheduled ~100 tasks later behind API-001.
 2. The native linkage that WRK-004 relies on exists only in specific views. Stored-procedure parent/root IDs are in QUERY_ATTRIBUTION_HISTORY and ACCESS_HISTORY, not QUERY_HISTORY, and the source catalog does not extract them. Serverless task cost is per task and time window, not per run.
 3. Power BI exposes only mode + ActivityId, and only from the Service with the 1.0 connector. There are no report or dataset identities.
-4. D-11 retention removes query-level rows after 90 days. Invocation- and family-level facts must be designed so the 365-day workload views and comparisons still work.
+4. D-11 retention removes query-level rows after 90 days. Invocation- and family-level facts must be designed so the 365-day workload views and comparisons still work. The current ING backfill plan also drops the very text that carries dbt identity for days 91–365 (G-WRK-15).
 
 Author first: the allowlist v1 (§3), the evidence schema, and the precedence table. Then decouple WRK-001 from API-001.
 
@@ -238,6 +238,20 @@ Why it matters: without an explicit rule, Bridge's own Account Usage queries app
 Resolution: the WRK-101 tag parser recognizes the prefix `bridge_finops:` (component ∈ {extract, probe, operator_stats, install}) → `workload_type=BRIDGE_OVERHEAD`, evidence VERIFIED (the tag is set by Bridge; spoofing it only moves the spoofer's own cost into a visible bucket). The Workloads overview (WRK-102) shows it as its own row with the D-08 quota comparison.
 Affects: WRK-101, WRK-001, WRK-102, UX-103.
 
+### G-WRK-15 · The ING backfill plan drops QUERY_TEXT beyond 90 days, which permanently loses a year of dbt identity at onboarding
+Severity: HIGH · Type: CONTRADICTION (with [ING.md](ING.md) ING-010-S04)
+Evidence:
+- ING-010-S04: "QUERY_TEXT not projected for windows older than the hot horizon (D-11) … The generated SQL for a day 200 days old lacks QUERY_TEXT".
+- ING.md: "Backfilling QUERY_TEXT beyond the 90-day hot window wastes 75 % of the CPU on text that D-11 discards".
+- The default dbt comment lives **only** in QUERY_TEXT, at its end (G-WRK-02).
+- G-WRK-08 keeps execution-level facts for 400 days.
+Why it matters: at onboarding, days 91–365 of dbt activity would carry no `node_id`/`invocation_id` evidence. Once those days leave Account Usage's 365-day window, they can never be recovered. dbt project/model history, WRK-005 baselines and the INS-003 pipeline detectors would all start 90 days back instead of a year back. ING's CPU argument is valid for full AST sanitization, not for metadata extraction.
+Resolution:
+- For windows older than the hot horizon, the extraction SQL projects only the trailing comment, computed **in the customer warehouse**: `REGEXP_SUBSTR(QUERY_TEXT, '/\\*[^*]*\\*+([^/*][^*]*\\*+)*/\\s*;?\\s*$')` truncated to 4,096 chars as `QUERY_TEXT_TAIL_COMMENT`. Leading comments are removed by Snowflake anyway (G-WRK-02).
+- WRK-101 runs its lexer on that fragment only (no AST, microseconds per row) and persists only `WorkloadMetaV1`. No SQL text is stored.
+- The customer-credit and bytes impact of the regex over ~275 M cold rows is TO VERIFY LIVE in ING-101, and disclosed in the D-08 estimate.
+Affects: ING-010, ING-101, WRK-101, WRK-104, D-08.
+
 ### G-WRK-14 · Native App and custom-application identity have no defined evidence sources
 Severity: LOW · Type: GAP
 Evidence: `pages/workloads.md` native-apps: "Provider fees and execution costs as distinct components"; custom-apps: "Verified application identity before cost attribution". FIN-020 covers the marketplace/app fee separation. Nothing defines what a "verified application identity" is.
@@ -379,8 +393,8 @@ Task acceptance:
 ## 5. New tasks required
 
 ### WRK-101 — Workload metadata extraction library (dbt/PBI/Bridge/customer keys) for the sanitizer
-Release: R1 (M1, with SEC-007) · Estimate: 20–28 h · Risk: H · Decisions: D-08, D-10 · Closes: G-WRK-01, G-WRK-02 (parsing), G-WRK-13 (tag)
-Dependency changes: new; depends on `SEC-001` (data classification), `FND-004` (fixtures). **SEC-007 depends on WRK-101.** WRK-001 depends on it. Must be frozen before `ONB-004`.
+Release: R1 (M1, with SEC-007) · Estimate: 22–30 h · Risk: H · Decisions: D-08, D-10, D-11 · Closes: G-WRK-01, G-WRK-02 (parsing), G-WRK-13 (tag), G-WRK-15
+Dependency changes: new; depends on `SEC-001` (data classification), `FND-004` (fixtures). **SEC-007 depends on WRK-101.** WRK-001 depends on it. **ING-010 (backfill) depends on WRK-101-S12.** Must be frozen before `ONB-004`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -395,6 +409,7 @@ Dependency changes: new; depends on `SEC-001` (data classification), `FND-004` (
 | WRK-101-S09 | Hand off the required source projections (§3) to the ING owner and the capability probes to CON-005 | ING/CON change requests | Accepted into ING-001/CON-005 backlogs | 1 |
 | WRK-101-S10 | Versioning and irreversibility runbook: `wlmeta_version` bump procedure, re-extraction bounded to 365 days, customer credit estimate (D-08) | `docs/05-ingestion/workload-meta.md` | Reviewed by ING/SEC | 1 |
 | WRK-101-S11 | Metrics: `wlmeta_parse_total{source,status}` with alarms on a MALFORMED rate > 5 % per account/day | instrumentation | Visible in staging | 1 |
+| WRK-101-S12 | Cold-window mode (G-WRK-15): specify the `QUERY_TEXT_TAIL_COMMENT` projection for ING-010 and accept a fragment-only input path (no AST, no text persisted) | ING change request + `extract_fragment()` | On a 200-day-old fixture window, dbt node_id/invocation_id are extracted and no SQL text column is present in the Parquet output | 2 |
 
 Task acceptance:
 - [ ] Allowlisted keys are extracted before sanitization, and forbidden keys (emails, commands, meta) never persist.
@@ -475,7 +490,7 @@ Task acceptance:
 
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
-| WRK-101 (new) | R1 | 20 | 28 |
+| WRK-101 (new) | R1 | 22 | 30 |
 | WRK-001 | R1 | 34 | 48 |
 | WRK-002 | R1 | 40 | 56 |
 | WRK-004 | R1 | 40 | 56 |
@@ -485,7 +500,7 @@ Task acceptance:
 | WRK-003 | R1* (D-20) / else R2 | 24 | 34 |
 | WRK-103 (new) | R2 | 24 | 34 |
 | WRK-105 (new) | R2 | 22 | 32 |
-| **Total R1** (excluding R1* WRK-003) | | **196** | **274** |
+| **Total R1** (excluding R1* WRK-003) | | **198** | **276** |
 | **Total R2** (WRK-103 + WRK-105; + WRK-003 if not R1*) | | **46** | **66** |
 
 The original plan was 5 tasks × 2–6 h = 10–30 h.

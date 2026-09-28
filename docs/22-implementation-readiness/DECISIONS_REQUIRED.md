@@ -33,6 +33,13 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 | D-23 | Data residency | BUSINESS/ARCH | Single EU stack R1; regional stacks later | INF-001 |
 | D-24 | Hot path (PRD §37) | PRODUCT | Defer to R2 | ING-012 |
 | D-25 | Compliance posture | BUSINESS · owner input | SOC 2-ready controls in R1; certification timing TBD | SEC-008, OPS-005 |
+| D-26 | Journal/RAW retention for financial sources | ARCH (amends ADR-009) | 400 days for billing/metering sources; 90 days for query-grain sources | ING-005, DBT-004 |
+| D-27 | Default monitor maturity | PRODUCT | Alert on PROVISIONAL by default, label maturity; FINAL opt-in | GOV-003 |
+| D-28 | Frontend hosting and edge | ARCH (refines PRD §5) | SPA on S3 + CloudFront OAC; API via CloudFront VPC origin to internal ALB | INF-005, INF-006 |
+| D-29 | Backfill vs steady state ordering | ARCH (refines PRD §40) | Start steady-state sync first; backfill in a fair background lane; no separate catch-up phase | ING-010 |
+| D-30 | Customer invoicing channel | BUSINESS · owner input | Invoices issued by an accounting tool connected to an approved e-invoicing platform; Bridge stores references only | LCH-001 |
+| D-31 | Availability objectives | PRODUCT | Control plane 99.9 %; analytics 99.5 % (bounded by Snowflake's own SLA) | OPS-003 |
+| D-32 | Non-production spend budget | BUSINESS · owner input | Approve Snowflake test estate (~100–150 credits/month) and a one-off benchmark budget | INF-101, OPS-008 |
 
 ## Details
 
@@ -47,7 +54,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 - **Context.** ADR-005 binds each normalized permission profile to its own WIF principal. With AWS WIF that means a Snowflake user and an IAM role per profile, created at runtime ([X-10](AUDIT_CROSS_CUTTING.md)).
 - **Options.** (a) ADR-005 as written. (b) Tenant-level WIF user + Snowflake role per profile. (c) Signed-context trusted broker with a single service user (ADR-005 already lists this as a revisit option).
-- **Recommendation.** (b). Tenant isolation remains identity-enforced (distinct user and IAM role per tenant); intra-tenant scope is role-enforced by row access policies; no IAM mutation on scope changes; pools keyed (tenant user, profile role, epoch). Verify live whether one AWS ARN may back several Snowflake users (not required by (b)).
+- **Recommendation.** (b). Tenant isolation remains identity-enforced (distinct user and IAM role per tenant); intra-tenant scope is role-enforced by row access policies; no IAM mutation on scope changes. Verify live whether one AWS ARN may back several Snowflake users (not required by (b)).
+- **Refinements from the SEC/INF audits.** Row access policies test `CURRENT_ROLE()` only — **not** `IS_ROLE_IN_SESSION()`, which with secondary roles would widen a restricted profile to every profile of the tenant. Tenant users are created with `DEFAULT_SECONDARY_ROLES = ()` plus a session policy blocking secondary roles, because new users default to `('ALL')` since behavior-change bundle 2024_08 (VERIFIED, see [backlog/SEC.md](backlog/SEC.md) G-SEC-01). Profiles are content-addressed and immutable, so pools are keyed (tenant user, profile role) and the permission epoch belongs in cursors, jobs, cache keys and download links, not in pool keys. The broker reaches the tenant user through the Python connector's `workload_identity_impersonation_path` (VERIFIED); dbt-snowflake has no such parameter, so each dbt task role must itself be the WIF identity. Separation between profiles of the same tenant ultimately rests on the broker — no weaker than ADR-005 as written. Full amendment text and DDL: [backlog/SEC.md](backlog/SEC.md) Appendix A.
 - **Blocks.** SEC-005, SEC-006, API-002, OPS-004.
 
 ### D-03 · Snowpipe usage mode
@@ -66,7 +74,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-05 · Analytical write model
 
 - **Context.** MERGE-in-place and pointer-selected revisions are both mentioned; neither is physically specified ([X-11](AUDIT_CROSS_CUTTING.md)).
-- **Recommendation.** Insert-only revisioned partitions `(tenant_id, dataset, partition_key, revision_id)` for ledger, attribution, allocation and serving; per-tenant publication map; serving secure views select the published revision; clustering on `(tenant_id, partition_date)`; garbage collection of superseded revisions once no statement/report/job pins them and retention allows. MERGE only for staging deduplication.
+- **Recommendation.** Insert-only revisioned partitions `(tenant_id, dataset, partition_key, revision_id)` for ledger, attribution, allocation and serving; per-tenant publication map; serving secure views select the published revision; clustering on `(tenant_id, partition_date)`; garbage collection of superseded revisions once no statement/report/job pins them and retention allows.
+- **Refinements from the ORC/DBT audits.** dbt-snowflake's built-in `insert_overwrite` truncates the whole table and `microbatch` deletes a time slice for all tenants (VERIFIED), so a custom `revisioned` materialization is required (new ADR-014, task DBT-101). Staging becomes read-time deduplication views over accepted RAW (no MERGE at all). Query-grain facts use hour partitions, charges use day partitions. The publication pointer is DML-only (DDL auto-commits — VERIFIED) and advanced by one `PUBLISH_BATCH` compare-and-swap over an SCD2 publication map; readers pin `pub_seq`. See [backlog/ORC.md](backlog/ORC.md) G-ORC-06 and [backlog/DBT.md](backlog/DBT.md) G-DBT-01.
 - **Blocks.** DBT-001, DBT-004, DBT-006, ORC-005, OPS-007.
 
 ### D-06 · dbt run granularity
@@ -79,12 +88,14 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 - **Context.** ~216,000 runs/day at the benchmark profile if each (account, source, window) is a run ([X-12](AUDIT_CROSS_CUTTING.md)).
 - **Recommendation.** One ECS task per account-cycle (all due sources, one warehouse resume) using that account's task role; Dagster schedules/sensors enqueue durable work items in PostgreSQL; Dagster run and event-log retention purge.
+- **Refinements from the ORC/INF/ING audits.** dagster-aws `EcsRunLauncher` only sets a per-run task role through the user-writable `ecs/task_overrides` run tag, and ECS RunTask overrides cannot be constrained by IAM (both VERIFIED): anyone able to launch a run could choose any passable customer role. Therefore a dedicated extraction launcher (not Dagster) resolves `connection_id → role` from PostgreSQL and starts the extractor task; Dagster only enqueues; the Dagster webserver is read-only by default. Extractor tasks hold no database credentials and report through an internal `sync-api` authenticated by their AWS role. See G-ORC-03, G-INF-08, G-ING-08/09.
 - **Blocks.** ORC-002, ORC-003, ING-003, ING-010.
 
 ### D-08 · Customer-side extraction footprint
 
 - **Context.** Extraction consumes customer credits (≈ 1.6 credits/day/account at a 15-minute cadence before runtime) and pollutes the customer's own cost data ([X-13](AUDIT_CROSS_CUTTING.md)).
-- **Recommendation.** Install script creates `BRIDGE_FINOPS_WH` (XSMALL, `AUTO_SUSPEND=60`, resource monitor with a customer-chosen monthly quota); `QUERY_TAG='bridge_finops:<component>'`; "Bridge overhead" workload classification; estimated monthly credits shown before consent; hourly batched default cadence.
+- **Recommendation.** Install script creates `BRIDGE_FINOPS_WH` (XSMALL, `AUTO_SUSPEND=60`, resource monitor with a customer-chosen monthly quota) and grants `OPERATE` on it so the extractor can suspend it explicitly at the end of each cycle; `QUERY_TAG='bridge_finops:<component>'`; "Bridge overhead" workload classification; estimated monthly credits shown before consent; hourly batched default cadence.
+- **Quantified by the CON/OPS audits.** ≈ 12.6–13.2 credits/month per account with explicit suspend vs ≈ 20.6–27.2 with auto-suspend only ([backlog/CON.md](backlog/CON.md) §3.3); ≈ 90–120 credits/month for a 5-account customer overall including backfill amortization ([backlog/ONB.md](backlog/ONB.md)). The hourly cadence changes the freshness SLO: it is measured from manifest commit to publication, and query-history freshness is ~1–2 h, not 15 min ([backlog/OPS.md](backlog/OPS.md)).
 - **Blocks.** CON-003, CON-006, ING-003, WRK-001.
 
 ### D-09 · Network reachability
@@ -95,7 +106,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-10 · Personal data in the immutable journal
 
 - **Context.** Immutable Parquet and Time Travel cannot honour erasure by tombstones alone ([X-15](AUDIT_CROSS_CUTTING.md)).
-- **Recommendation.** Pseudonymize user identifiers at extraction with a per-tenant HMAC key (Secrets Manager/KMS-protected); maintain a per-tenant identity dictionary (pseudonym → display name) as a small, separately journaled, deletable dataset; UI resolves names only for authorized profiles; erasure = dictionary deletion + documented Snowflake Time Travel/Fail-safe residual window. Legal review confirms sufficiency.
+- **Recommendation.** Pseudonymize user identifiers at extraction with a per-tenant HMAC key (KMS-protected); keep the per-tenant identity dictionary (pseudonym → display name) in PostgreSQL — **not** in an immutable journal — and resolve names in the API only for authorized profiles; erasure = dictionary deletion, plus replay of an append-only deletion tombstone log after any restore (backups would otherwise resurrect names), plus per-tenant KMS key deletion at offboarding; documented Snowflake Time Travel/Fail-safe residual window. Legal review confirms sufficiency. See G-SEC-16, G-OPS-07 (task OPS-104).
 - **Blocks.** SEC-007, ING-003, OPS-005.
 
 ### D-11 · Query-level retention tiering
@@ -106,12 +117,14 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-12 · Canonical charge grain
 
-- **Recommendation.** `fct_charge` key = (tenant, organization, scope_kind, account nullable only for organization scope, usage_date UTC, service_type, rating_type, billing_type, balance_source if it affects monetary meaning, currency, is_adjustment, source_revision). Estimates are aggregated to exactly this key before publication so the authoritative bucket replaces them 1:1. Resource/hour/query money lives only in attribution bridges.
+- **Recommendation.** `fct_charge` identity = (tenant, organization, scope_kind, account nullable only for organization scope, usage_date UTC, service_type, rating_type, billing_type, balance_source where it changes monetary meaning, currency, is_adjustment); versions are `revision_id` under D-05, not part of the identity. Resource/hour/query money lives only in attribution bridges, produced by one exact allocator with explicit residual rows.
+- **Correction from the FIN audit (G-FIN-01).** Estimates cannot know rating/billing type, capacity vs overage or adjustments in advance (estimate 200 → billed 160 + 50 would show 410 under key-based replacement). Replacement is therefore **family-bucket supersession**: estimates exist at (tenant, org, scope, account, usage_date, service_family, currency); an accepted authoritative row deactivates the estimate for its family bucket, and a mature daily billing snapshot deactivates all estimates for that account-day; metered usage with no billing after maturity stays visible as `BILLING_MISSING` and fails control C2. Allocation additionally needs an `int_alloc_unit` layer that splits each charge into query/idle/residual/resource units summing exactly to the charge (G-ALC-01).
 - **Blocks.** FIN-001 and every FIN service task.
 
 ### D-13 · FINAL maturity horizons
 
-- **Recommendation.** Per-source numeric defaults stored in the source registry and versioned; initial values from documented latency plus margin (e.g. hourly metering FINAL at hour end + 24 h, QAH + 24 h, METERING_DAILY + 24 h, USAGE_IN_CURRENCY_DAILY + 72 h, month billing-stable at month end + 5 days, configurable). Later corrections still create revisions. Measured lateness revises the defaults (ADR-003 revisit condition).
+- **Recommendation.** Per-source numeric defaults stored in the source registry and versioned; initial values from documented latency plus margin (hourly metering FINAL at hour end + 24 h; METERING_DAILY + 24 h; USAGE_IN_CURRENCY_DAILY + 72 h). Later corrections still create revisions. Measured lateness revises the defaults (ADR-003 revisit condition).
+- **Corrections from the FIN audit (G-FIN-08).** Query attribution cannot be FINAL at + 24 h: a query can run for the maximum statement timeout (48 h default), so QAH is FINAL at hour end + statement timeout + 24 h (72 h by default). Daily FINAL and month stability are distinct states: a day can be FINAL at + 72 h while the month still changes; a separate `MONTH_STABLE` state is reached at month end + 5 days (configurable) and gates close.
 - **Blocks.** ING-001, FIN-001, GOV-004.
 
 ### D-14 · Temporal attribution of long queries
@@ -122,6 +135,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-15 · Default allocation per charge family
 
 - **Recommendation.** Seed an editable default book at onboarding: warehouse compute by query cost; idle proportional to consumers; cloud services proportional to gross cloud-services credits; storage by database owner; serverless by owning object; transfer, replication and organization fees to a platform/shared bucket; anything else unallocated.
+- **Prerequisite found by the ALC audit (G-ALC-11).** The cloud-services driver requires `CREDITS_USED_CLOUD_SERVICES` (and database/schema) in the QUERY_HISTORY projection, which the source catalog does not extract today; ING-001 adds them. Until available, the fallback is a labelled query-cost share.
 - **Blocks.** ALC-005, ONB-004.
 
 ### D-16 · Rule evaluation engine
@@ -158,7 +172,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-22 · Query broker placement
 
-- **Recommendation.** Separate internal service with its own task role — the only component allowed to assume tenant serving identities — reached by the API over private, authenticated transport with a server-signed query plan.
+- **Recommendation.** Separate internal service with its own task role — the only component allowed to assume tenant serving identities — reached by the API over private, authenticated transport (SigV4 through VPC Lattice preferred over mTLS to avoid a private CA — TO VERIFY LIVE) with a server-signed query plan; the broker rechecks the permission epoch and cancels running queries on revocation.
 - **Blocks.** API-002, INF-005.
 
 ### D-23 · Data residency
@@ -176,3 +190,34 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 - **Question.** Is SOC 2 Type I/II (or ISO 27001) expected by the first customers, and when?
 - **Recommendation.** Build SOC 2-ready controls in R1 regardless (audit trail, access reviews, change management evidence, backup/restore evidence, vendor list, incident process); certification timing is a business decision.
 - **Blocks.** SEC-008, OPS-005, OPS-010, REL-003.
+
+### D-26 · Journal and RAW retention for financial sources (amends ADR-009)
+
+- **Context.** ADR-009 sets S3 journal and RAW retention to 90 days while canonical facts live 400 days. The DBT and ING audits show that any rebuild of a financial partition older than 90 days (bug fix, new service mapping, restatement) then requires re-extraction from the customer — impossible beyond Account Usage retention and costly on the customer's warehouse.
+- **Recommendation.** Retain journal and RAW for billing/metering/storage sources 400 days (small volumes); keep 90 days for query-grain sources (large volumes, D-11). Privacy is unaffected by D-10 pseudonymization.
+
+### D-27 · Default monitor maturity
+
+- **Recommendation.** Monitors evaluate PROVISIONAL data by default and state the maturity in every alert; `minimum_data_status: FINAL` is an explicit opt-in, because FINAL delays alerts by 2–5 days under D-13 (G-GOV).
+
+### D-28 · Frontend hosting and edge (refines PRD §5)
+
+- **Recommendation.** Serve the React SPA from S3 through CloudFront with Origin Access Control instead of a Fargate `frontend` service; reach the API through a CloudFront VPC origin to an internal ALB (VERIFIED capability) instead of a public ALB protected by a secret header. Fewer moving parts, no public ALB. See G-INF.
+
+### D-29 · Backfill vs steady-state ordering (refines PRD §40)
+
+- **Recommendation.** Start steady-state synchronization immediately after capability validation and run the historical backfill in a fair background lane; coverage merges contiguously, so no separate "catch-up T0 → now" phase is needed and fresh data appears on day 1. See G-ING.
+
+### D-30 · Customer invoicing channel — owner input
+
+- **Context.** If the invoicing entity is French, the e-invoicing reform has applied since 2026-09-01 (VERIFIED by the LCH audit; obligations depend on company size and must be confirmed with an accountant).
+- **Recommendation.** Do not generate invoices in the product. Issue them from an accounting tool connected to an approved e-invoicing platform; Bridge stores invoice/payment references and verified payment evidence only (consistent with ADR-012).
+
+### D-31 · Availability objectives
+
+- **Recommendation.** Control plane (login, settings, workflows) 99.9 % monthly; analytical reads 99.5 %, because they cannot exceed Snowflake's own service commitment. Low-traffic periods are measured with synthetic probes. See G-OPS-02…04.
+
+### D-32 · Non-production spend budget — owner input
+
+- **Question.** Approve the Snowflake test estate (two test organizations, several accounts, workload generators: ≈ 100–150 credits/month, [backlog/INF.md](backlog/INF.md) G-INF-01) and a one-off capacity-benchmark budget ([backlog/OPS.md](backlog/OPS.md)). Without them, every "live" gate in the plan is untestable.
+

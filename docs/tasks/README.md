@@ -1,5 +1,7 @@
 # Implementation task tree
 
+> **Execution plan superseded (2026-09-28).** Task files below keep their IDs, objectives and canonical links. Their micro-steps, dependencies and acceptance criteria are superseded by the [revised backlog](../22-implementation-readiness/backlog/) and the [revised task graph](../22-implementation-readiness/revised-task-graph.json), per the recorded [decisions](../22-implementation-readiness/DECISIONS_REQUIRED.md).
+
 All implementation work remains NOT_STARTED. Use the [topological task index](../../TASK_INDEX.md) or [machine index](../00-project/task-index.json), not file-number order, to select ready work.
 
 | Domain / epic | Canonical contract | Tasks |

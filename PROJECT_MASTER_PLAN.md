@@ -76,4 +76,6 @@ Publish each completed document through the GitHub API to `main`, immediately. U
 
 ## Published delivery inventory
 
+**Revised 2026-09-28.** After the [implementation-readiness review](docs/22-implementation-readiness/README.md) and the owner's [decision record](docs/22-implementation-readiness/DECISIONS_REQUIRED.md) (38 decisions), the execution plan is the [revised task graph](docs/22-implementation-readiness/revised-task-graph.json) — 249 tasks, about 2,800 verifiable micro-steps in the [domain backlogs](docs/22-implementation-readiness/backlog/), 233 contract-first artifacts, ADR-014 to ADR-016 — delivered as an R1 production slice and R2 breadth ([release plan](docs/22-implementation-readiness/RELEASE_PLAN.md)). The original inventory below is the historical baseline.
+
 The plan contains20 domain contracts,151 implementation tasks and604 numbered micro-tasks, with13 production milestones and12 ADRs. Start with [TASK_INDEX](TASK_INDEX.md); use [traceability](docs/00-project/TRACEABILITY.md), [validation strategy](docs/15-testing/validation-strategy.md), [research register](docs/00-project/RESEARCH_REGISTER.md), [open implementation gates](docs/00-project/OPEN_VALIDATIONS.md) and [status](docs/00-project/STATUS.md) for evidence and restartability.

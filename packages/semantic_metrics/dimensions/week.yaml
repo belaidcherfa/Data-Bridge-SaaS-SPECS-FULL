@@ -1,0 +1,38 @@
+# contract=semantic-dimension:week version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: week
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.week.label
+description_key: dimension.week.description
+group: TIME
+kind: TIME
+value_type: DATE
+time:
+  grain: WEEK
+  truncation: DATE_TRUNC('WEEK', day) with WEEK_START=1 (ISO week, Monday) — session parameter set by the broker
+  derivable_from: [DAY, HOUR]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, BETWEEN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: TIME_FORMAT}
+bindings:
+- {relation: v_charge_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_attribution_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_allocation_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_allocation_coverage_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_query_exec, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_query_family_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_storage_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_budget_daily, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_workload_exec, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_ai_usage, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_charge_source_set, column_ref: usage_date, expression: DATE_TRUNC_WEEK}
+- {relation: v_insight_summary, column_ref: period_date, expression: DATE_TRUNC_WEEK}
+sortable: true
+owner_task: API-001
+notes: Periods are half-open [start, end) UTC; the request period filters the relation time column, the grain only shapes output rows.

@@ -1,0 +1,35 @@
+# contract=semantic-metric:idle_cost version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: idle_cost
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.idle_cost.label
+description_key: metric.idle_cost.description
+population_key: metric.idle_cost.population
+category: FINANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: amount
+  population:
+  - {column: target_kind, op: EQ, value: WAREHOUSE_IDLE}
+  - {column: attribution_method, op: EQ, value: CLASSIC_IDLE}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, warehouse, warehouse_size, currency, price_basis, data_status]
+required_sources: [au.warehouse_metering_history]
+capability_flags: [warehouse.classic_idle]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO, capability_missing_reason: NOT_SUPPORTED}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#idle_cost
+  child_resolvers: [attribution_by_target]
+screen_keys: [idle]
+owner_task: API-001
+notes: 'Classic idle = WMH compute − Σ attributed query compute per warehouse-hour. Adaptive warehouses have no idle: a group made only of Adaptive warehouses returns null NOT_SUPPORTED,
+  a mixed scope returns the classic idle with warning ADAPTIVE_EXCLUDED.'

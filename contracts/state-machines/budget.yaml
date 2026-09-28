@@ -1,0 +1,44 @@
+# contract=state-machine-budget version=1 status=DRAFT owner_task=GOV-001 decisions=D-02,D-04,D-12,D-13 last_changed=2026-09-28
+# Lifecycle of a budget definition (governance.budget). Evaluation outcomes (ON_TRACK, AT_RISK, EXCEEDED,
+# UNKNOWN_RISK, PARTIAL, INSUFFICIENT_DATA) are computed per evaluation and are NOT lifecycle states
+# (see data/contracts/budget.json#/$defs/budget_status_view).
+# A budget is evaluated as its owner's current normalized profile role via the query broker's JOB class
+# (RECONCILIATION C-09); losing the owner or the owner's scope pauses it (never silently narrowed).
+# Sources: backlog/GOV.md G-GOV-04, G-GOV-05, G-GOV-16, GOV-001-S01..S11.
+machine: budget
+version: 1
+owner_task: GOV-001
+entity: governance.budget
+state_field: status
+initial: DRAFT
+terminal: [ARCHIVED]
+states:
+  DRAFT: {description: "Saved but not evaluated and not published to CONFIG."}
+  ACTIVE: {description: "Published (CONFIG.cfg_budget config_version) and evaluated at every relevant publication."}
+  PAUSED_AUTH: {description: "Not evaluated: pause_reason OWNER_REMOVED (appears in the FinOps Admin reassignment queue) or OWNER_SCOPE_REDUCED (owner's scope no longer covers the budget scope). Last evaluation stays visible with a paused label."}
+  ARCHIVED: {description: "Retired. History (revisions, evaluations, forecasts) retained and readable."}
+transitions:
+  - {from: DRAFT, to: DRAFT, event: revised, actors: [budget.manage], guards: [budget_document_valid], effects: [insert:governance.budget_revision]}
+  - {from: DRAFT, to: ACTIVE, event: activated, actors: [budget.manage], guards: [budget_document_valid, metric_allowed_for_scope, scope_within_owner_grants, single_native_currency, calendar_supported], effects: [publish_config:BUDGET, emit:bridge.governance.budget.activated]}
+  - {from: ACTIVE, to: ACTIVE, event: revised, actors: [budget.manage], guards: [budget_document_valid, metric_allowed_for_scope, scope_within_owner_grants, single_native_currency], effects: [insert:governance.budget_revision, publish_config:BUDGET, emit:bridge.governance.budget.revised]}
+  - {from: ACTIVE, to: PAUSED_AUTH, event: owner_removed, actors: ["system:membership-watcher"], guards: [], effects: [set_pause_reason:OWNER_REMOVED, enqueue:finops_admin_reassignment, emit:bridge.governance.budget.paused]}
+  - {from: ACTIVE, to: PAUSED_AUTH, event: owner_scope_reduced, actors: ["system:membership-watcher"], guards: [owner_scope_no_longer_covers_budget], effects: [set_pause_reason:OWNER_SCOPE_REDUCED, notify:budget_owner_and_admins, emit:bridge.governance.budget.paused]}
+  - {from: PAUSED_AUTH, to: ACTIVE, event: owner_reassigned, actors: [budget.manage], guards: [new_owner_scope_covers_budget], effects: [clear_pause_reason, publish_config:BUDGET, emit:bridge.governance.budget.resumed]}
+  - {from: PAUSED_AUTH, to: ACTIVE, event: owner_scope_restored, actors: ["system:membership-watcher"], guards: [owner_scope_covers_budget], effects: [clear_pause_reason, emit:bridge.governance.budget.resumed]}
+  - {from: DRAFT, to: ARCHIVED, event: archived, actors: [budget.manage], guards: [], effects: [emit:bridge.governance.budget.archived]}
+  - {from: ACTIVE, to: ARCHIVED, event: archived, actors: [budget.manage], guards: [], effects: [publish_config:BUDGET, resolve_linked_incidents:MONITOR_DISABLED, emit:bridge.governance.budget.archived]}
+  - {from: PAUSED_AUTH, to: ARCHIVED, event: archived, actors: [budget.manage], guards: [], effects: [publish_config:BUDGET, resolve_linked_incidents:MONITOR_DISABLED, emit:bridge.governance.budget.archived]}
+guards:
+  budget_document_valid: "Request validates against data/contracts/budget.json (amount >= 0 decimal string, [start,end) UTC dates on calendar boundaries, thresholds valid, no SQL-like values in scope)."
+  metric_allowed_for_scope: "spend v1 for organization/account/service/warehouse/custom scopes; allocated_spend v1 with book_id for team/group scopes (group dimension present); else 422 GOV_METRIC_NOT_ALLOWED_FOR_SCOPE or GOV_BOOK_REQUIRED."
+  scope_within_owner_grants: "SEC-101 subsumes(owner scope, budget scope); else 403 GOV_BUDGET_SCOPE_UNAUTHORIZED."
+  single_native_currency: "All accounts in scope share one native currency equal to budget.currency; else 422 GOV_MIXED_CURRENCY_SCOPE listing the accounts."
+  calendar_supported: "calendar.kind in MONTH/QUARTER/YEAR (R1); custom 4-4-5 and explicit periods are R2 (GOV-104) → 422 GOV_CALENDAR_NOT_SUPPORTED."
+  owner_scope_no_longer_covers_budget: "Recomputed at the membership's permission_epoch bump."
+  new_owner_scope_covers_budget: "New owner is an ACTIVE member whose scope subsumes the budget scope and who holds budget.manage."
+  owner_scope_covers_budget: "Owner's current scope again subsumes the budget scope."
+invariants:
+  - "A revision (amount, scope, thresholds, metric/book) creates a governance.budget_revision row effective immediately; history is retained and queryable."
+  - "A scope edit applies to the whole period: actual always equals 'current scope over the period'."
+  - "Overlapping budgets are evaluated independently; no API or table returns a sum across budgets."
+  - "Unpriced spend or partial coverage yields evaluation status UNKNOWN_RISK, never 'under budget'."

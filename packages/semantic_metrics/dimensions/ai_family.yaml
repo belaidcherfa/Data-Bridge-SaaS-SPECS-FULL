@@ -1,0 +1,24 @@
+# contract=semantic-dimension:ai_family version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: ai_family
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.ai_family.label
+description_key: dimension.ai_family.description
+group: RESOURCE
+kind: ENUM
+value_type: ENUM
+enum_values: [AI_FUNCTIONS, CORTEX_SEARCH, CORTEX_ANALYST, CORTEX_AGENTS, DOCUMENT_AI, FINE_TUNING, OTHER_AI]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.ai_family.value}
+bindings:
+- {relation: v_attribution_daily, column_ref: ai_family}
+- {relation: v_ai_usage, column_ref: ai_family}
+sortable: true
+owner_task: API-001

@@ -1,0 +1,50 @@
+# contract=semantic-relation:v_dim_account version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_dim_account
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_dim_account
+version: 1
+status: ACTIVE
+release: R1
+kind: DICTIONARY
+description: Account and organization labels under RAP_ACCOUNT_SCOPED; the scope-bar pickers read it through GET /v1/dimensions/{id}/values (no counts).
+serving_view: bridge.serving.serving_dim_account
+dataset_id: dim_account
+dbt_model: dim_account
+upstream_owner_tasks: [CON-004, DBT-003]
+grain_keys: [tenant_id, account_id]
+tenant_column: tenant_id
+time: {column: null, type: NONE, grain: NONE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: null, basis: FIXED, reference: Current dictionary; dropped accounts kept with is_active=false}
+entitlement_dimensions: [organization, account]
+currency_column: null
+data_status_column: null
+required_sources: []
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_name, type: VARCHAR, nullable: false, role: LABEL, privacy: CUSTOMER_METADATA}
+- {name: account_locator, type: VARCHAR, nullable: false, role: LABEL, privacy: CUSTOMER_METADATA}
+- {name: organization_name, type: VARCHAR, nullable: false, role: LABEL, privacy: CUSTOMER_METADATA}
+- {name: region, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- name: cloud
+  type: VARCHAR(8)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [AWS, AZURE, GCP]
+- {name: edition, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: is_trial_account, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: 'D-35: TRUE for Snowflake trial accounts (demonstration only); excluded from reconciliation
+    claims.'}
+- {name: is_connected, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: is_active, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

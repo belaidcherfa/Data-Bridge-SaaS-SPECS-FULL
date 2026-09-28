@@ -1,0 +1,50 @@
+# contract=semantic-metric:query_compute_cost version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: query_compute_cost
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.query_compute_cost.label
+description_key: metric.query_compute_cost.description
+population_key: metric.query_compute_cost.population
+category: FINANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: amount
+  population:
+  - {column: target_kind, op: EQ, value: QUERY}
+  - column: attribution_method
+    op: IN
+    values: [QAH, QMH]
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, currency, price_basis, data_status, warehouse, warehouse_type, warehouse_size, user, role, client_application, workload_type,
+  workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class]
+incompatible_dimensions:
+- dimension: database
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [warehouse, workload]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.compute_by_object
+- dimension: schema
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [warehouse, workload]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.compute_by_object
+- dimension: storage_class
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [warehouse, workload]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.compute_by_object
+required_sources: [au.query_attribution_history, au.warehouse_metering_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#query_compute_cost
+  child_resolvers: [attribution_by_target, query_set]
+screen_keys: [querycompute, eligible, dbtcost, pbicost, runcost, modelcost, pbiactivitycost]
+owner_task: API-001
+notes: Query-attributed compute (QAH classic, QMH adaptive, prorated per D-14) × the charge's effective rate. Excludes idle and cloud services; a query missing from QAH lands in unattributed_cost,
+  never free (UX-005-S10).

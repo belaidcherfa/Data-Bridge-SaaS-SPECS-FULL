@@ -1,0 +1,33 @@
+# contract=semantic-metric:spcs_node_hours version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: spcs_node_hours
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.spcs_node_hours.label
+description_key: metric.spcs_node_hours.description
+population_key: metric.spcs_node_hours.population
+category: AI_SPCS
+unit: {kind: NODE_HOURS, currency_policy: NOT_APPLICABLE, quantity_unit: NODE_HOUR, display_hint: DECIMAL}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: spcs_node_hours
+  population:
+  - {column: service_family, op: EQ, value: SPCS}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, compute_pool, spcs_service, data_status]
+required_sources: [au.snowpark_container_services_history]
+capability_flags: [spcs.node_hours]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {empty_population: ZERO, capability_missing_reason: NOT_SUPPORTED}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#spcs_node_hours
+  child_resolvers: [attribution_by_target]
+screen_keys: [poolhours]
+owner_task: API-001
+notes: Source availability TO VERIFY LIVE (FIN-019); until verified the capability flag is false and the value is null NOT_SUPPORTED.

@@ -1,0 +1,34 @@
+# contract=semantic-metric:unallocated_spend version=1 status=DRAFT owner_task=ALC-102 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: unallocated_spend
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.unallocated_spend.label
+description_key: metric.unallocated_spend.description
+population_key: metric.unallocated_spend.population
+category: ALLOCATION
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_allocation_daily
+measure:
+  type: SUM
+  column_ref: allocated_amount
+  population:
+  - {column: is_unallocated, op: EQ, value: true}
+params:
+- {name: book_id, type: UUID, required: true, binds_column: book_id, floating_default: NONE}
+additivity: {across_dimensions: ALL, across_time: SUM, within_param: book_id, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, scope_kind, service_category, component_kind, allocation_method, currency, data_status]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read, profile_requires: INCLUDE_UNALLOCATED}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#unallocated_spend
+  child_resolvers: [statement_line]
+screen_keys: [unallocated]
+owner_task: ALC-102
+notes: 'API.md alias unallocated_cost. ''__UNALLOCATED__'' leaf of the book; requires an explicit unallocated grant or book-wide scope (ALC-102-S02: Finance-only profile → 403 QUERY_METRIC_FORBIDDEN).'

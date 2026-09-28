@@ -1,0 +1,423 @@
+# contract=source-contract:AU_QUERY_ATTRIBUTION_HISTORY version=1.0.0 status=DRAFT owner_task=ING-101 decisions=D-08,D-10,D-13,D-14,D-20,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_QUERY_ATTRIBUTION_HISTORY
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-101
+decisions:
+- D-08
+- D-10
+- D-13
+- D-14
+- D-20
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage QUERY_ATTRIBUTION_HISTORY (completion-time sweep)
+description: 'Per-query attributed warehouse compute credits and QAS credits; PARENT_QUERY_ID/ROOT_QUERY_ID added for workload graphs (RECONCILIATION C-10). Queries
+  shorter than about 100 ms are absent by design: a missing row means unknown, not zero.'
+family: QUERY
+module: QUERY_COST
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.QUERY_ATTRIBUTION_HISTORY
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/query_attribution_history
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.USAGE_VIEWER
+  alternatives:
+  - SNOWFLAKE.GOVERNANCE_VIEWER
+  account_privileges: []
+  verification: VERIFIED_SNIPPET
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: QUERY_ID
+  transport_name: query_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by: []
+  description: ''
+- name: PARENT_QUERY_ID
+  transport_name: parent_query_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: ''
+- name: ROOT_QUERY_ID
+  transport_name: root_query_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: ''
+- name: WAREHOUSE_ID
+  transport_name: warehouse_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-003
+  description: ''
+- name: WAREHOUSE_NAME
+  transport_name: warehouse_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Also input of is_bridge_overhead.
+- name: USER_NAME
+  transport_name: user_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: PERSONAL
+  privacy_action: DROP
+  arrow_type: null
+  raw_type: null
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Read only to compute is_bridge_overhead on plaintext; never transported (the user dimension comes from AU_QUERY_HISTORY by QUERY_ID).
+- name: QUERY_HASH
+  transport_name: query_hash
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: QUERY_PARAMETERIZED_HASH
+  transport_name: query_parameterized_hash
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-104
+  description: ''
+- name: START_TIME
+  transport_name: start_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: END_TIME
+  transport_name: end_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_ATTRIBUTED_COMPUTE
+  transport_name: credits_attributed_compute
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-003
+  description: Attributed warehouse compute credits (native unit CREDIT); prorated over metering hours by D-14.
+- name: CREDITS_USED_QUERY_ACCELERATION
+  transport_name: credits_used_query_acceleration
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-017
+  description: QAS credits of the query; decomposition, not a second bill.
+extractor_columns:
+- transport_name: is_bridge_overhead
+  arrow_type: bool
+  raw_type: BOOLEAN
+  nullable: false
+  privacy_class: INTERNAL
+  rule: TRUE iff (WAREHOUSE_NAME, USER_NAME) is ('BRIDGE_FINOPS_WH','BRIDGE_FINOPS_READER_USER') or ('BRIDGE_FINOPS_ORG_WH','BRIDGE_FINOPS_ORG_USER'), compared on
+    plaintext in process before pseudonymization (ING-107 order step 1, G-CON-11); QUERY_TAG is never used for this flag; Bridge overhead is never excluded from totals.
+  owner_task: CON-101
+extension_schemas: []
+watermark_mode: END_TIME_SWEEP
+watermark_column: END_TIME
+pruning_column: START_TIME
+pruning_horizon_days: 8
+predicate_template: END_TIME >= :ws AND END_TIME < :we AND START_TIME >= DATEADD(day, -8, :ws)
+pending_refresh: null
+horizon_alarm_days: 7
+cycle: STEADY_HOURLY
+window_steady_seconds: 3600
+first_delay_seconds: 3600
+settle_seconds: 43200
+extraction_order_rank: 70
+semantics: EVENT_UPSERT
+key:
+- query_id
+partition_key: null
+snapshot_key: []
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: false
+  zero_rows: false
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: DAILY
+  method: CHECKSUM
+  window:
+    kind: LAST_N_DAYS
+    n: 7
+  additive_only: true
+  checksum_measures:
+  - COUNT(*)
+  - SUM(CREDITS_ATTRIBUTED_COMPUTE)
+  - SUM(CREDITS_USED_QUERY_ACCELERATION)
+- schedule: WEEKLY
+  method: CHECKSUM
+  window:
+    kind: LAST_N_DAYS
+    n: 30
+  additive_only: true
+  checksum_measures:
+  - COUNT(*)
+  - SUM(CREDITS_ATTRIBUTED_COMPUTE)
+  - SUM(CREDITS_USED_QUERY_ACCELERATION)
+backfill_supported: true
+backfill_chunk_seconds: 86400
+min_chunk_seconds: 300
+max_chunk_seconds: 86400
+backfill_split_rows_threshold: 2000000
+sizing_query: SELECT DATE_TRUNC('day', END_TIME) AS usage_day, COUNT(*) AS row_count FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_ATTRIBUTION_HISTORY WHERE END_TIME >= :start
+  AND END_TIME < :end GROUP BY 1
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: QUERY_GRAIN
+journal_retention_days: 90
+raw_retention_days: 90
+query_detail_tiering: null
+documented_latency_seconds: 28800
+latency_verification: VERIFIED_SNIPPET
+maturity:
+  data_final_horizon_seconds: null
+  attribution_final_horizon_seconds: 259200
+  attribution_horizon_rule: FINAL at hour_end + T + 24 h, T = min(account max STATEMENT_TIMEOUT_IN_SECONDS, 48 h) = 72 h by default (D-13, G-FIN-08).
+  month_stability_days: null
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_QUERY_ATTRIBUTION_HISTORY version=0
+health:
+  expected_lag_seconds: 7200
+  grace_seconds: 1800
+  delayed_after_seconds: 9000
+  stale_after_seconds: 18000
+authority:
+  measure_roles:
+  - ATTRIBUTION
+  service_families:
+  - WAREHOUSE_COMPUTE
+  - QUERY_ACCELERATION
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Attribution of the warehouse-hour bucket; short queries absent -> PRORATION_RESIDUAL (D-14).
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: false
+  canary: false
+  timeout_seconds: 30
+  predicate_template: END_TIME >= :probe_from AND END_TIME < :probe_to
+transport_schema:
+  version: '1.0'
+  fingerprint: f0eae9424bb98bef7e520692b6ab7679da596302f633eab5980b1f6270508b2f
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: Source latency up to 8 h (one snippet says 6 h).
+  status: VERIFIED_SNIPPET
+  evidence: docs.snowflake.com query_attribution_history (G-ING-01)
+- fact: Queries of about 100 ms or less are absent by design.
+  status: VERIFIED_SNIPPET
+- fact: USAGE_VIEWER or GOVERNANCE_VIEWER grants read.
+  status: VERIFIED_SNIPPET
+  evidence: G-CON-02
+- fact: USER_NAME and WAREHOUSE_NAME columns exist in the view (needed for is_bridge_overhead).
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S04
+- fact: Availability start of the view (history before it is UNAVAILABLE).
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S06
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- LONG_QUERY_OVER_15H
+- BRIDGE_OVERHEAD_FLAG
+- NATIVE_UNIT_TOTALS
+adapter_override: null
+notes:
+- 'Completion-time sweep (ADR-006 amendment 1): every completed row falls into exactly one END_TIME window whatever its duration; coverage means ''all rows completed
+  before T''. The START_TIME bound is only a pruning hint (7-day maximum statement timeout + 1 day).'

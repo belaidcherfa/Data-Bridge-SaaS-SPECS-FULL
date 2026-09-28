@@ -1,0 +1,24 @@
+# contract=semantic-dimension:allocation_method version=1 status=DRAFT owner_task=ALC-102 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: allocation_method
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.allocation_method.label
+description_key: dimension.allocation_method.description
+group: OWNERSHIP
+kind: ENUM
+value_type: ENUM
+enum_values: [DIRECT, RULE, SHARED_PROPORTIONAL, SHARED_EVEN, SHARED_FIXED, DRIVER_BASED, MANUAL_TRANSFER, PLATFORM_DEFAULT, UNALLOCATED]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.allocation_method.value}
+bindings:
+- {relation: v_allocation_daily, column_ref: method}
+sortable: true
+owner_task: ALC-102
+notes: 'Method values follow ALC-005 fct_allocation_line.method (hand-off K7: keep the enum in sync).'

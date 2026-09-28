@@ -1,0 +1,305 @@
+# contract=source-contract:AU_METERING_DAILY_HISTORY version=1.0.0 status=DRAFT owner_task=ING-102 decisions=D-12,D-13,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_METERING_DAILY_HISTORY
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-102
+decisions:
+- D-12
+- D-13
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage METERING_DAILY_HISTORY (account x service x day, billed credits)
+description: Daily credits per service with the signed cloud-services adjustment and CREDITS_BILLED; estimate input at family-bucket grain (D-12) and the only grain
+  of the cloud-services adjustment.
+family: BILLING
+module: CORE_COST
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.METERING_DAILY_HISTORY
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/metering_daily_history
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.USAGE_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: VERIFIED_SNIPPET
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: SERVICE_TYPE
+  transport_name: service_type
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: USAGE_DATE
+  transport_name: usage_date
+  expression: null
+  snowflake_type: DATE
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: date32[day]
+  raw_type: DATE
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_USED_COMPUTE
+  transport_name: credits_used_compute
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_USED_CLOUD_SERVICES
+  transport_name: credits_used_cloud_services
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_USED
+  transport_name: credits_used
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_ADJUSTMENT_CLOUD_SERVICES
+  transport_name: credits_adjustment_cloud_services
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-005
+  description: Signed (<= 0) adjustment; retained with its sign.
+- name: CREDITS_BILLED
+  transport_name: credits_billed
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-002
+  description: Signed billed credits.
+extractor_columns: []
+extension_schemas: []
+watermark_mode: DATE_PARTITION
+watermark_column: USAGE_DATE
+pruning_column: null
+pruning_horizon_days: null
+predicate_template: USAGE_DATE >= :ds AND USAGE_DATE < :de
+pending_refresh: null
+horizon_alarm_days: null
+cycle: STEADY_HOURLY
+window_steady_seconds: 86400
+first_delay_seconds: 14400
+settle_seconds: 86400
+extraction_order_rank: 20
+semantics: COMPLETE_PARTITION
+key: []
+partition_key:
+  column: usage_date
+  grain: DAY
+  scope: ACCOUNT
+snapshot_key: []
+aggregation_rule: null
+primary_measure:
+  expression: credits_billed
+  aggregate: SUM
+  sign: SIGNED
+suspect_guard:
+  enabled: true
+  zero_rows: true
+  measure_drop_ratio: '0.5'
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: DAILY
+  method: RESNAPSHOT
+  window:
+    kind: OPEN_AND_PREVIOUS_MONTH_UNTIL_STABLE
+    n: null
+  additive_only: false
+  checksum_measures: []
+backfill_supported: true
+backfill_chunk_seconds: 2678400
+min_chunk_seconds: 86400
+max_chunk_seconds: 2678400
+backfill_split_rows_threshold: null
+sizing_query: null
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: FINANCIAL
+journal_retention_days: 400
+raw_retention_days: 400
+query_detail_tiering: null
+documented_latency_seconds: 10800
+latency_verification: VERIFIED_SNIPPET
+maturity:
+  data_final_horizon_seconds: 86400
+  attribution_final_horizon_seconds: null
+  attribution_horizon_rule: null
+  month_stability_days: 5
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_METERING_DAILY_HISTORY version=0
+health:
+  expected_lag_seconds: 100800
+  grace_seconds: 25200
+  delayed_after_seconds: 126000
+  stale_after_seconds: 252000
+authority:
+  measure_roles:
+  - ESTIMATE_INPUT
+  service_families:
+  - WAREHOUSE_COMPUTE
+  - CLOUD_SERVICES
+  - SERVERLESS_TASK
+  - AUTO_CLUSTERING
+  - SNOWPIPE_FILE
+  - SNOWPIPE_STREAMING
+  - MATERIALIZED_VIEW
+  - SEARCH_OPTIMIZATION
+  - QUERY_ACCELERATION
+  - REPLICATION
+  - AI_SERVICES
+  - SPCS
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Family-bucket estimate x rate until UICD supersedes it (FIN §3.1); cloud-services adjustment exists only at (account, UTC day).
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: true
+  canary: false
+  timeout_seconds: 30
+  predicate_template: USAGE_DATE >= :probe_from_date AND USAGE_DATE < :probe_to_date
+transport_schema:
+  version: '1.0'
+  fingerprint: 6d723f22c3e63aa365fc4e0f67716177a78b8cf4e829543e7fa0607d25837492
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts: []
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- COMPLETE_PARTITION_DELETED_ROW
+- SILENT_EMPTY_SUSPECT
+- NATIVE_UNIT_TOTALS
+- INDEPENDENT_BILLING_COMPARISON
+adapter_override: null
+notes:
+- Suspect guard on a signed measure compares SUM(credits_billed); an intentional correction to a lower value is accepted after confirmation (worked example (a) of
+  source-revisions.v1.md).

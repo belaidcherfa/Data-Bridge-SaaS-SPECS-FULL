@@ -1,0 +1,41 @@
+# contract=semantic-metric:storage_bytes version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: storage_bytes
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.storage_bytes.label
+description_key: metric.storage_bytes.description
+population_key: metric.storage_bytes.population
+category: STORAGE
+unit: {kind: BYTES, currency_policy: NOT_APPLICABLE, quantity_unit: BYTE, display_hint: BYTES_BINARY}
+relation: v_storage_daily
+measure:
+  type: GAUGE
+  column_ref: average_bytes
+  gauge:
+    default_mode: LATEST
+    modes: [LATEST, TWA]
+    observation_seconds_column: observation_seconds
+params:
+- name: gauge_mode
+  type: ENUM
+  required: false
+  enum: [LATEST, TWA]
+  default: LATEST
+additivity: {across_dimensions: ALL, across_time: LATEST, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, database, schema, storage_class, data_status]
+required_sources: [au.database_storage_usage_history, au.stage_storage_usage_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {empty_population: NULL_INSUFFICIENT_DATA}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#storage_bytes
+  child_resolvers: [storage_composition]
+screen_keys: [bytes, retained, timeTravel, failsafe, analyticsbytes]
+owner_task: API-001
+notes: 'Gauge, never summed over days. LATEST = value on the last observed day per group; TWA = Σ(bytes×seconds)/Σ(observed seconds). Oracle: 10 TB × 20 d + 12 TB × 10 d over 30 d →
+  TWA 10.666… TB, LATEST 12 TB. Summed across databases/classes. Billed storage money is spend/attributed_cost, never derived from bytes (G-UX-11).'

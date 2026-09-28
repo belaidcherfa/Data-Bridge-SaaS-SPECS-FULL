@@ -1,0 +1,41 @@
+# contract=semantic-metric:query_elapsed_p95 version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: query_elapsed_p95
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.query_elapsed_p95.label
+description_key: metric.query_elapsed_p95.description
+population_key: metric.query_elapsed_p95.population
+category: PERFORMANCE
+unit: {kind: MILLISECONDS, currency_policy: NOT_APPLICABLE, quantity_unit: MILLISECOND, display_hint: DURATION}
+relation: v_query_exec
+measure:
+  type: PERCENTILE
+  column_ref: total_elapsed_ms
+  p: 0.95
+  population:
+  - column: status_class
+    op: IN
+    values: [SUCCEEDED, FAILED]
+aggregate_binding:
+  relation: v_query_family_daily
+  measure: {type: PERCENTILE, column_ref: elapsed_tdigest, p: 0.95}
+  unsupported_dimensions: [database, user, role, client_application, dbt_model, dbt_resource_type, pbi_mode, evidence_class, query_status, execution_kind]
+  state_column: elapsed_tdigest
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, warehouse, warehouse_type, warehouse_size, database, user, role, client_application, workload_type, workload, environment, dbt_project,
+  dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class, query_status, execution_kind]
+required_sources: [au.query_history, au.query_attribution_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {empty_population: NULL_INSUFFICIENT_DATA}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: APPROX_TDIGEST}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#query_elapsed_p95
+  child_resolvers: [query_set]
+owner_task: API-001
+notes: 'PERCENTILE_CONT(0.95) over individual TOTAL_ELAPSED_TIME values (compile + queue + execution), never an average of daily percentiles. Oracle: {100 × 1 s, 5 × 100 s} → position
+  0.95 × 104 = 98.8 → 1 s (not 50.5 s). Beyond hot_days: APPROX_PERCENTILE_ESTIMATE(APPROX_PERCENTILE_COMBINE(elapsed_tdigest), 0.95) labelled ≈.'

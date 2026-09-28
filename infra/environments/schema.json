@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:infra:environment-manifest:v1",
+  "$comment": "contract=infra-environment-manifest version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-23,D-25,D-28,D-32 last_changed=2026-09-28. One committed manifest per AWS account: infra/environments/{management,security,log-archive,shared-services,dev,staging,prod}.json. Design values are literal; owner identifiers are the literal string REQUIRED_INPUT and are resolved from config/environments/<env>.yaml at the path named by x-bridge-config-path; values produced by an apply are the literal string GENERATED and are written by the pipeline (never by hand). tools/tf/validate_env.py merges config into the manifest in memory and refuses to plan/apply a stack whose required fields are still REQUIRED_INPUT or GENERATED.",
+  "title": "Infrastructure environment manifest (per AWS account)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "name",
+    "kind",
+    "account_name",
+    "organizational_unit",
+    "aws_account_id",
+    "region",
+    "global_region",
+    "state",
+    "stacks",
+    "budget_usd",
+    "ci_oidc_subjects",
+    "tags"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string",
+      "description": "Contract header."
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "description": "Manifest name = file stem.",
+      "type": "string",
+      "enum": [
+        "management",
+        "security",
+        "log-archive",
+        "shared-services",
+        "dev",
+        "staging",
+        "prod"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "MANAGEMENT",
+        "SECURITY",
+        "LOG_ARCHIVE",
+        "SHARED_SERVICES",
+        "WORKLOAD"
+      ]
+    },
+    "environment": {
+      "description": "Workload environment (WORKLOAD kind only).",
+      "type": "string",
+      "enum": [
+        "dev",
+        "staging",
+        "prod"
+      ]
+    },
+    "account_name": {
+      "description": "AWS account name in Organizations.",
+      "type": "string",
+      "pattern": "^bridge-[a-z-]+$"
+    },
+    "organizational_unit": {
+      "description": "OU path from infra/terraform/org/organization.yaml.",
+      "type": "string",
+      "enum": [
+        "root",
+        "security",
+        "infrastructure",
+        "workloads/nonprod",
+        "workloads/prod"
+      ]
+    },
+    "aws_account_id": {
+      "$ref": "#/$defs/required_input_or_account_id",
+      "x-bridge-config-path": "aws.account_id | organization.<kind>_account_id"
+    },
+    "region": {
+      "const": "eu-west-1"
+    },
+    "global_region": {
+      "const": "us-east-1"
+    },
+    "az_ids": {
+      "description": "Two AZ IDs for subnets a and b (WORKLOAD only).",
+      "oneOf": [
+        {
+          "const": "REQUIRED_INPUT"
+        },
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{3,4}[0-9]-az[0-9]{1,2}$"
+          }
+        }
+      ],
+      "x-bridge-config-path": "aws.az_ids"
+    },
+    "network": {
+      "description": "VPC design values (INF-002-S01; infra/network/cidr-plan.yaml is the source of per-subnet CIDRs).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vpc_enabled",
+        "vpc_cidr",
+        "nat_gateways",
+        "interface_endpoint_azs",
+        "flow_logs_destination"
+      ],
+      "properties": {
+        "vpc_enabled": {
+          "type": "boolean"
+        },
+        "vpc_cidr": {
+          "type": "string",
+          "pattern": "^10\\.(10|20|30|40)\\.0\\.0/16$"
+        },
+        "nat_gateways": {
+          "description": "NAT gateways (one EIP each). DEV 1, STAGING/PROD 2.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "interface_endpoint_azs": {
+          "description": "AZs carrying the 9 interface endpoints: DEV 0, STAGING 1, PROD 2 (G-INF-06).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "flow_logs_destination": {
+          "const": "S3"
+        }
+      }
+    },
+    "dns_zone": {
+      "description": "Environment DNS zone name.",
+      "$ref": "#/$defs/required_input_or_domain",
+      "x-bridge-config-path": "dns.environment_zone_name | dns.apex_domain"
+    },
+    "state": {
+      "description": "Terraform backend of this account (infra/terraform/state-layout.yaml).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bucket",
+        "kms_key_alias",
+        "kms_key_arn",
+        "use_lockfile"
+      ],
+      "properties": {
+        "bucket": {
+          "description": "Pattern bridge-tfstate-<name>-${aws_account_id}-euw1; ${aws_account_id} is substituted by the validator.",
+          "type": "string",
+          "pattern": "^bridge-tfstate-[a-z-]+-\\$\\{aws_account_id\\}-euw1$"
+        },
+        "kms_key_alias": {
+          "type": "string",
+          "pattern": "^alias/bridge-tfstate-[a-z-]+$"
+        },
+        "kms_key_arn": {
+          "description": "GENERATED by stack 00-bootstrap.",
+          "oneOf": [
+            {
+              "const": "GENERATED"
+            },
+            {
+              "type": "string",
+              "pattern": "^arn:aws:kms:eu-west-1:[0-9]{12}:key/[0-9a-f-]{36}$"
+            }
+          ]
+        },
+        "use_lockfile": {
+          "const": true
+        }
+      }
+    },
+    "stacks": {
+      "description": "Terraform stacks applied in this account, in order.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(org|shared|[0-9]{2}-[a-z0-9-]+)$"
+      }
+    },
+    "snowflake": {
+      "description": "Central Snowflake account of this environment (WORKLOAD only; G-INF-17).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_alias",
+        "organization_name",
+        "account_name",
+        "account_locator",
+        "account_url",
+        "edition"
+      ],
+      "properties": {
+        "account_alias": {
+          "type": "string",
+          "enum": [
+            "BRIDGE_DEV",
+            "BRIDGE_STAGING",
+            "BRIDGE_PROD"
+          ]
+        },
+        "organization_name": {
+          "$ref": "#/$defs/required_input_or_string",
+          "x-bridge-config-path": "snowflake.central.organization_name"
+        },
+        "account_name": {
+          "$ref": "#/$defs/required_input_or_string",
+          "x-bridge-config-path": "snowflake.central.account_name"
+        },
+        "account_locator": {
+          "$ref": "#/$defs/required_input_or_string",
+          "x-bridge-config-path": "snowflake.central.account_locator"
+        },
+        "account_url": {
+          "description": "Template resolved by the validator.",
+          "const": "https://${snowflake.organization_name}-${snowflake.account_name}.snowflakecomputing.com"
+        },
+        "edition": {
+          "const": "ENTERPRISE"
+        },
+        "account_network_policy": {
+          "description": "Account-level network policy restricted to this environment's EIPs.",
+          "type": "boolean"
+        }
+      }
+    },
+    "egress_ips": {
+      "description": "GENERATED: pointer to the published egress file.",
+      "type": "string",
+      "pattern": "^infra/environments/(dev|staging|prod)\\.egress\\.json$"
+    },
+    "ci_oidc_subjects": {
+      "description": "GitHub OIDC `sub` values accepted per CI role in this account (INF-102-S01/S02, INF-007-S09). The repository's sub template is customized to include repository_owner_id and repository_id (exact claim syntax TO VERIFY LIVE in INF-102-S01). ${owner_id}/${repo_id} come from config github.*.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tf_plan": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "tf_apply": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "deploy": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "build": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "runner": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "snowflake_iac": {
+          "$ref": "#/$defs/subject_list"
+        },
+        "dbt_ci": {
+          "$ref": "#/$defs/subject_list"
+        }
+      }
+    },
+    "budget_usd": {
+      "description": "Monthly AWS Budget (decimal string, USD).",
+      "$ref": "#/$defs/required_input_or_decimal",
+      "x-bridge-config-path": "budgets.aws_monthly_usd | budgets.organization_accounts_monthly_usd"
+    },
+    "allowed_instance_classes": {
+      "description": "Instance classes the conftest cost policy accepts in this account (INF-105-S06).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aurora": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^db\\.(serverless|t4g\\.(medium|large)|r7g\\.(large|xlarge)|r6g\\.large)$"
+          }
+        },
+        "valkey": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(serverless|cache\\.t4g\\.(small|medium)|cache\\.r7g\\.large)$"
+          }
+        },
+        "fargate_cpu_architecture": {
+          "const": "ARM64"
+        }
+      }
+    },
+    "log_retention_days": {
+      "description": "CloudWatch log group retention (INF-005-S09).",
+      "type": "integer",
+      "enum": [
+        7,
+        30,
+        90,
+        400
+      ]
+    },
+    "features": {
+      "description": "Resolved from config features.* at validation time.",
+      "const": "REQUIRED_INPUT",
+      "x-bridge-config-path": "features"
+    },
+    "tags": {
+      "description": "Provider default_tags (INF-105-S02).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "managed_by",
+        "cost_owner"
+      ],
+      "properties": {
+        "environment": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod",
+            "org"
+          ]
+        },
+        "managed_by": {
+          "const": "terraform"
+        },
+        "cost_owner": {
+          "type": "string",
+          "enum": [
+            "platform",
+            "security",
+            "finance"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "WORKLOAD"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "environment",
+          "az_ids",
+          "network",
+          "dns_zone",
+          "snowflake",
+          "egress_ips",
+          "allowed_instance_classes",
+          "log_retention_days",
+          "features"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "environment"
+              ]
+            },
+            {
+              "required": [
+                "snowflake"
+              ]
+            },
+            {
+              "required": [
+                "egress_ips"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "required_input_or_account_id": {
+      "anyOf": [
+        {
+          "const": "REQUIRED_INPUT"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]{12}$"
+        }
+      ]
+    },
+    "required_input_or_domain": {
+      "anyOf": [
+        {
+          "const": "REQUIRED_INPUT"
+        },
+        {
+          "type": "string",
+          "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        }
+      ]
+    },
+    "required_input_or_string": {
+      "anyOf": [
+        {
+          "const": "REQUIRED_INPUT"
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]{1,255}$"
+        }
+      ]
+    },
+    "required_input_or_decimal": {
+      "anyOf": [
+        {
+          "const": "REQUIRED_INPUT"
+        },
+        {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,25})(\\.[0-9]{1,12})?$"
+        }
+      ]
+    },
+    "subject_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^repository_owner_id:\\$\\{owner_id\\}:repository_id:\\$\\{repo_id\\}:(environment:(dev|staging|prod|build|shared|org)|pull_request|ref:refs/heads/main)$"
+      }
+    }
+  }
+}

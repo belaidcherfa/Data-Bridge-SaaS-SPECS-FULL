@@ -1,0 +1,1493 @@
+# contract=service-catalog version=1 status=DRAFT owner_task=INF-005 decisions=D-07,D-22,D-28,D-33 last_changed=2026-09-28
+# ECS service catalog (INF-005-S01). Schema: infra/services.schema.json. Placeholders: {env} ∈ dev|staging|prod,
+# {uuid32} = 32 lowercase hex of a connection UUID. There is NO frontend service (SPA on S3 + CloudFront OAC, D-28).
+# Pool sizes: infra/capacity/pg-pool-budget.yaml. Security groups: infra/network/sg-matrix.yaml. Task-role policies:
+# infra/iam/policies/task-<name>.json. Snowflake users: infra/snowflake/objects.yaml. CPU/memory are initial values to be
+# benchmarked (platform.md: "do not invent CPU/RAM counts as proven sizing").
+schema_version: 1
+defaults:
+  cpu_architecture: ARM64
+  user: '10001'
+  readonly_root_filesystem: true
+  init_process_enabled: true
+  tmpfs:
+  - path: /tmp
+    size_mib: 512
+  stop_timeout_s: 120
+  log_retention_days:
+    dev: 7
+    staging: 30
+    prod: 90
+  deployment:
+    minimum_healthy_percent: 100
+    maximum_percent: 200
+    circuit_breaker_rollback: true
+  image_repo_prefix: <SHARED_SERVICES_ACCOUNT_ID>.dkr.ecr.eu-west-1.amazonaws.com/
+  role_name_pattern: bridge-{env}-{service}
+  exec_role_name_pattern: bridge-{env}-{service}-exec
+services:
+- name: api
+  kind: SERVICE
+  description: FastAPI BFF and public API (/v1). Reads through the query broker only; never assumes tenant identities.
+  owner_task: INF-005, API-001
+  package: apps/api
+  image_repo: bridge/api
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 2
+    staging:
+      desired: 2
+      min: 2
+      max: 4
+    prod:
+      desired: 2
+      min: 2
+      max: 6
+  task_role: bridge-{env}-api
+  execution_role: bridge-{env}-api-exec
+  policy_file: infra/iam/policies/task-api.json
+  security_groups:
+  - sg-api
+  health_check:
+    type: HTTP
+    path: /healthz
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: http
+    port: 8000
+    protocol: HTTP
+    exposed_via: INTERNAL_ALB
+  autoscaling:
+    metric: CPU
+    target: '60'
+  database:
+    db_user: bridge_api
+    database: bridge_control
+    auth: IAM_TOKEN
+  secrets:
+  - env_var: COGNITO_BFF_CLIENT_SECRET
+    secret_name: bridge/{env}/cognito/bff-client-secret
+    injected_by: EXECUTION_ROLE
+  stop_timeout_s: 30
+- name: query-broker
+  kind: SERVICE
+  description: 'D-22 query broker: the only principal allowed to assume bridge-{env}-srv-* roles and open tenant-user Snowflake sessions (WIF impersonation path). Reached from the API by SigV4 through VPC
+    Lattice.'
+  owner_task: INF-005, API-002, SEC-005
+  package: services/query_broker
+  image_repo: bridge/query-broker
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 2
+    staging:
+      desired: 2
+      min: 2
+      max: 3
+    prod:
+      desired: 2
+      min: 2
+      max: 4
+  task_role: bridge-{env}-query-broker
+  execution_role: bridge-{env}-query-broker-exec
+  policy_file: infra/iam/policies/task-query-broker.json
+  security_groups:
+  - sg-broker
+  health_check:
+    type: HTTP
+    path: /healthz
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: https
+    port: 8443
+    protocol: HTTPS
+    exposed_via: VPC_LATTICE_IAM
+  autoscaling:
+    metric: CPU
+    target: '60'
+  database:
+    db_user: bridge_broker
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: TENANT_USERS_VIA_IMPERSONATION
+  stop_timeout_s: 60
+- name: sync-api
+  kind: SERVICE
+  description: Internal API used by extractor tasks to claim leases, report progress and commit manifests (D-07). Authenticated by the caller's AWS role (SigV4, Lattice IAM auth policy allows bridge-{env}-conn-*
+    sessions).
+  owner_task: ING-106, INF-005
+  package: services/sync_api
+  image_repo: bridge/sync-api
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 4
+  task_role: bridge-{env}-sync-api
+  execution_role: bridge-{env}-sync-api-exec
+  policy_file: infra/iam/policies/task-sync-api.json
+  security_groups:
+  - sg-sync-api
+  health_check:
+    type: HTTP
+    path: /healthz
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: https
+    port: 8080
+    protocol: HTTPS
+    exposed_via: VPC_LATTICE_IAM
+  autoscaling:
+    metric: CPU
+    target: '60'
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+- name: extraction-launcher
+  kind: SERVICE
+  description: Claims ADMITTED account-cycles from PostgreSQL, resolves connection_id → bridge-{env}-conn-<uuid32> server-side and calls ecs:RunTask on bridge-{env}-extractor with that task role and clientToken
+    = cycle idempotency key. Only holder of iam:PassRole on conn roles.
+  owner_task: ING-106, INF-005-S08
+  package: services/launcher
+  image_repo: bridge/extraction-launcher
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 2
+      min: 2
+      max: 2
+  task_role: bridge-{env}-extraction-launcher
+  execution_role: bridge-{env}-extraction-launcher-exec
+  policy_file: infra/iam/policies/task-extraction-launcher.json
+  security_groups:
+  - sg-launcher
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: extractor
+  kind: TASK_FAMILY
+  description: One task per account-cycle (D-07), started only by the extraction launcher. Default task role has no permissions; the launcher overrides it with the connection's role. Holds no database credentials;
+    talks to sync-api and S3 landing only. Max = concurrent tasks (8 steady + 2 backfill in prod).
+  owner_task: ING-003, INF-005-S08
+  package: services/extractor
+  image_repo: bridge/extractor
+  cpu: 1024
+  memory_mib: 4096
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 2
+    staging:
+      desired: 0
+      min: 0
+      max: 4
+    prod:
+      desired: 0
+      min: 0
+      max: 10
+  task_role: bridge-{env}-extractor-null
+  execution_role: bridge-{env}-extractor-exec
+  policy_file: infra/iam/policies/task-extractor-null.json
+  security_groups:
+  - sg-extractor
+  health_check: &id001
+    type: NONE
+  spot_eligible: BACKFILL_ONLY
+  ephemeral_storage_gib: 50
+  task_role_override: bridge-{env}-conn-{uuid32}
+- name: receipt-consumer
+  kind: SERVICE
+  description: Consumes landing-receipts (S3 → SNS → SQS), validates keys/manifests, runs D-03 repair COPY, writes CONTROL.ACCEPTED_BATCHES as SVC_INGEST.
+  owner_task: ING-007, INF-005
+  package: services/ingestion
+  image_repo: bridge/receipt-consumer
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 4
+  task_role: bridge-{env}-receipt-consumer
+  execution_role: bridge-{env}-receipt-consumer-exec
+  policy_file: infra/iam/policies/task-receipt-consumer.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  queues:
+  - landing-receipts
+  autoscaling:
+    metric: SQS_BACKLOG_PER_TASK
+    target: '100'
+    queue: landing-receipts
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: SVC_INGEST
+- name: dagster-webserver-ro
+  kind: SERVICE
+  description: Dagster webserver started with --read-only; reachable only through the ops-bastion SSM tunnel (G-INF-11).
+  owner_task: ORC-001, INF-006-S13
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 2
+      min: 2
+      max: 2
+  task_role: bridge-{env}-dagster-web
+  execution_role: bridge-{env}-dagster-webserver-ro-exec
+  policy_file: infra/iam/policies/task-dagster-web.json
+  security_groups:
+  - sg-dagster-web
+  health_check:
+    type: HTTP
+    path: /server_info
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: http
+    port: 3000
+    protocol: HTTP
+    exposed_via: SSM_PORT_FORWARD
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-webserver-admin
+  kind: SERVICE
+  description: Write-enabled Dagster webserver; desired 0 except under break-glass (config features.dagster_admin_webserver).
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 1
+    staging:
+      desired: 0
+      min: 0
+      max: 1
+    prod:
+      desired: 0
+      min: 0
+      max: 1
+  task_role: bridge-{env}-dagster-web
+  execution_role: bridge-{env}-dagster-webserver-admin-exec
+  policy_file: infra/iam/policies/task-dagster-web.json
+  security_groups:
+  - sg-dagster-web
+  health_check:
+    type: HTTP
+    path: /server_info
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: http
+    port: 3000
+    protocol: HTTP
+    exposed_via: SSM_PORT_FORWARD
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-daemon
+  kind: SERVICE
+  description: Single-active Dagster daemon (schedules, sensors, run queue). Deployment min 0 / max 100 so two daemons never run together. Launches run workers through the Bridge launcher subclass (never
+    with task-role overrides).
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 0
+      max: 1
+    prod:
+      desired: 1
+      min: 0
+      max: 1
+  task_role: bridge-{env}-dagster-daemon
+  execution_role: bridge-{env}-dagster-daemon-exec
+  policy_file: infra/iam/policies/task-dagster-daemon.json
+  security_groups:
+  - sg-dagster-daemon
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster-daemon
+    - liveness-check
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  deployment:
+    minimum_healthy_percent: 0
+    maximum_percent: 100
+    circuit_breaker_rollback: true
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-code-extraction
+  kind: SERVICE
+  description: 'Dagster code location cl-extraction: sensors enqueueing account-cycles and recording sync outcomes as asset observations (no extraction runs, D-07).'
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-dagster-code
+  execution_role: bridge-{env}-dagster-code-extraction-exec
+  policy_file: infra/iam/policies/task-dagster-code.json
+  security_groups:
+  - sg-dagster-code
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster
+    - api
+    - grpc-health-check
+    - -p
+    - '4000'
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: grpc
+    port: 4000
+    protocol: GRPC
+    exposed_via: SERVICE_CONNECT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-code-dbt
+  kind: SERVICE
+  description: 'Dagster code location cl-dbt: dbt assets and publication jobs.'
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-dagster-code
+  execution_role: bridge-{env}-dagster-code-dbt-exec
+  policy_file: infra/iam/policies/task-dagster-code.json
+  security_groups:
+  - sg-dagster-code
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster
+    - api
+    - grpc-health-check
+    - -p
+    - '4000'
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: grpc
+    port: 4000
+    protocol: GRPC
+    exposed_via: SERVICE_CONNECT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-code-intelligence
+  kind: SERVICE
+  description: 'Dagster code location cl-intelligence: Python engine assets pinned to publications.'
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-dagster-code
+  execution_role: bridge-{env}-dagster-code-intelligence-exec
+  policy_file: infra/iam/policies/task-dagster-code.json
+  security_groups:
+  - sg-dagster-code
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster
+    - api
+    - grpc-health-check
+    - -p
+    - '4000'
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: grpc
+    port: 4000
+    protocol: GRPC
+    exposed_via: SERVICE_CONNECT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-code-delivery
+  kind: SERVICE
+  description: 'Dagster code location cl-delivery: delivery sensors/schedules.'
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-dagster-code
+  execution_role: bridge-{env}-dagster-code-delivery-exec
+  policy_file: infra/iam/policies/task-dagster-code.json
+  security_groups:
+  - sg-dagster-code
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster
+    - api
+    - grpc-health-check
+    - -p
+    - '4000'
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: grpc
+    port: 4000
+    protocol: GRPC
+    exposed_via: SERVICE_CONNECT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: dagster-code-maintenance
+  kind: SERVICE
+  description: 'Dagster code location cl-maintenance: retention, GC, reconciliation jobs.'
+  owner_task: ORC-001
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-dagster-code
+  execution_role: bridge-{env}-dagster-code-maintenance-exec
+  policy_file: infra/iam/policies/task-dagster-code.json
+  security_groups:
+  - sg-dagster-code
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - dagster
+    - api
+    - grpc-health-check
+    - -p
+    - '4000'
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: grpc
+    port: 4000
+    protocol: GRPC
+    exposed_via: SERVICE_CONNECT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: run-worker-dbt
+  kind: TASK_FAMILY
+  description: Dagster run worker executing dbt Core builds and PUBLISH_BATCH. Its task role is itself the Snowflake WIF identity of SVC_DBT (dbt-snowflake has no impersonation path).
+  owner_task: DBT-001, ORC-004, INF-008-S11
+  package: services/orchestrator
+  image_repo: bridge/dagster
+  cpu: 2048
+  memory_mib: 4096
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 2
+    staging:
+      desired: 0
+      min: 0
+      max: 3
+    prod:
+      desired: 0
+      min: 0
+      max: 4
+  task_role: bridge-{env}-run-worker-dbt
+  execution_role: bridge-{env}-run-worker-dbt-exec
+  policy_file: infra/iam/policies/task-run-worker-dbt.json
+  security_groups:
+  - sg-run-workers
+  health_check: *id001
+  spot_eligible: 'YES'
+  ephemeral_storage_gib: 30
+  snowflake_user: SVC_DBT
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: run-worker-python
+  kind: TASK_FAMILY
+  description: Dagster run worker for Python engines (forecast, anomaly, insight scoring) writing PY_OUTPUTS as SVC_ENGINE.
+  owner_task: ORC-103, ORC-004
+  package: services/intelligence
+  image_repo: bridge/dagster-python
+  cpu: 2048
+  memory_mib: 8192
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 2
+    staging:
+      desired: 0
+      min: 0
+      max: 4
+    prod:
+      desired: 0
+      min: 0
+      max: 8
+  task_role: bridge-{env}-run-worker-python
+  execution_role: bridge-{env}-run-worker-python-exec
+  policy_file: infra/iam/policies/task-run-worker-python.json
+  security_groups:
+  - sg-run-workers
+  health_check: *id001
+  spot_eligible: 'YES'
+  ephemeral_storage_gib: 30
+  snowflake_user: SVC_ENGINE
+  database:
+    db_user: dagster_rt
+    database: dagster_meta
+    auth: SECRETS_MANAGER_ROTATED
+  secrets:
+  - env_var: DAGSTER_PG_PASSWORD
+    secret_name: bridge/{env}/dagster/metadata-db
+    injected_by: EXECUTION_ROLE
+- name: analysis-worker
+  kind: SERVICE
+  description: Claims interactive analysis and export jobs from PostgreSQL with fenced leases; reads only through the query broker.
+  owner_task: API-004
+  package: services/analysis_worker
+  image_repo: bridge/analysis-worker
+  cpu: 1024
+  memory_mib: 2048
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 6
+  task_role: bridge-{env}-analysis-worker
+  execution_role: bridge-{env}-analysis-worker-exec
+  policy_file: infra/iam/policies/task-analysis-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  autoscaling:
+    metric: PG_JOB_BACKLOG_PER_TASK
+    target: '5'
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+- name: render-worker
+  kind: SERVICE
+  description: Report snapshot/render worker (Chromium); claims report jobs from PostgreSQL; data through the broker; artifacts to the reports bucket.
+  owner_task: RPT-002
+  package: services/reporting
+  image_repo: bridge/render-worker
+  cpu: 2048
+  memory_mib: 4096
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 1
+      min: 1
+      max: 3
+  task_role: bridge-{env}-render-worker
+  execution_role: bridge-{env}-render-worker-exec
+  policy_file: infra/iam/policies/task-render-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 30
+  autoscaling:
+    metric: PG_JOB_BACKLOG_PER_TASK
+    target: '3'
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+- name: monitor-worker
+  kind: SERVICE
+  description: Monitor and budget evaluation on publication events; reads through the broker.
+  owner_task: GOV-004
+  package: services/monitor
+  image_repo: bridge/monitor-worker
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 3
+  task_role: bridge-{env}-monitor-worker
+  execution_role: bridge-{env}-monitor-worker-exec
+  policy_file: infra/iam/policies/task-monitor-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: CPU
+    target: '70'
+- name: notification-worker
+  kind: SERVICE
+  description: Delivers e-mail (SES), Slack, Teams and webhooks through the SSRF-safe egress path; destination secrets read at runtime from bridge/{env}/destinations/*.
+  owner_task: GOV-007, INF-006-S11
+  package: services/notifications
+  image_repo: bridge/notification-worker
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 4
+  task_role: bridge-{env}-notification-worker
+  execution_role: bridge-{env}-notification-worker-exec
+  policy_file: infra/iam/policies/task-notification-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  queues:
+  - notify-delivery
+  autoscaling:
+    metric: SQS_BACKLOG_PER_TASK
+    target: '50'
+    queue: notify-delivery
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+- name: intelligence-worker
+  kind: SERVICE
+  description: Insight/action lifecycle and savings re-measurement triggers (non-Dagster control work); reads through the broker.
+  owner_task: INS-003, INS-006
+  package: services/intelligence
+  image_repo: bridge/intelligence-worker
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 2
+  task_role: bridge-{env}-intelligence-worker
+  execution_role: bridge-{env}-intelligence-worker-exec
+  policy_file: infra/iam/policies/task-intelligence-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: CPU
+    target: '70'
+- name: control-worker
+  kind: SERVICE
+  description: Planner/admission of account-cycles, stuck-cycle reaper, reconcilers (control-plane only; no Snowflake).
+  owner_task: ORC-003, CTL-004
+  package: services/control
+  image_repo: bridge/control-worker
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 4
+  task_role: bridge-{env}-control-worker
+  execution_role: bridge-{env}-control-worker-exec
+  policy_file: infra/iam/policies/task-control-worker.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: CPU
+    target: '70'
+- name: outbox-dispatcher
+  kind: SERVICE
+  description: Transactional outbox dispatcher (FIFO for ordered aggregates) publishing to SNS/SQS.
+  owner_task: CTL-004
+  package: services/outbox_dispatcher
+  image_repo: bridge/outbox-dispatcher
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 2
+    prod:
+      desired: 2
+      min: 2
+      max: 2
+  task_role: bridge-{env}-outbox-dispatcher
+  execution_role: bridge-{env}-outbox-dispatcher-exec
+  policy_file: infra/iam/policies/task-outbox-dispatcher.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_dispatcher
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: identity-provisioner
+  kind: SERVICE
+  description: Runtime IAM provisioner for bridge-{env}-conn-<uuid32> and bridge-{env}-srv-<uuid32> roles (single owner, RECONCILIATION U-02); consumes identity-requests.
+  owner_task: INF-103
+  package: services/identity_provisioner
+  image_repo: bridge/identity-provisioner
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-identity-provisioner
+  execution_role: bridge-{env}-identity-provisioner-exec
+  policy_file: infra/iam/policies/task-identity-provisioner.json
+  security_groups:
+  - sg-identity-provisioner
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  queues:
+  - identity-requests
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: authz-provisioner
+  kind: SERVICE
+  description: Snowflake-side profile provisioning (CREATE ROLE, entitlements) as SVC_PROVISIONER; FIFO per tenant.
+  owner_task: SEC-105
+  package: services/authz_provisioner
+  image_repo: bridge/authz-provisioner
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-authz-provisioner
+  execution_role: bridge-{env}-authz-provisioner-exec
+  policy_file: infra/iam/policies/task-authz-provisioner.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: SVC_PROVISIONER
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: tenant-onboarder
+  kind: TASK_FAMILY
+  description: Operator-approved tenant provisioning step creating the tenant WIF user as SVC_TENANT_ONBOARDER (SEC Appendix A.6). Started by the ops API workflow only.
+  owner_task: SEC-105-S03, CTL-102
+  package: services/authz_provisioner
+  image_repo: bridge/authz-provisioner
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 1
+    staging:
+      desired: 0
+      min: 0
+      max: 1
+    prod:
+      desired: 0
+      min: 0
+      max: 1
+  task_role: bridge-{env}-tenant-onboarder
+  execution_role: bridge-{env}-tenant-onboarder-exec
+  policy_file: infra/iam/policies/task-tenant-onboarder.json
+  security_groups:
+  - sg-workers
+  health_check: *id001
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  command:
+  - bridge-authz
+  - onboard-tenant
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: SVC_TENANT_ONBOARDER
+- name: config-publisher
+  kind: SERVICE
+  description: Insert-only publication of configuration versions into CONFIG as SVC_CONFIG_PUB plus S3 archive copy.
+  owner_task: CTL-005
+  package: services/config_publisher
+  image_repo: bridge/config-publisher
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 1
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 2
+  task_role: bridge-{env}-config-publisher
+  execution_role: bridge-{env}-config-publisher-exec
+  policy_file: infra/iam/policies/task-config-publisher.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_worker
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: SVC_CONFIG_PUB
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: audit-exporter
+  kind: SERVICE
+  description: Exports audit events to the Object-Lock audit bucket.
+  owner_task: SEC-008
+  package: services/audit_export
+  image_repo: bridge/audit-exporter
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 1
+      min: 1
+      max: 1
+  task_role: bridge-{env}-audit-exporter
+  execution_role: bridge-{env}-audit-exporter-exec
+  policy_file: infra/iam/policies/task-audit-exporter.json
+  security_groups:
+  - sg-workers
+  health_check:
+    type: COMMAND
+    command:
+    - CMD
+    - /app/healthcheck
+    interval_s: 30
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_audit_exporter
+    database: bridge_control
+    auth: IAM_TOKEN
+  autoscaling:
+    metric: NONE
+    target: '0'
+- name: ops-api
+  kind: SERVICE
+  description: Internal operator API/console backend on the internal ALB private listener; Snowflake diagnostics as SVC_OPS (BRIDGE_OPS_READONLY).
+  owner_task: CTL-102, OPS-106
+  package: apps/ops_api
+  image_repo: bridge/ops-api
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 1
+      min: 0
+      max: 1
+    staging:
+      desired: 1
+      min: 1
+      max: 1
+    prod:
+      desired: 2
+      min: 2
+      max: 2
+  task_role: bridge-{env}-ops-api
+  execution_role: bridge-{env}-ops-api-exec
+  policy_file: infra/iam/policies/task-ops-api.json
+  security_groups:
+  - sg-ops-api
+  health_check:
+    type: HTTP
+    path: /healthz
+    interval_s: 15
+    timeout_s: 5
+    retries: 3
+    start_period_s: 30
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  ports:
+  - name: http
+    port: 8000
+    protocol: HTTP
+    exposed_via: INTERNAL_ALB_PRIVATE_LISTENER
+  database:
+    db_user: bridge_ops_ro
+    database: bridge_control
+    auth: IAM_TOKEN
+  snowflake_user: SVC_OPS
+- name: ops-bastion
+  kind: TASK_FAMILY
+  description: On-demand SSM port-forward target for operators (Dagster UI, Aurora diagnostics); the only family with ECS Exec; auto-stops after 8 h.
+  owner_task: INF-006-S13
+  package: tools/ops_bastion
+  image_repo: bridge/ops-bastion
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 2
+    staging:
+      desired: 0
+      min: 0
+      max: 2
+    prod:
+      desired: 0
+      min: 0
+      max: 2
+  task_role: bridge-{env}-ops-bastion
+  execution_role: bridge-{env}-ops-bastion-exec
+  policy_file: infra/iam/policies/task-ops-bastion.json
+  security_groups:
+  - sg-ops-bastion
+  health_check: *id001
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  exec_enabled: true
+- name: migrate
+  kind: ONE_OFF
+  description: Alembic migration task (expand phase in automated deploys) as bridge_migrator with an advisory lock; run once per release.
+  owner_task: CTL-002, INF-007-S06
+  package: tools/migrate
+  image_repo: bridge/migrate
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 1
+    staging:
+      desired: 0
+      min: 0
+      max: 1
+    prod:
+      desired: 0
+      min: 0
+      max: 1
+  task_role: bridge-{env}-migrate
+  execution_role: bridge-{env}-migrate-exec
+  policy_file: infra/iam/policies/task-migrate.json
+  security_groups:
+  - sg-workers
+  health_check: *id001
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  database:
+    db_user: bridge_migrator
+    database: bridge_control
+    auth: IAM_TOKEN
+- name: platform-cost
+  kind: SCHEDULED_TASK
+  description: Daily ingestion of Bridge's own AWS CUR and Snowflake usage into BRIDGE_INTERNAL_COST as SVC_COST_READER.
+  owner_task: OPS-009
+  package: services/platform_cost
+  image_repo: bridge/platform-cost
+  cpu: 512
+  memory_mib: 1024
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 1
+    staging:
+      desired: 0
+      min: 0
+      max: 1
+    prod:
+      desired: 0
+      min: 0
+      max: 1
+  task_role: bridge-{env}-platform-cost
+  execution_role: bridge-{env}-platform-cost-exec
+  policy_file: infra/iam/policies/task-platform-cost.json
+  security_groups:
+  - sg-workers
+  health_check: *id001
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  schedule: cron(15 6 * * ? *)
+  snowflake_user: SVC_COST_READER
+- name: canary
+  kind: SCHEDULED_TASK
+  description: Synthetic probes of the control plane and analytical reads as canary tenants (D-31 measured with synthetic probes).
+  owner_task: OPS-103, OPS-110
+  package: services/canary
+  image_repo: bridge/canary
+  cpu: 256
+  memory_mib: 512
+  counts:
+    dev:
+      desired: 0
+      min: 0
+      max: 1
+    staging:
+      desired: 0
+      min: 0
+      max: 1
+    prod:
+      desired: 0
+      min: 0
+      max: 1
+  task_role: bridge-{env}-canary
+  execution_role: bridge-{env}-canary-exec
+  policy_file: infra/iam/policies/task-canary.json
+  security_groups:
+  - sg-workers
+  health_check: *id001
+  spot_eligible: 'NO'
+  ephemeral_storage_gib: 21
+  schedule: rate(5 minutes)

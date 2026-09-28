@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:semantic:join-path:v1",
+  "$comment": "contract=semantic-join-path-schema version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05 last_changed=2026-09-28 backlog=API.md G-API-01 (join paths acyclic), API-001-S02 (loader cross-references), API-001-S08 (reachability)",
+  "title": "SemanticJoinPath",
+  "description": "An allowlisted join between two serving relations. The compiler emits joins only from these files; every join is tenant-bound (tenant_id equality is always the first predicate) and pinned to the same publication. The loader rejects cycles and MANY_TO_MANY joins that are not declared deduplicating.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "status", "from_relation", "to_relation", "cardinality", "on", "tenant_bound", "purpose", "owner_task"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^jp_[a-z0-9_]+$"},
+    "version": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["ACTIVE", "DEPRECATED", "RETIRED"]},
+    "from_relation": {"type": "string", "pattern": "^v_[a-z0-9_]+$"},
+    "to_relation": {"type": "string", "pattern": "^v_[a-z0-9_]+$"},
+    "cardinality": {"enum": ["MANY_TO_ONE", "ONE_TO_ONE", "MANY_TO_MANY_EXISTS"], "description": "MANY_TO_MANY_EXISTS joins are compiled as EXISTS semi-joins so the from-relation measure is never duplicated (tag_coverage)."},
+    "join_type": {"enum": ["INNER", "LEFT", "SEMI"], "default": "LEFT"},
+    "on": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from_column", "to_column"],
+        "properties": {
+          "from_column": {"type": "string", "pattern": "^[a-z_][a-z0-9_]*$"},
+          "to_column": {"type": "string", "pattern": "^[a-z_][a-z0-9_]*$"}
+        }
+      },
+      "description": "Equality predicates; the first item MUST be tenant_id = tenant_id (loader check)."
+    },
+    "tenant_bound": {"const": true},
+    "as_of": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_time_column", "valid_from_column", "valid_to_column"],
+      "description": "Effective-dated join: from.time ∈ [valid_from, valid_to) (half-open, CONVENTIONS §4).",
+      "properties": {
+        "from_time_column": {"type": "string", "pattern": "^[a-z_][a-z0-9_]*$"},
+        "valid_from_column": {"type": "string", "pattern": "^[a-z_][a-z0-9_]*$"},
+        "valid_to_column": {"type": "string", "pattern": "^[a-z_][a-z0-9_]*$"}
+      }
+    },
+    "required_params": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}, "uniqueItems": true},
+    "param_predicates": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": false, "required": ["to_column", "param"], "properties": {"to_column": {"type": "string"}, "param": {"type": "string"}}}
+    },
+    "purpose": {"type": "string"},
+    "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"}
+  }
+}

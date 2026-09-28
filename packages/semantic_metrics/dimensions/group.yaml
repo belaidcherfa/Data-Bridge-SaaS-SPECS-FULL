@@ -1,0 +1,28 @@
+# contract=semantic-dimension:group version=1 status=DRAFT owner_task=ALC-102 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: group
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.group.label
+description_key: dimension.group.description
+group: OWNERSHIP
+kind: ENTITY
+value_type: UUID
+cardinality_class: MEDIUM
+entitlement: {is_entitlement_dimension: true, scope_grammar_dimension: group}
+privacy: {class: CUSTOMER_METADATA}
+hierarchy: {parent: group_set, level: 1, ancestor_dimension: group_ancestor}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 1, max_results: 20, source_relation: v_dim_group, match_column: group_name}
+label: {source: DICTIONARY_RELATION, relation: v_dim_group, key_column: group_id, label_column: group_name}
+sentinels: [__UNALLOCATED__, __SHARED__]
+bindings:
+- {relation: v_allocation_daily, column_ref: target_group_id}
+- {relation: v_budget_daily, column_ref: group_id}
+- {relation: v_forecast, column_ref: group_id}
+- {relation: v_dim_group, column_ref: group_id}
+sortable: true
+owner_task: ALC-102
+notes: 'Only allocated_spend / unallocated_spend / allocation_share accept group (ALC-102-S05: group on spend → 422).'

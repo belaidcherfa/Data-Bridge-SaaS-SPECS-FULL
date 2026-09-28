@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.payment_event.recorded:v1",
+  "$comment": "contract=event-bridge.commercial.payment_event.recorded version=1 status=DRAFT owner_task=LCH-001 decisions=D-30 last_changed=2026-09-28",
+  "title": "bridge.commercial.payment_event.recorded v1 payload",
+  "description": "Payment evidence (or a reversal) was recorded; it has no effect until verified by a second operator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payment_event_id",
+    "event_kind",
+    "reversal_of",
+    "channel",
+    "amount",
+    "value_date"
+  ],
+  "properties": {
+    "payment_event_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "event_kind": {
+      "type": "string",
+      "enum": [
+        "PAYMENT",
+        "REVERSAL"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "reversal_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "BANK_TRANSFER",
+        "STRIPE"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "amount": {
+      "allOf": [
+        {
+          "$ref": "../../common/money.schema.json"
+        }
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "value_date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "payment_event_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e25",
+      "event_kind": "PAYMENT",
+      "reversal_of": null,
+      "channel": "BANK_TRANSFER",
+      "amount": {
+        "amount": "12000.00",
+        "currency": "USD"
+      },
+      "value_date": "2026-11-02"
+    }
+  ]
+}

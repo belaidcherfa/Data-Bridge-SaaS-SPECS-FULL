@@ -1,0 +1,29 @@
+# contract=semantic-dimension:service_category version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: service_category
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.service_category.label
+description_key: dimension.service_category.description
+group: BILLING
+kind: ENUM
+value_type: ENUM
+enum_values: [COMPUTE, CLOUD_SERVICES, STORAGE, SERVERLESS, AI, SPCS, DATA_TRANSFER, REPLICATION, APPLICATIONS_MARKETPLACE, ORGANIZATION, ADJUSTMENT, OTHER]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.service_category.value}
+bindings:
+- {relation: v_charge_daily, column_ref: service_category}
+- {relation: v_attribution_daily, column_ref: service_category}
+- {relation: v_allocation_daily, column_ref: service_category}
+- {relation: v_allocation_coverage_daily, column_ref: service_category}
+sortable: true
+owner_task: API-001
+notes: 'Deterministic mapping from service_family: WAREHOUSE_COMPUTE→COMPUTE, CLOUD_SERVICES→CLOUD_SERVICES, STORAGE→STORAGE, SNOWPIPE_FILE→SERVERLESS, SNOWPIPE_STREAMING→SERVERLESS,
+  SERVERLESS_TASK→SERVERLESS, SERVERLESS_ALERT→SERVERLESS, AUTO_CLUSTERING→SERVERLESS, SEARCH_OPTIMIZATION→SERVERLESS, MATERIALIZED_VIEW→SERVERLESS, QUERY_ACCELERATION→SERVERLESS, HYBRID_TABLE_REQUESTS→SERVERLESS,
+  AI_SERVICES→AI, SPCS→SPCS, DATA_TRANSFER→DATA_TRANSFER, REPLICATION→REPLICATION, MARKETPLACE→APPLICATIONS_MARKETPLACE, ORGANIZATION_FEES→ORGANIZATION, ADJUSTMENTS→ADJUSTMENT, UNMAPPED_BILLABLE_SERVICE→OTHER.'

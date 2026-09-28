@@ -1,0 +1,26 @@
+# contract=semantic-dimension:query_parameterized_hash version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: query_parameterized_hash
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.query_parameterized_hash.label
+description_key: dimension.query_parameterized_hash.description
+group: WORKLOAD
+kind: ATTRIBUTE
+value_type: HASH
+cardinality_class: HIGH
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, PREFIX]
+max_filter_values: 100
+autocomplete: {enabled: true, min_prefix: 4, max_results: 20, source_relation: v_query_family_daily, match_column: query_parameterized_hash}
+label: {source: VALUE}
+sentinels: [__NO_HASH__]
+bindings:
+- {relation: v_attribution_daily, column_ref: query_parameterized_hash}
+- {relation: v_query_exec, column_ref: query_parameterized_hash}
+- {relation: v_query_family_daily, column_ref: query_parameterized_hash}
+sortable: true
+owner_task: API-001
+notes: 'High cardinality: requests grouping by it beyond records_sync_max_range_days (31) route to analysis jobs (planner_limits.yaml). Hash version travels as query_hash_version.'

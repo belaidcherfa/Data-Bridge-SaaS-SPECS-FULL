@@ -1,0 +1,28 @@
+# contract=semantic-metric:warehouse_utilization version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: warehouse_utilization
+version: 1
+status: ACTIVE
+release: R1
+support: UNSUPPORTED
+label_key: metric.warehouse_utilization.label
+description_key: metric.warehouse_utilization.description
+population_key: metric.warehouse_utilization.population
+category: PERFORMANCE
+unit: {kind: RATIO, currency_policy: NOT_APPLICABLE, display_hint: PERCENT}
+relation: null
+measure: {type: NONE}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, warehouse]
+required_sources: []
+maturity_policy: {data_status_column: null, composition: false, maturity_filter: false}
+null_policy: {unsupported_reason: NOT_SUPPORTED}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#warehouse_utilization
+  child_resolvers: []
+screen_keys: [utilization]
+owner_task: API-001
+notes: Declared so the screen binds to a registry id; always null NOT_SUPPORTED in R1. Utilization is never inferred from credits.

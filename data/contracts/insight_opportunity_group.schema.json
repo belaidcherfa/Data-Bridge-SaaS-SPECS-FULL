@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:insights:insight-opportunity-group:v1",
+  "$comment": "contract=insight-opportunity-group version=1 status=DRAFT owner_task=INS-001 decisions=D-05,D-12 last_changed=2026-09-28. Output of the cost-pool tree DP per (tenant, account, currency) (INS-001-S10, G-INS-11). value(node) = min(pool_cost(node), min CEILING member impact, max(max ESTIMATE member potential, Σ value(children))); null when the subtree has no ESTIMATE member. The portfolio total per currency (INS-101 summary, Home) is Σ over root groups of value_30d; null values are counted in groups_without_estimate, never summed as 0; currencies are never summed together. Landed in py_outputs.insight_opportunity_group_r (V0703), scope PORTFOLIO.",
+  "title": "InsightOpportunityGroup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tenant_id", "organization_id", "account_id", "as_of", "group_key", "currency", "root_pool_kind", "pool_cost_30d", "ceiling_30d", "value_30d", "member_observation_ids", "estimate_member_count", "members_without_estimate", "nodes", "algorithm_run_id", "input_pub_seq", "revision_id"],
+  "properties": {
+    "tenant_id": {"type": "string", "format": "uuid"},
+    "organization_id": {"type": ["string", "null"], "format": "uuid"},
+    "account_id": {"type": "string", "format": "uuid"},
+    "as_of": {"type": "string", "format": "date"},
+    "group_key": {"type": "string", "maxLength": 512, "description": "Root pool key, e.g. WAREHOUSE_TOTAL:<account>:<warehouse_id>:USD."},
+    "currency": {"$ref": "urn:bridge:schema:common:money:v1#/$defs/currency_code"},
+    "root_pool_kind": {"type": "string", "pattern": "^[A-Z_]+$"},
+    "pool_cost_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]},
+    "ceiling_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}], "description": "'Up to' amount shown when no estimate exists (min of CEILING member impacts in the root)."},
+    "value_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]},
+    "member_observation_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}, "minItems": 1},
+    "estimate_member_count": {"type": "integer", "minimum": 0},
+    "members_without_estimate": {"type": "integer", "minimum": 0},
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pool_key", "pool_kind", "parent_key", "pool_cost_30d", "value_30d"],
+        "properties": {
+          "pool_key": {"type": "string"},
+          "pool_kind": {"type": "string"},
+          "parent_key": {"type": ["string", "null"]},
+          "pool_cost_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]},
+          "value_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]}
+        }
+      }
+    },
+    "algorithm_run_id": {"type": "string", "format": "uuid"},
+    "input_pub_seq": {"type": "integer", "minimum": 1},
+    "revision_id": {"type": "integer", "minimum": 1}
+  },
+  "x-bridge-golden-fixtures": [
+    {"name": "cap", "given": "WAREHOUSE_IDLE(w): pool 60.00, WH01 CEILING 60.00, WH02 ESTIMATE 45.00", "value_30d": "45.00", "arithmetic": "min(60, 60, max(45, 0)) = 45"},
+    {"name": "disjoint", "given": "WAREHOUSE_TOTAL(w) pool 500.00 ⊃ WAREHOUSE_IDLE(w) = 45.00 and WAREHOUSE_ACTIVE(w) ⊃ QUERY_FAMILY(f,w) with Q01 30.00", "value_30d": "75.00", "arithmetic": "Σ children 45 + 30 = 75 ≤ pool 500"},
+    {"name": "r2_member_on_root", "given": "as 'disjoint' plus an R2 WH03 ESTIMATE of 100.00 on WAREHOUSE_TOTAL(w)", "value_30d": "100.00", "arithmetic": "min(500, max(100, 75)) = 100"},
+    {"name": "currencies", "given": "USD members and EUR members on the same account", "value_30d": "two groups", "arithmetic": "one group per currency; never summed"},
+    {"name": "no_estimate", "given": "ST03 EXPOSURE 92.00 and ST04 EXPOSURE 92.00 on STORAGE_TABLE(t)", "value_30d": null, "arithmetic": "no ESTIMATE member → null; members_without_estimate = 2"}
+  ],
+  "examples": [
+    {"tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80", "organization_id": null, "account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82", "as_of": "2026-09-27", "group_key": "WAREHOUSE_TOTAL:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD", "currency": "USD", "root_pool_kind": "WAREHOUSE_TOTAL", "pool_cost_30d": "428.571428571429", "ceiling_30d": "60.00", "value_30d": "45.00", "member_observation_ids": ["5b3c1f0e-8a1d-5c2e-9f3a-1b2c3d4e5f60", "5b3c1f0e-8a1d-5c2e-9f3a-1b2c3d4e5f61"], "estimate_member_count": 1, "members_without_estimate": 1, "nodes": [{"pool_key": "WAREHOUSE_TOTAL:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD", "pool_kind": "WAREHOUSE_TOTAL", "parent_key": null, "pool_cost_30d": "428.571428571429", "value_30d": "45.00"}, {"pool_key": "WAREHOUSE_IDLE:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD", "pool_kind": "WAREHOUSE_IDLE", "parent_key": "WAREHOUSE_TOTAL:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD", "pool_cost_30d": "60.00", "value_30d": "45.00"}], "algorithm_run_id": "01923f6b-0000-7000-8000-000000000003", "input_pub_seq": 48211, "revision_id": 7}
+  ]
+}

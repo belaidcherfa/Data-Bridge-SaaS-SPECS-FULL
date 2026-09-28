@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.tombstone.recorded:v1",
+  "$comment": "contract=event-bridge.ops.tombstone.recorded version=1 status=DRAFT owner_task=OPS-104 decisions=D-10 last_changed=2026-09-28",
+  "title": "bridge.ops.tombstone.recorded v1 payload",
+  "description": "A tombstone was appended to privacy.tombstone; the mirror writes tombstones/seq=<20-digit>.json (tombstone.v1.json) byte-identically on retry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seq",
+    "tombstone_id",
+    "kind",
+    "account_id",
+    "connection_id",
+    "subject_hmac",
+    "dataset",
+    "range_start",
+    "range_end",
+    "effective_at",
+    "request_id",
+    "legal_basis"
+  ],
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "tombstone_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "TENANT",
+        "ACCOUNT",
+        "CONNECTION",
+        "SUBJECT",
+        "DATASET_RANGE"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "account_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "connection_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "subject_hmac": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z][0-9]+_[A-Za-z0-9_-]{8,256}$",
+      "x-privacy": "INTERNAL",
+      "description": "Keyed D-10 pseudonym (never a name); only for kind SUBJECT."
+    },
+    "dataset": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "pattern": "^[a-z][a-z0-9_]{1,127}$"
+    },
+    "range_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "x-privacy": "INTERNAL"
+    },
+    "range_end": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "x-privacy": "INTERNAL"
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "request_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "legal_basis": {
+      "type": "string",
+      "enum": [
+        "CONTROLLER_INSTRUCTION",
+        "SUBJECT_REQUEST_VIA_CONTROLLER",
+        "END_OF_SERVICE",
+        "CONTRACT_TERMINATION",
+        "RETENTION_POLICY",
+        "CUSTOMER_DISCONNECT"
+      ],
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "seq": 5,
+      "tombstone_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e30",
+      "kind": "SUBJECT",
+      "account_id": null,
+      "connection_id": null,
+      "subject_hmac": "u1_3f9a0c2d7e61b845",
+      "dataset": null,
+      "range_start": null,
+      "range_end": null,
+      "effective_at": "2026-10-20T12:00:00.000Z",
+      "request_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e31",
+      "legal_basis": "SUBJECT_REQUEST_VIA_CONTROLLER"
+    }
+  ]
+}

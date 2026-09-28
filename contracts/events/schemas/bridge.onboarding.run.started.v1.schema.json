@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.run.started:v1",
+  "$comment": "contract=event-bridge.onboarding.run.started version=1 status=DRAFT owner_task=ONB-001 decisions=D-38 last_changed=2026-09-28",
+  "title": "bridge.onboarding.run.started v1 payload",
+  "description": "An onboarding run was created (POST /v1/onboarding/runs).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "run_revision",
+    "started_by_membership_id",
+    "demonstration_only"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "run_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "started_by_membership_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "demonstration_only": {
+      "type": "boolean",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "run_revision": 1,
+      "started_by_membership_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e0a",
+      "demonstration_only": false
+    }
+  ]
+}

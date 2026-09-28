@@ -1,0 +1,77 @@
+# contract=state-machine-period version=1 status=DRAFT owner_task=FIN-010 decisions=D-13,D-25,D-35 last_changed=2026-09-28
+# Financial period lifecycle per (tenant, organization, UTC month, currency) — FIN backlog §3.5, ADR-003 amendment,
+# ADR-015 §8. Prose, guards, freeze set and the API projection: data/contracts/finance/period_state_machine.md.
+# Actors are capabilities (handed off to K2: contracts/_handoffs/K5.md) or system:<component>.
+machine: period
+version: 1
+owner_task: FIN-010
+entity: finance.financial_period
+state_field: status
+initial: OPEN
+terminal: []
+states:
+  OPEN: {description: "Month in progress or not yet stable (now < month_end + stability_days). Charges may change; no close possible.", period_state: OPEN}
+  MONTH_STABLE: {description: "period_stability = STABLE (month_end + N days, N = 5 by default, D-13). Close may be requested.", period_state: MONTH_STABLE}
+  CLOSE_PREVIEWED: {description: "A close request exists; its preview (freeze set + statement lines) is being computed or awaits a second approver (24 h TTL).", period_state: MONTH_STABLE}
+  CLOSING_ARTIFACTS: {description: "Close (v1) or restatement (v>=2) approved; the close record is committed in PG and the D-04 publication, S3 Object Lock upload and publication pin are being confirmed (retry-safe).", period_state: "MONTH_STABLE when close_version = 1, otherwise the previous projection (CLOSED or RESTATED)"}
+  CLOSED: {description: "Closed with close version 1; statement v1 issued and immutable.", period_state: CLOSED}
+  RESTATEMENT_PROPOSED: {description: "A correction case of this closed period carries a pending RESTATE or CARRY_FORWARD proposal awaiting a second approver.", period_state: "CLOSED when current_close_version = 1, else RESTATED"}
+  RESTATED: {description: "Closed with close version >= 2 (restated); earlier statement versions stay downloadable and immutable.", period_state: RESTATED}
+transitions:
+  - {from: OPEN, to: MONTH_STABLE, event: stability_reached, actors: ["system:finance-maturity-evaluator"], guards: [now_ge_month_end_plus_stability_days], effects: ["emit:bridge.finance.period.stabilized"]}
+  - {from: MONTH_STABLE, to: OPEN, event: stability_revoked, actors: ["system:finance-maturity-evaluator"], guards: [stability_days_raised_by_new_policy_version, now_lt_new_stable_at], effects: ["emit:bridge.finance.period.stability_revoked"]}
+  - {from: MONTH_STABLE, to: CLOSE_PREVIEWED, event: close_requested, actors: [finance.period.close.request], guards: [period_stable, no_active_close_request, scope_not_trial_only, requester_scope_covers_organization], effects: ["write:finance.period_close_request(PREVIEW_PENDING)", "enqueue:finance.close_preview_job", "emit:bridge.finance.period.close_requested"]}
+  - {from: CLOSE_PREVIEWED, to: CLOSING_ARTIFACTS, event: close_approved, actors: [finance.period.close.approve], guards: [close_request_previewed, preview_not_expired, preconditions_still_hold, pins_unchanged_since_preview, approver_differs_from_requester_or_waiver, approver_scope_covers_organization, fresh_durable_authz_check, step_up_recent], effects: ["write:finance.period_close(kind=CLOSE,version=1)", "write:finance.statement(GENERATING)", "enqueue:finance.close_artifacts_job", "emit:bridge.finance.period.close_approved"]}
+  - {from: CLOSE_PREVIEWED, to: MONTH_STABLE, event: close_rejected, actors: [finance.period.close.request, finance.period.close.approve], guards: [close_request_active], effects: ["write:finance.period_close_request(REJECTED)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: CLOSE_PREVIEWED, to: MONTH_STABLE, event: close_preview_expired, actors: ["system:finance-worker"], guards: [now_ge_preview_expires_at], effects: ["write:finance.period_close_request(EXPIRED)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: CLOSE_PREVIEWED, to: MONTH_STABLE, event: close_preview_invalidated, actors: ["system:finance-worker"], guards: [pins_hash_mismatch_or_preview_failed], effects: ["write:finance.period_close_request(STALE|FAILED)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: CLOSE_PREVIEWED, to: OPEN, event: stability_revoked, actors: ["system:finance-maturity-evaluator"], guards: [stability_days_raised_by_new_policy_version, now_lt_new_stable_at], effects: ["write:finance.period_close_request(STALE)", "emit:bridge.finance.period.stability_revoked"]}
+  - {from: CLOSING_ARTIFACTS, to: CLOSED, event: close_artifacts_confirmed, actors: ["system:finance-worker"], guards: [close_version_eq_1, config_publication_verified, statement_artifacts_stored_with_object_lock, publication_pin_created], effects: ["write:finance.period_close(COMPLETED)", "write:finance.statement(ISSUED)", "emit:bridge.finance.period.closed", "emit:bridge.finance.statement.issued"]}
+  - {from: CLOSING_ARTIFACTS, to: RESTATED, event: close_artifacts_confirmed, actors: ["system:finance-worker"], guards: [close_version_gt_1, config_publication_verified, statement_artifacts_stored_with_object_lock, publication_pin_created], effects: ["write:finance.period_close(COMPLETED)", "write:finance.statement(ISSUED)", "write:finance.correction_case(RESOLVED)", "emit:bridge.finance.period.restated", "emit:bridge.finance.statement.issued"]}
+  - {from: CLOSED, to: RESTATEMENT_PROPOSED, event: restatement_proposed, actors: [finance.period.restate.request], guards: [live_correction_case_for_period, proposer_scope_covers_organization], effects: ["write:finance.correction_case(PROPOSED)", "emit:bridge.finance.correction_case.proposed"]}
+  - {from: RESTATED, to: RESTATEMENT_PROPOSED, event: restatement_proposed, actors: [finance.period.restate.request], guards: [live_correction_case_for_period, proposer_scope_covers_organization], effects: ["write:finance.correction_case(PROPOSED)", "emit:bridge.finance.correction_case.proposed"]}
+  - {from: RESTATEMENT_PROPOSED, to: CLOSING_ARTIFACTS, event: restatement_approved, actors: [finance.period.restate.approve], guards: [decision_is_restate, approver_differs_from_proposer, proposal_pins_unchanged, approver_scope_covers_organization, fresh_durable_authz_check, step_up_recent], effects: ["write:finance.period_close(kind=RESTATEMENT,version=n+1)", "write:finance.statement(GENERATING,version=n+1)", "write:finance.correction_case(APPROVED; other live cases of the period MERGED)", "enqueue:finance.close_artifacts_job", "emit:bridge.finance.correction_case.decided"]}
+  - {from: RESTATEMENT_PROPOSED, to: CLOSED, event: carry_forward_approved, actors: [finance.period.restate.approve], guards: [decision_is_carry_forward, current_close_version_eq_1, approver_differs_from_proposer, proposal_pins_unchanged, target_accounting_period_is_open, fresh_durable_authz_check, step_up_recent], effects: ["write:finance.prior_period_adjustment", "write:finance.correction_case(APPROVED)", "enqueue:config_publication(kind=CORRECTION_DECISION)", "emit:bridge.finance.correction_case.decided", "emit:bridge.finance.prior_period_adjustment.created"]}
+  - {from: RESTATEMENT_PROPOSED, to: RESTATED, event: carry_forward_approved, actors: [finance.period.restate.approve], guards: [decision_is_carry_forward, current_close_version_gt_1, approver_differs_from_proposer, proposal_pins_unchanged, target_accounting_period_is_open, fresh_durable_authz_check, step_up_recent], effects: ["write:finance.prior_period_adjustment", "write:finance.correction_case(APPROVED)", "enqueue:config_publication(kind=CORRECTION_DECISION)", "emit:bridge.finance.correction_case.decided", "emit:bridge.finance.prior_period_adjustment.created"]}
+  - {from: RESTATEMENT_PROPOSED, to: CLOSED, event: proposal_withdrawn, actors: [finance.period.restate.request, finance.period.restate.approve, "system:finance-worker"], guards: [current_close_version_eq_1], effects: ["write:finance.correction_case(OPEN)", "emit:bridge.finance.correction_case.proposal_withdrawn"]}
+  - {from: RESTATEMENT_PROPOSED, to: RESTATED, event: proposal_withdrawn, actors: [finance.period.restate.request, finance.period.restate.approve, "system:finance-worker"], guards: [current_close_version_gt_1], effects: ["write:finance.correction_case(OPEN)", "emit:bridge.finance.correction_case.proposal_withdrawn"]}
+guards:
+  now_ge_month_end_plus_stability_days: "now() >= period_end 00:00Z + month_stability_days (effective maturity policy of the organization's charge-authority source: OU_USAGE_IN_CURRENCY_DAILY, else AU_METERING_DAILY_HISTORY; default 5 d)"
+  stability_days_raised_by_new_policy_version: "A newly ACTIVE maturity policy version (seed v1 or tenant override) sets a larger month_stability_days than the one recorded in stability_policy_version"
+  now_lt_new_stable_at: "now() < period_end + new month_stability_days"
+  period_stable: "status = MONTH_STABLE (period_stability = STABLE)"
+  no_active_close_request: "No finance.period_close_request in PREVIEW_PENDING or PREVIEWED for the period (unique index)"
+  scope_not_trial_only: "At least one account of the organization in scope is not flagged TRIAL_ACCOUNT (TRUE or UNKNOWN) by CON-005; otherwise 409 FIN_TRIAL_ACCOUNT_DEMO_ONLY (D-35)"
+  requester_scope_covers_organization: "The actor's grant scope for the capability subsumes the whole organization (SEC-101 subsumes); organization-scope rows require finance.org_scope.read"
+  proposer_scope_covers_organization: "Same rule for finance.period.restate.request"
+  approver_scope_covers_organization: "Same rule for the approve capability, evaluated at approval time"
+  close_request_previewed: "The active close request is PREVIEWED (preview computed without failure)"
+  close_request_active: "The close request is PREVIEW_PENDING or PREVIEWED"
+  preview_not_expired: "now() < close_request.preview_expires_at (<= 24 h after preview_ready_at); else 409 FIN_PREVIEW_EXPIRED"
+  preconditions_still_hold: "Re-evaluated at approval: STABLE; every required control (controls.yaml required_for_close, tenant policy for C5) MATCHED or WARNING-with-approved-explanation for the pinned publication; coverage >= close_policy.min_account_day_coverage; else 409 FIN_CONTROL_BLOCKING / FIN_COVERAGE_BELOW_POLICY"
+  pins_unchanged_since_preview: "sha256(canonical close manifest recomputed now) = close_request.manifest_sha256; else 409 FIN_STALE_PREVIEW and the request becomes STALE (FIN-010-S08)"
+  approver_differs_from_requester_or_waiver: "approved_by <> requested_by, unless close_policy.close_requires_second_approver = false (owner-acknowledged waiver, audited); else 409 FIN_MAKER_CHECKER_VIOLATION"
+  approver_differs_from_proposer: "decided_by <> correction_case.proposed_by; else 409 FIN_MAKER_CHECKER_VIOLATION (no waiver for restatement)"
+  fresh_durable_authz_check: "Capability re-read from PostgreSQL with the current permission epoch at execution (SEC-006); a revoked approver gets 403 and an audit event (FIN-010-S09)"
+  step_up_recent: "auth_time within 10 min (SEC Appendix C.4: period.close and restatement require step-up for both actors)"
+  pins_hash_mismatch_or_preview_failed: "A newer publication changed any pinned input of the preview, or the preview job failed"
+  close_version_eq_1: "The close record being completed has close_version = 1"
+  close_version_gt_1: "The close record being completed has close_version >= 2"
+  current_close_version_eq_1: "financial_period.current_close_version = 1"
+  current_close_version_gt_1: "financial_period.current_close_version >= 2"
+  config_publication_verified: "CONFIG.PERIOD_CLOSE + CONFIG.STATEMENT_LINE header-complete for the close (row count and content hash verified, CTL-005-S07)"
+  statement_artifacts_stored_with_object_lock: "JSON, CSV and PDF artifacts stored under tenants/{tenant}/finance/closes/{close_id}/ with Object Lock GOVERNANCE retain_until = issued_at + record_retention_days; sha256 recorded"
+  publication_pin_created: "PUBLICATION.PIN row exists for (tenant, pub_seq, holder_kind=PERIOD_CLOSE, holder_id=close_id) (K4, ADR-014 §9)"
+  live_correction_case_for_period: "At least one finance.correction_case of the period in OPEN state; the proposal names one decision (RESTATE or CARRY_FORWARD)"
+  decision_is_restate: "correction_case.decision = RESTATE"
+  decision_is_carry_forward: "correction_case.decision = CARRY_FORWARD"
+  proposal_pins_unchanged: "sha256 of (current_pub_seq, delta per line) equals correction_case.proposal_pins_sha256; else the proposal is withdrawn by system:finance-worker (FIN-107-S10) and 409 FIN_CORRECTION_PROPOSAL_INVALIDATED"
+  target_accounting_period_is_open: "The financial_period of (organization, target_accounting_period, currency) is OPEN or MONTH_STABLE (never CLOSE_PREVIEWED or closed)"
+invariants:
+  - "A CLOSED or RESTATED period never changes its issued statements; corrections create a new close version (RESTATE) or a PRIOR_PERIOD_ADJUSTMENT in a later accounting period (CARRY_FORWARD)."
+  - "close_version increases by exactly 1 per completed restatement; (tenant, period_id, close_version) is unique, so concurrent approvals produce one record."
+  - "No transition from OPEN or MONTH_STABLE goes directly to CLOSED (illegal OPEN -> CLOSED is rejected by the service guard and the DB check financial_period_close_ck)."
+  - "Every close and restatement has two distinct actors unless the audited second-approver waiver applies (close only; never for restatement)."
+  - "All periods, closes, statements and controls are UTC calendar months (G-FIN-26)."
+  - "Trial-account amounts (D-35) never appear in a statement; a scope made only of trial accounts cannot be closed."
+  - "Every state change writes an audit event (SEC-008) and bumps financial_period.revision (If-Match etag)."

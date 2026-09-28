@@ -1,0 +1,24 @@
+# contract=semantic-dimension:region version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: region
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.region.label
+description_key: dimension.region.description
+group: BILLING
+kind: ATTRIBUTE
+value_type: STRING
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ, IN, NOT_IN, PREFIX, IS_NULL, IS_NOT_NULL]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: VALUE}
+bindings:
+- {relation: v_charge_daily, column_ref: region}
+- {relation: v_attribution_daily, column_ref: region}
+- {relation: v_dim_account, column_ref: region}
+sortable: true
+owner_task: API-001

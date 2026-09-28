@@ -1,0 +1,60 @@
+# contract=state-machine-deletion-request version=1 status=DRAFT owner_task=OPS-005 decisions=D-10,D-25,D-26 last_changed=2026-09-28
+# Privacy request lifecycle (RECONCILIATION C-20: one workflow for SUBJECT_ACCESS, SUBJECT_ERASURE, TENANT_DELETION; U-11 stage handlers:
+# SEC-103 erase_subject(), SEC-105-S07 principal disable, CON-006/CON-001 revoke; CTL-102 starts offboarding).
+machine: deletion_request
+version: 1
+owner_task: OPS-005
+entity: privacy.deletion_request
+state_field: status
+initial: RECEIVED
+terminal: [CERTIFIED, REJECTED]
+states:
+  RECEIVED: {description: "Request recorded from an authenticated tenant Owner/Admin, the offboarding workflow or an operator at contract end. due_at = received_at + 30 days."}
+  PREVIEWED: {description: "Scope resolved; one deletion_stage per store in PLANNED with expected_count (per-store counts returned by the preview)."}
+  APPROVED: {description: "Four-eyes approval recorded (approver != requester; SEC-102 approval for member-initiated requests, second operator for TENANT_DELETION). Waits for execute_not_before (export window) and holds."}
+  HELD: {description: "An ACTIVE legal hold covers the whole request scope. Partial holds hold individual stages only."}
+  EXECUTING: {description: "Ordered, idempotent, resumable stages run (OPS-005-S09/S11/S12). The tombstone is recorded by the first destructive stage."}
+  VERIFIED: {description: "Every stage VERIFIED (residual_count = 0) or SKIPPED; SUBJECT_ACCESS export artifact ready."}
+  CERTIFIED: {description: "Deletion certificate (JSON + PDF) with residual copies and expiry dates issued; SUBJECT_ACCESS export delivered. TENANT_DELETION lets CTL-102 move the tenant to DELETED."}
+  REJECTED: {description: "Rejected or withdrawn before execution (duplicate, subject not found, controller withdrew, not authorized)."}
+transitions:
+  - {from: RECEIVED, to: PREVIEWED, event: preview_computed, actors: ["system:privacy-orchestrator"], guards: [scope_resolved], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: PREVIEWED, to: PREVIEWED, event: preview_refreshed, actors: ["system:privacy-orchestrator"], guards: [scope_resolved], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: RECEIVED, to: REJECTED, event: rejected, actors: ["system:privacy-orchestrator", "ops.privacy.approve"], guards: [reject_reason_given], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: PREVIEWED, to: APPROVED, event: approved, actors: [privacy.erasure.request, privacy.access.request, "ops.privacy.approve"], guards: [approver_is_not_requester, approver_holds_checker_capability_for_type, approval_binds_current_preview, step_up_recent], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: PREVIEWED, to: REJECTED, event: rejected, actors: [privacy.erasure.request, privacy.access.request, tenant.offboard, "ops.privacy.approve"], guards: [reject_reason_given], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: APPROVED, to: EXECUTING, event: execution_started, actors: ["system:privacy-orchestrator"], guards: [no_active_hold_covers_full_scope, execute_not_before_passed, approval_still_valid, tenant_deletion_tenant_offboarding], effects: ["emit:bridge.ops.deletion_request.status_changed", "enqueue:privacy.run_stages"]}
+  - {from: APPROVED, to: HELD, event: hold_detected, actors: ["system:privacy-orchestrator"], guards: [active_hold_covers_full_scope], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: APPROVED, to: REJECTED, event: withdrawn, actors: [privacy.erasure.request, privacy.access.request, tenant.offboard], guards: [requester_or_owner_withdraws, reject_reason_given], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: EXECUTING, to: HELD, event: hold_detected, actors: ["system:privacy-orchestrator"], guards: [active_hold_covers_full_scope], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: HELD, to: APPROVED, event: hold_released, actors: ["system:privacy-orchestrator"], guards: [no_active_hold_covers_full_scope, no_stage_started], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: HELD, to: EXECUTING, event: hold_released, actors: ["system:privacy-orchestrator"], guards: [no_active_hold_covers_full_scope, some_stage_started], effects: ["emit:bridge.ops.deletion_request.status_changed", "enqueue:privacy.run_stages"]}
+  - {from: HELD, to: REJECTED, event: withdrawn, actors: [privacy.erasure.request, privacy.access.request, tenant.offboard], guards: [requester_or_owner_withdraws, no_stage_started, reject_reason_given], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: EXECUTING, to: VERIFIED, event: all_stages_verified, actors: ["system:privacy-orchestrator"], guards: [every_stage_verified_or_skipped], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+  - {from: VERIFIED, to: CERTIFIED, event: certificate_issued, actors: ["system:privacy-orchestrator"], guards: [certificate_stored_with_sha256], effects: ["emit:bridge.ops.deletion_request.status_changed"]}
+guards:
+  scope_resolved: "SUBJECT_*: subject_hmac found in privacy.identity_dictionary of the tenant (else REJECTED OPS_PRIVACY_SUBJECT_UNRESOLVED); TENANT_DELETION: tenant exists and is not already DELETED"
+  reject_reason_given: "reject_reason_code present"
+  approver_is_not_requester: "approved_by <> requested_by (DB CHECK deletion_request_approver_ck)"
+  approver_holds_checker_capability_for_type: "SUBJECT_ERASURE: privacy.erasure.request over the tenant; SUBJECT_ACCESS: privacy.access.request; TENANT_DELETION: operator capability ops.privacy.approve (second operator, CTL-102-S06/OPS-005-S09)"
+  approval_binds_current_preview: "approval references the request revision whose preview produced the current stages"
+  step_up_recent: "member approvals: auth_time <= 10 min (SEC Appendix C.4)"
+  no_active_hold_covers_full_scope: "no privacy.legal_hold in ACTIVE/REVIEW_OVERDUE whose scope covers the entire request scope"
+  active_hold_covers_full_scope: "an ACTIVE/REVIEW_OVERDUE legal hold covers the entire request scope"
+  execute_not_before_passed: "execute_not_before IS NULL OR now() >= execute_not_before (offboarding export window, ONB-102)"
+  approval_still_valid: "SEC-102 approval APPROVED, unexpired (7 days) and bound to the same revision"
+  tenant_deletion_tenant_offboarding: "TENANT_DELETION only: tenant lifecycle state = OFFBOARDING (CTL-102-S06)"
+  requester_or_owner_withdraws: "withdrawn by the requester or an Organization Owner of the tenant"
+  no_stage_started: "no deletion_stage has left PLANNED"
+  some_stage_started: "at least one deletion_stage has left PLANNED"
+  every_stage_verified_or_skipped: "every deletion_stage is VERIFIED (residual_count = 0) or SKIPPED (not applicable to the store)"
+  certificate_stored_with_sha256: "certificate_ref and certificate_sha256 recorded (DB CHECK deletion_request_certified_ck)"
+invariants:
+  - "Requests from data subjects are never executed directly; they are forwarded to the controller (tenant) within 2 business days."
+  - "At most one open TENANT_DELETION per tenant (partial unique index)."
+  - "The first destructive stage writes the tombstone (TENANT or SUBJECT) to privacy.tombstone in the same transaction as its outbox event; restores replay tombstones before traffic."
+  - "Stages are idempotent and resumable: killing the orchestrator after any stage and rerunning completes without duplicate side effects."
+  - "Stages overlapping an active legal hold are HELD; other stages proceed."
+  - "SUBJECT_ERASURE never changes ledger totals; the pseudonym becomes unresolvable (rendered 'Erased user <first 4 hex>')."
+  - "A request past due_at without CERTIFIED raises a SEV3 ticket and an alarm (privacy request SLA)."
+  - "EXECUTING never returns to APPROVED or REJECTED (deletion is irreversible)."

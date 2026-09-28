@@ -1,0 +1,62 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenySecurityServiceTampering",
+      "Effect": "Deny",
+      "Action": [
+        "cloudtrail:StopLogging",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:DeleteEventDataStore",
+        "guardduty:DeleteDetector",
+        "guardduty:UpdateDetector",
+        "guardduty:DisassociateFromAdministratorAccount",
+        "guardduty:DisassociateFromMasterAccount",
+        "guardduty:DeleteMembers",
+        "guardduty:DisassociateMembers",
+        "guardduty:StopMonitoringMembers",
+        "guardduty:DeletePublishingDestination",
+        "securityhub:DisableSecurityHub",
+        "securityhub:DisassociateFromAdministratorAccount",
+        "securityhub:DisassociateFromMasterAccount",
+        "securityhub:DeleteMembers",
+        "securityhub:DisassociateMembers",
+        "securityhub:BatchDisableStandards",
+        "config:StopConfigurationRecorder",
+        "config:DeleteConfigurationRecorder",
+        "config:DeleteDeliveryChannel",
+        "config:DeleteConfigurationAggregator",
+        "config:DeleteRetentionConfiguration",
+        "access-analyzer:DeleteAnalyzer"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyNetworkLogRemoval",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:DeleteFlowLogs",
+        "route53resolver:DeleteResolverQueryLogConfig",
+        "route53resolver:DisassociateResolverQueryLogConfig"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass",
+            "arn:aws:iam::*:role/bridge-*-tf-apply"
+          ]
+        }
+      }
+    }
+  ]
+}

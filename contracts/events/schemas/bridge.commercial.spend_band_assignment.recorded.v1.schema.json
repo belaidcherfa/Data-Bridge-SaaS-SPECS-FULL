@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.spend_band_assignment.recorded:v1",
+  "$comment": "contract=event-bridge.commercial.spend_band_assignment.recorded version=1 status=DRAFT owner_task=LCH-105 decisions=D-17,D-13,D-35 last_changed=2026-09-28",
+  "title": "bridge.commercial.spend_band_assignment.recorded v1 payload",
+  "description": "A monthly managed-spend band assignment (or superseding revision) was recorded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assignment_id",
+    "period",
+    "assignment_revision",
+    "supersedes",
+    "band_id",
+    "band_rank",
+    "source",
+    "flag",
+    "totals"
+  ],
+  "properties": {
+    "assignment_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "period": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+    },
+    "assignment_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "supersedes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "band_id": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^B[0-9]{1,2}$"
+    },
+    "band_rank": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "CLOSED_STATEMENT",
+        "MONTH_STABLE_LEDGER"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "flag": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "BAND_CHANGED_AFTER_INVOICE",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "totals": {
+      "type": "array",
+      "x-privacy": "INTERNAL",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "managed_spend",
+          "band_id",
+          "band_rank"
+        ],
+        "properties": {
+          "managed_spend": {
+            "allOf": [
+              {
+                "$ref": "../../common/money.schema.json"
+              }
+            ],
+            "x-privacy": "INTERNAL"
+          },
+          "band_id": {
+            "type": "string",
+            "x-privacy": "INTERNAL",
+            "pattern": "^B[0-9]{1,2}$"
+          },
+          "band_rank": {
+            "type": "integer",
+            "x-privacy": "INTERNAL",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "assignment_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e26",
+      "period": "2026-10",
+      "assignment_revision": 1,
+      "supersedes": null,
+      "band_id": "B2",
+      "band_rank": 2,
+      "source": "MONTH_STABLE_LEDGER",
+      "flag": null,
+      "totals": [
+        {
+          "managed_spend": {
+            "amount": "25000.000000000000",
+            "currency": "USD"
+          },
+          "band_id": "B2",
+          "band_rank": 2
+        },
+        {
+          "managed_spend": {
+            "amount": "4000.000000000000",
+            "currency": "EUR"
+          },
+          "band_id": "B1",
+          "band_rank": 1
+        }
+      ]
+    }
+  ]
+}

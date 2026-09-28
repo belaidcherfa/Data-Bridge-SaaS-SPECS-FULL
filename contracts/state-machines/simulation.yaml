@@ -1,0 +1,53 @@
+# contract=state-machine-simulation version=1 status=DRAFT owner_task=ALC-003 decisions=D-04,D-11,D-33 last_changed=2026-09-28
+# One allocation simulation: a dbt build (`dbt build --select tag:allocation_sim`) run as a Dagster dbt job in
+# the dbt lane under the transform identity (RECONCILIATION C-05, D-33), writing baseline and candidate results
+# into SIMULATION.* keyed by simulation_id on ONE pinned input publication. Draft config reaches Snowflake only
+# through SIMULATION_INPUT.cfg_* (config-publisher identity, D-04) — never CONFIG.*.
+# An API-004 analysis-job record gives the user status and cancellation; it does not execute the build.
+# Sources: backlog/ALC.md G-ALC-07, G-ALC-15, ALC-003-S02..S06, S13; RECONCILIATION C-01, C-05.
+machine: simulation
+version: 1
+owner_task: ALC-003
+entity: allocation.simulation
+state_field: status
+initial: QUEUED
+terminal: [EXPIRED]
+states:
+  QUEUED: {description: "Created with pinned (input_publication_id, window [start,end), scope, content_sha256). Waiting for the tenant slot (1 running per tenant, 2 global)."}
+  INPUT_PUBLISHING: {description: "The config-publisher inserts the compiled draft rows into SIMULATION_INPUT.cfg_* keyed (tenant_id, simulation_id) plus the SIMULATION_INPUT.SIM_INPUT_HEADER commit row."}
+  RUNNING: {description: "Dagster dbt job running the allocation_sim selector with vars {simulation_id} (window and publication are read from SIMULATION.SIM_REGISTRY). Hard timeout 20 min."}
+  SUCCEEDED: {description: "Baseline and candidate written; sim_preview_summary, sim_access_impact and conflicts available; window_fingerprint and dependency versions stored."}
+  FAILED: {description: "failure_reason in TIMEOUT, BUILD_ERROR, INPUT_PUBLISH_FAILED, WORKER_LOST, PUBLICATION_RETIRED. TIMEOUT and WORKER_LOST are retryable by re-simulating."}
+  CANCELLED: {description: "Cancelled by the user or because the subject version was discarded; Dagster run terminated."}
+  EXPIRED: {description: "TTL (14 days after finished_at, or 14 days after queued_at for runs that never finished) elapsed; SIMULATION.* and SIMULATION_INPUT.* rows purged by SIMULATION.PURGE_EXPIRED_SIMULATIONS()."}
+transitions:
+  - {from: QUEUED, to: INPUT_PUBLISHING, event: slot_acquired, actors: ["system:simulation-scheduler"], guards: [tenant_slot_free, global_slot_free, input_publication_not_retired], effects: [emit:bridge.allocation.simulation.input_publish_requested]}
+  - {from: QUEUED, to: CANCELLED, event: cancelled, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit, "system:ruleset-discard"], guards: [], effects: [emit:bridge.allocation.simulation.cancelled]}
+  - {from: QUEUED, to: FAILED, event: publication_retired, actors: ["system:simulation-scheduler"], guards: [], effects: [record_failure_reason:PUBLICATION_RETIRED, emit:bridge.allocation.simulation.failed]}
+  - {from: INPUT_PUBLISHING, to: RUNNING, event: input_published, actors: ["system:config-publisher"], guards: [sim_input_header_row_count_matches], effects: [launch:dagster_job:allocation_sim, emit:bridge.allocation.simulation.started]}
+  - {from: INPUT_PUBLISHING, to: FAILED, event: input_publish_failed, actors: ["system:config-publisher"], guards: [], effects: [record_failure_reason:INPUT_PUBLISH_FAILED, release_slot, emit:bridge.allocation.simulation.failed]}
+  - {from: INPUT_PUBLISHING, to: CANCELLED, event: cancelled, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit, "system:ruleset-discard"], guards: [], effects: [release_slot, emit:bridge.allocation.simulation.cancelled]}
+  - {from: RUNNING, to: SUCCEEDED, event: build_succeeded, actors: ["system:allocation-sim-job"], guards: [sim_checks_passed, result_rows_registered], effects: [store_window_fingerprint, store_dependency_versions, store_bounded_counts, release_slot, emit:bridge.allocation.simulation.completed]}
+  - {from: RUNNING, to: FAILED, event: build_failed, actors: ["system:allocation-sim-job"], guards: [], effects: [record_failure_reason:BUILD_ERROR, release_slot, emit:bridge.allocation.simulation.failed]}
+  - {from: RUNNING, to: FAILED, event: timed_out, actors: ["system:simulation-reaper"], guards: [running_longer_than_20_min], effects: [terminate:dagster_run, record_failure_reason:TIMEOUT, release_slot, emit:bridge.allocation.simulation.failed]}
+  - {from: RUNNING, to: FAILED, event: worker_lost, actors: ["system:simulation-reaper"], guards: [dagster_run_terminal_without_success], effects: [record_failure_reason:WORKER_LOST, release_slot, emit:bridge.allocation.simulation.failed]}
+  - {from: RUNNING, to: CANCELLED, event: cancelled, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit, "system:ruleset-discard"], guards: [], effects: [terminate:dagster_run, release_slot, emit:bridge.allocation.simulation.cancelled]}
+  - {from: SUCCEEDED, to: EXPIRED, event: ttl_elapsed, actors: ["system:simulation-reaper"], guards: [ttl_elapsed_14_days, not_referenced_by_publishing_version], effects: [purge:simulation_rows, emit:bridge.allocation.simulation.expired]}
+  - {from: FAILED, to: EXPIRED, event: ttl_elapsed, actors: ["system:simulation-reaper"], guards: [ttl_elapsed_14_days], effects: [purge:simulation_rows, emit:bridge.allocation.simulation.expired]}
+  - {from: CANCELLED, to: EXPIRED, event: ttl_elapsed, actors: ["system:simulation-reaper"], guards: [ttl_elapsed_14_days], effects: [purge:simulation_rows, emit:bridge.allocation.simulation.expired]}
+guards:
+  tenant_slot_free: "No other simulation of the tenant in INPUT_PUBLISHING or RUNNING (partial unique index allocation.simulation_one_running_per_tenant)."
+  global_slot_free: "Fewer than 2 simulations platform-wide in INPUT_PUBLISHING or RUNNING (planner-side semaphore; lane budget)."
+  input_publication_not_retired: "The pinned input_publication_id is still readable (not garbage-collected: ADR-014 PIN row held by the simulation)."
+  sim_input_header_row_count_matches: "SIMULATION_INPUT.SIM_INPUT_HEADER.row_count and content_sha256 equal the compiled draft."
+  sim_checks_passed: "Conservation checks on the candidate (Σ lines = unit amount at 12 dp per charge × book), baseline parity (baseline equals the live published allocation for the same publication when config is unchanged)."
+  result_rows_registered: "SIMULATION.SIM_REGISTRY row status=SUCCEEDED with row counts."
+  running_longer_than_20_min: "now() - started_at > 20 minutes."
+  dagster_run_terminal_without_success: "The Dagster run is in a terminal failure state or the job heartbeat is older than 5 minutes."
+  ttl_elapsed_14_days: "now() > expires_at (finished_at + 14 days, or queued_at + 14 days)."
+  not_referenced_by_publishing_version: "No ruleset/hierarchy/policy version in APPROVED or PUBLISHING references this simulation (their approvals would lose evidence); otherwise TTL extends by 7 days."
+invariants:
+  - "Baseline (currently published config) and candidate are computed on the same pinned input publication."
+  - "A simulation never writes CONFIG.* or serving datasets; a dbt graph test fails if any non-allocation_sim model references SIMULATION_INPUT."
+  - "At most one simulation per tenant is INPUT_PUBLISHING or RUNNING."
+  - "window_fingerprint = sha256 over the ordered (charge_id, charge_revision) list of charges in window∩scope at the pinned publication; appended data after window_end never changes it."

@@ -1,0 +1,404 @@
+# contract=reconciliation-controls version=1 status=DRAFT owner_task=FIN-009 decisions=D-12,D-13,D-35 last_changed=2026-09-28
+# Reconciliation control catalog C1–C9 (FIN backlog §3.4, FIN-009-S01; ADR-015 §8; ledger.md "Authority and
+# reconciliation independence"). Validated by controls.schema.json. Implemented as dbt models under
+# data/dbt/models/reconciliation/ writing fct_reconciliation (one row per compared bucket) and fct_reconciliation_run
+# (one row per run x control x currency); PG finance.reconciliation_control_result copies statuses and counts.
+contract: reconciliation-controls
+version: 1
+status: DRAFT
+owner_task: FIN-009
+decisions: [D-12, D-13, D-20, D-35]
+last_changed: "2026-09-28"
+
+common:
+  delta:
+    formula: "ledger_value - reference_value"
+    abs: "delta_abs = |delta|"
+    rel: "delta_rel = delta / |reference_value|, computed with operands cast to NUMBER(38,18) and multiplied before dividing; NULL when reference_value = 0 (never a percentage of zero)"
+    ui_label: "Ledger − reference"
+  correction_delta: "new - closed"
+  per_currency: "Every control runs per currency; buckets of different currencies are never compared or summed. Credit controls (C1, C2, C4) are currency-less and report their result under the currency of the account's billing contract; an account with rows in two currencies reports the credit result under each currency."
+  no_balancing_plug: true
+  outcome_enum: [PENDING, MATCHED, WARNING, FAILED]
+  not_applicable:
+    representation: "status = null and status_reason in (NOT_APPLICABLE, TRIAL_ACCOUNT) per CONVENTIONS §6; not_applicable_code gives the precise cause. NOT_APPLICABLE is never MATCHED."
+    status_reasons: [NOT_APPLICABLE, TRIAL_ACCOUNT]
+    codes:
+      - {code: ALLOCATION_DISABLED, status_reason: NOT_APPLICABLE, meaning: "C7 while no allocation book is published for the scope (FIN-009-S09)"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, status_reason: TRIAL_ACCOUNT, meaning: "Every account of the scope carries the CON-005 TRIAL_ACCOUNT flag (TRUE or UNKNOWN until attested) (D-35, FIN-009-S20)"}
+      - {code: ORGANIZATION_USAGE_UNAVAILABLE, status_reason: NOT_APPLICABLE, meaning: "C2/C3 when the tenant has no organization billing access (reseller, standalone account, refused grant); money comes from approved rates or is NULL"}
+      - {code: NO_ESTIMATES_SUPERSEDED, status_reason: NOT_APPLICABLE, meaning: "C8 when no estimate of the scope was superseded"}
+      - {code: PERIOD_NOT_CLOSED, status_reason: NOT_APPLICABLE, meaning: "C9 on a period that has no completed close version"}
+      - {code: NO_DETAIL_SOURCE_ENABLED, status_reason: NOT_APPLICABLE, meaning: "C4 for a family whose detail source is not enabled or has no adapter (detail_adapter = NONE)"}
+      - {code: NO_CREDIT_FAMILIES, status_reason: NOT_APPLICABLE, meaning: "C1/C2 when the scope has no credit-denominated family"}
+  bucket_outcome_rules:
+    - {order: 1, result: PENDING, when: "Any required input of the bucket is absent, or not FINAL under ref_source_maturity_policy (horizon elapsed AND contiguous coverage, ADR-006), or the reference is missing (C5)"}
+    - {order: 2, result: MATCHED, when: "delta_abs <= tolerance"}
+    - {order: 3, result: EXPLAINED, when: "delta_abs > tolerance and the bucket carries an APPROVED explanation (human) or a counts_as_approved auto-classification whose rule reproduces delta exactly within tolerance"}
+    - {order: 4, result: FAILED, when: "delta_abs > tolerance on mature inputs without such an explanation"}
+  control_rollup_rules:
+    - {order: 1, result: NOT_APPLICABLE, when: "The control's not_applicable_when condition holds for the (scope, currency); status null + reason"}
+    - {order: 2, result: FAILED, when: "At least one bucket is FAILED (informational controls: never FAILED, they report WARNING)"}
+    - {order: 3, result: PENDING, when: "No FAILED bucket and at least one PENDING bucket, or a CONTROL-level PENDING condition (e.g. C5 reference missing) without an APPROVED control exception"}
+    - {order: 4, result: WARNING, when: "No FAILED/PENDING bucket and at least one EXPLAINED bucket, or the control is informational and delta_abs > tolerance somewhere, or a PENDING condition is covered by an APPROVED CONTROL exception"}
+    - {order: 5, result: MATCHED, when: "Every compared bucket MATCHED (a control with zero compared buckets and no PENDING condition is MATCHED only when zero is the confirmed expectation, else PENDING)"}
+  period_reconciled_rule: "A period (organization, UTC month, currency) is RECONCILED for publication pub_seq when every control whose required_for_reconciled resolves to true is MATCHED or WARNING (never PENDING or FAILED) in a SUCCEEDED run pinned to that pub_seq and at least one required control is applicable. NOT_APPLICABLE controls are skipped; a trial-only scope is never RECONCILED. A later publication that changes any row of the period reverts it to FINAL until controls are re-run; closed statements are unaffected (FIN-009-S10, ADR-003 amendment item 4). RECONCILED is exposed as data_status overlay in serving (fct_period_reconciliation_status); fct_charge rows themselves carry PROVISIONAL|FINAL."
+  scope_eligibility:
+    - "Accounts flagged TRIAL_ACCOUNT (TRUE or UNKNOWN until attested, CON-005) are removed from every control scope and period roll-up (D-35, FIN-009-S20); API meta carries demo_reason."
+    - "ORGANIZATION-scope rows and rows of unconnected accounts enter only controls evaluated for principals holding finance.org_scope.read; account-limited principals see controls recomputed on their authorized accounts only, and coverage percentages use only authorized numerators and denominators (G-FIN-25)."
+    - "Marketplace rows with billing_channel = SEPARATE_INVOICE are excluded from C2/C3 and from C5 against Snowflake statements; they are compared by C5 against MARKETPLACE_INVOICE references (G-FIN-05)."
+    - "Rows with entry_kind = PRIOR_PERIOD_ADJUSTMENT are excluded from C1–C5 and C8 (they are Bridge accounting entries, not vendor usage); C9 accounts for them explicitly."
+  difference_identity: "difference_grain_key = sha256(control_id ␟ tenant_id ␟ organization_id ␟ currency ␟ grain values in declared order, NULL as '∅'); difference_id = sha256(run_id ␟ difference_grain_key); difference etag = sha256(difference_id ␟ ledger_value ␟ reference_value) using canonical decimal strings. U+001F separator as in FIN §3.1."
+
+classifications:
+  - {code: TIMING, description: "Reference and ledger cover the same usage but post in different periods (e.g. invoice cut-off, late UICD day); expected to reverse", auto_assignable_by: []}
+  - {code: TAX_SCOPE, description: "Difference due to tax lines or tax-inclusive totals on the reference (TAX lines are out of C5 scope by construction)", auto_assignable_by: []}
+  - {code: CAPACITY_PURCHASE, description: "Reference includes prepaid capacity purchase, not consumption (capacity contracts: compare with the usage statement instead)", auto_assignable_by: []}
+  - {code: RATE_MISMATCH, description: "Billed effective rate differs from the selected RATE_SHEET/approved rate (includes RATE_SOURCE_DISAGREEMENT and RATE_MISSING suggestions)", auto_assignable_by: [C3]}
+  - {code: OVERAGE_PRICING, description: "On-demand (overage) pricing of usage after capacity exhaustion explains the difference", auto_assignable_by: [C3, C8]}
+  - {code: ADJUSTMENT, description: "IS_ADJUSTMENT rows (credits, cloud-services adjustment, rebates) explain the difference", auto_assignable_by: [C3, C8]}
+  - {code: UNMAPPED_SERVICE, description: "A billing tuple is UNMAPPED_BILLABLE_SERVICE in the crosswalk version used, so family buckets differ", auto_assignable_by: [C2, C3]}
+  - {code: MISSING_SOURCE, description: "A source side is missing after maturity (BILLING_MISSING, detail view denied or stale, rate missing)", auto_assignable_by: [C2, C3, C4]}
+  - {code: MARKETPLACE_SEPARATE_INVOICE, description: "Marketplace purchase billed on a separate invoice (not in organization billing)", auto_assignable_by: [C5]}
+  - {code: OTHER, description: "Any other documented cause; requires evidence and a note of at least 10 characters", auto_assignable_by: []}
+
+c5_line_class_mapping:
+  in_scope_reference_classes: [CONSUMPTION, SUPPORT, ADJUSTMENT, CREDIT_NOTE, MARKETPLACE]
+  out_of_scope_reference_classes: [TAX, CAPACITY_PURCHASE, OTHER]
+  ledger_rules:
+    - {line_class: CONSUMPTION, ledger_filter: "service_family NOT IN (MARKETPLACE, ORGANIZATION_FEES, ADJUSTMENTS_CREDITS) AND entry_kind IN (CONSUMPTION, ADJUSTMENT, UNMAPPED) (service-family adjustments such as the cloud-services adjustment are netted into consumption)"}
+    - {line_class: MARKETPLACE, ledger_filter: "service_family = MARKETPLACE AND billing_channel = ORGANIZATION_BILLING (for SNOWFLAKE_* references) or billing_channel = SEPARATE_INVOICE (for MARKETPLACE_INVOICE references)"}
+    - {line_class: SUPPORT, ledger_filter: "service_family = ORGANIZATION_FEES AND entry_kind = FEE"}
+    - {line_class: ADJUSTMENT, ledger_filter: "service_family = ADJUSTMENTS_CREDITS AND entry_kind = ADJUSTMENT"}
+    - {line_class: CREDIT_NOTE, ledger_filter: "service_family = ADJUSTMENTS_CREDITS AND entry_kind = CREDIT"}
+  excluded_ledger_rows:
+    - "entry_kind = PRIOR_PERIOD_ADJUSTMENT"
+    - "accounts flagged TRIAL_ACCOUNT"
+    - "rows of other currencies"
+    - "rows with cost_effective NULL are counted as missing money: the total comparison is PENDING (INPUT_ABSENT) while any in-scope bucket has NULL money"
+
+controls:
+  - id: C1
+    name: UNIT_TO_METERING
+    title: "Operational units → account metering"
+    purpose: "Transport independence: hourly metering views (WMH, MH) sum to the daily metering view (MDH) per service type and measure."
+    owner_task: FIN-009-S03
+    implementation: data/dbt/models/reconciliation/ctl_c1_unit_to_metering.sql
+    compare_unit: CREDIT
+    ledger_side: {sources: [AU_WAREHOUSE_METERING_HISTORY, AU_METERING_HISTORY], measure: "Σ credits_used_compute and Σ credits_used_cloud_services over the 24 UTC hours of usage_date (WMH for WAREHOUSE_METERING, MH for every other service_type)", finality: "hour_end + 24 h for every hour of the day"}
+    reference_side: {sources: [AU_METERING_DAILY_HISTORY], measure: "credits_used_compute and credits_used_cloud_services of the MDH row", finality: "date_end + 24 h"}
+    grain: [account_id, usage_date, service_type, measure]
+    tolerance: {kind: ABSOLUTE_CREDIT, value: "0.000001", rule: "|delta| <= 1e-6 credit per bucket", evidence: "v0 default; FIN-108 derives it from source scale NUMBER(38,9)"}
+    required_for_reconciled: true
+    required_for_close: true
+    informational: false
+    blocks_publication: false
+    explainable: true
+    cadence: [EVERY_PUBLICATION, NIGHTLY, ON_DEMAND, CLOSE_PREVIEW]
+    not_applicable_when:
+      - {code: NO_CREDIT_FAMILIES, condition: "No MDH row for the account-day"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when:
+      - {code: INPUT_NOT_FINAL, condition: "Any hour or the day is before its FINAL horizon"}
+      - {code: COVERAGE_GAP, condition: "Hourly coverage of the day is not contiguous (ADR-006)"}
+    outcome:
+      matched: "|delta| <= 1e-6 on every (account, day, service_type, measure)"
+      failed: "Any bucket beyond tolerance on mature inputs without an approved explanation (e.g. injected 0.5 credit gap)"
+    auto_classification: []
+    fixtures: [F-270, F-C1-01]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "WAREHOUSE_METERING compute, A1 2026-08-17", ledger_value: "100", reference_value: "100", delta: "0", status: MATCHED, arithmetic: "10 hours x 10 cr = 100 (WMH) vs MDH 100"}
+      - {fixture: F-C1-01, scenario: "one WMH hour revised 10.0 -> 9.5 without MDH change", ledger_value: "99.5", reference_value: "100", delta: "-0.5", status: FAILED, arithmetic: "99.5 - 100 = -0.5 cr > 1e-6"}
+
+  - id: C2
+    name: METERING_TO_BILLING
+    title: "Account metering → organization billing (credits)"
+    purpose: "MDH billed credits per family equal the credit quantity billed in USAGE_IN_CURRENCY_DAILY; detects BILLING_MISSING and crosswalk errors."
+    owner_task: FIN-009-S04
+    implementation: data/dbt/models/reconciliation/ctl_c2_metering_to_billing.sql
+    compare_unit: CREDIT
+    ledger_side: {sources: [AU_METERING_DAILY_HISTORY, ref_service_crosswalk], measure: "Σ billed credits mapped to service_family via the MDH crosswalk rows (compute measure for the service's family; CLOUD_SERVICES = Σ credits_used_cloud_services + Σ credits_adjustment_cloud_services)", finality: "date_end + 24 h"}
+    reference_side: {sources: [OU_USAGE_IN_CURRENCY_DAILY, ref_service_crosswalk], measure: "Σ USAGE of UICD rows whose crosswalk native_unit = CREDIT, mapped to service_family (all balance sources, adjustments included, billing_channel ORGANIZATION_BILLING)", finality: "date_end + 72 h (snapshot mature)"}
+    grain: [account_id, usage_date, service_family]
+    tolerance: {kind: ABSOLUTE_CREDIT, value: "0.000001", rule: "|delta| <= 1e-6 credit per bucket", evidence: "v0 default; FIN-108 derives it from UICD USAGE scale"}
+    required_for_reconciled: "WHEN:ORGANIZATION_USAGE_AVAILABLE"
+    required_for_close: "WHEN:ORGANIZATION_USAGE_AVAILABLE"
+    informational: false
+    blocks_publication: false
+    explainable: true
+    cadence: [EVERY_PUBLICATION, NIGHTLY, ON_DEMAND, CLOSE_PREVIEW]
+    not_applicable_when:
+      - {code: ORGANIZATION_USAGE_UNAVAILABLE, condition: "Tenant/organization has no ORGANIZATION_USAGE billing access (capability probe) — supersession case 8"}
+      - {code: NO_CREDIT_FAMILIES, condition: "No credit family in MDH nor UICD for the bucket scope"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when:
+      - {code: INPUT_NOT_FINAL, condition: "UICD snapshot for (organization, usage_date) not mature (< date_end + 72 h) or MDH not FINAL"}
+      - {code: INPUT_ABSENT, condition: "No accepted UICD snapshot yet for (organization, usage_date)"}
+    outcome:
+      matched: "Every (account, day, family) within 1e-6 credit"
+      failed: "Any bucket beyond tolerance after maturity, e.g. metered credits with no billing rows (BILLING_MISSING, supersession case 7)"
+    auto_classification:
+      - {classification: MISSING_SOURCE, auto_reason: BILLING_MISSING, rule: "reference_value = 0 because the mature snapshot has no row for the account-family while MDH > 0", counts_as_approved: false}
+      - {classification: UNMAPPED_SERVICE, auto_reason: CROSSWALK_UNMAPPED, rule: "The difference equals the credits of UICD rows mapped to UNMAPPED_BILLABLE_SERVICE for the same account-day", counts_as_approved: false}
+    fixtures: [F-270, F-SUP-03]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "CLOUD_SERVICES A1 2026-08-17", ledger_value: "5", reference_value: "5", delta: "0", status: MATCHED, arithmetic: "MDH 15 + (-10) = 5 cr vs UICD 5 cr"}
+      - {fixture: F-SUP-03, scenario: "A3 2026-08-19 WAREHOUSE_COMPUTE after maturity", ledger_value: "20", reference_value: "0", delta: "20", status: FAILED, classification: MISSING_SOURCE, arithmetic: "20 - 0 = +20 cr; BILLING_MISSING"}
+
+  - id: C3
+    name: RATED_METERING_TO_BILLED
+    title: "Rated metering → billed currency"
+    purpose: "MDH billed credits priced with the selected RATE_SHEET rate equal USAGE_IN_CURRENCY per family bucket; explains overage, adjustments and rate issues."
+    owner_task: FIN-009-S05
+    implementation: data/dbt/models/reconciliation/ctl_c3_rated_to_billed.sql
+    compare_unit: CURRENCY
+    ledger_side: {sources: [AU_METERING_DAILY_HISTORY, fct_rate], measure: "Σ billed credits x select_rate() rate (RATE_SHEET precedence; operands NUMBER(38,12), product rounded to 12 dp) per family", finality: "MDH FINAL and RATE_SHEET FINAL (date_end + 48 h)"}
+    reference_side: {sources: [OU_USAGE_IN_CURRENCY_DAILY], measure: "Σ USAGE_IN_CURRENCY of credit-family rows (all balance sources and adjustments)", finality: "date_end + 72 h"}
+    grain: [account_id, usage_date, service_family, currency]
+    tolerance: {kind: MINOR_UNIT, rule: "|delta| <= one minor unit of the currency per bucket (USD 0.01) from ref_currency_minor_unit", evidence: "ledger.md canonical tolerance; versioned rule only with source rounding evidence (FIN-108)"}
+    required_for_reconciled: "WHEN:ORGANIZATION_USAGE_AVAILABLE"
+    required_for_close: "WHEN:ORGANIZATION_USAGE_AVAILABLE"
+    informational: false
+    blocks_publication: false
+    explainable: true
+    cadence: [EVERY_PUBLICATION, NIGHTLY, ON_DEMAND, CLOSE_PREVIEW]
+    not_applicable_when:
+      - {code: ORGANIZATION_USAGE_UNAVAILABLE, condition: "No organization billing access"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when:
+      - {code: INPUT_NOT_FINAL, condition: "MDH, RATE_SHEET or the UICD snapshot not FINAL"}
+      - {code: INPUT_ABSENT, condition: "No accepted UICD snapshot for (organization, usage_date)"}
+    outcome:
+      matched: "|delta| <= one minor unit per bucket"
+      warning: "Every excess bucket auto-classified with counts_as_approved = true (OVERAGE_PRICING, ADJUSTMENT) or human-approved"
+      failed: "Any other excess bucket on mature inputs"
+    auto_classification:
+      - {classification: OVERAGE_PRICING, auto_reason: OVERAGE_BALANCE_SOURCE, rule: "delta + Σ over UICD rows with funding_class ON_DEMAND of (usage_in_currency - usage x selected_rate) is within tolerance", counts_as_approved: true}
+      - {classification: ADJUSTMENT, auto_reason: IS_ADJUSTMENT_ROWS, rule: "delta + Σ usage_in_currency of UICD rows with is_adjustment = TRUE in the bucket is within tolerance", counts_as_approved: true}
+      - {classification: RATE_MISMATCH, auto_reason: RATE_SOURCE_DISAGREEMENT, rule: "select_rate() recorded RATE_SOURCE_DISAGREEMENT (RATE_SHEET vs CUSTOMER_APPROVED) or the non-overage effective rate usage_in_currency/usage differs from the selected rate", counts_as_approved: false}
+      - {classification: MISSING_SOURCE, auto_reason: RATE_MISSING, rule: "selected rate NULL (RATE_MISSING or RATE_AMBIGUOUS): ledger_value NULL; the bucket is FAILED on mature inputs", counts_as_approved: false}
+    fixtures: [F-270, F-SUP-01, F-RATE-03]
+    worked_outcomes:
+      - {fixture: F-SUP-01, scenario: "A1 2026-08-17 WAREHOUSE_COMPUTE USD", currency: USD, ledger_value: "200.00", reference_value: "210.00", delta: "-10.00", status: WARNING, classification: OVERAGE_PRICING, arithmetic: "100 cr x 2.00 = 200.00; 160.00 + 50.00 = 210.00; -10.00 + (50.00 - 20 x 2.00) = 0"}
+      - {fixture: F-270, scenario: "A1 2026-08-17 WAREHOUSE_COMPUTE (one of 9 credit-family buckets, all MATCHED)", currency: USD, ledger_value: "200.00", reference_value: "200.00", delta: "0.00", status: MATCHED, arithmetic: "100 cr x 2.00 = 200.00 vs UICD 200.00; the 9 credit families total (100 + 5 + 2.5 + 3.5 + 1 + 1 + 1 + 3 + 4) = 121 cr x 2.00 = 242.00 on both sides"}
+
+  - id: C4
+    name: SERVICE_DETAIL_TO_TOTAL
+    title: "Service detail views → service totals"
+    purpose: "Detail views (pipe, task, clustering, search, MV, QAS, streaming, SPCS, Cortex, replication, transfer) do not exceed the metered total; shortfall is attribution coverage, excess is a double-count risk."
+    owner_task: FIN-007-S03
+    implementation: data/dbt/models/reconciliation/ctl_c4_service_detail.sql
+    compare_unit: CREDIT
+    ledger_side: {sources: [AU_PIPE_USAGE_HISTORY, AU_SERVERLESS_TASK_HISTORY, AU_SERVERLESS_ALERT_HISTORY, AU_AUTOMATIC_CLUSTERING_HISTORY, AU_SEARCH_OPTIMIZATION_HISTORY, AU_MATERIALIZED_VIEW_REFRESH_HISTORY, AU_QUERY_ACCELERATION_HISTORY, AU_SNOWPIPE_STREAMING_CLIENT_HISTORY, AU_SNOWPARK_CONTAINER_SERVICES_HISTORY, AU_CORTEX_AI_FUNCTIONS_USAGE_HISTORY, AU_REPLICATION_GROUP_USAGE_HISTORY], measure: "Σ credits of the family's authoritative detail source for the day (effective-dated authority from service-authority.json; never a union of old and new views)", finality: "interval_end + attribution horizon"}
+    reference_side: {sources: [AU_METERING_DAILY_HISTORY], measure: "MDH credits_used_compute of the family's service_type(s)", finality: "date_end + 24 h"}
+    grain: [account_id, usage_date, service_family]
+    tolerance: {kind: ABSOLUTE_CREDIT, value: "0.000001", rule: "detail within 1e-6 of total -> MATCHED; detail < total - 1e-6 -> attribution coverage shortfall (informational WARNING); detail > total + 1e-6 -> FAILED"}
+    required_for_reconciled: false
+    required_for_close: false
+    informational: false
+    blocks_publication: false
+    explainable: true
+    cadence: [EVERY_PUBLICATION, NIGHTLY, ON_DEMAND]
+    not_applicable_when:
+      - {code: NO_DETAIL_SOURCE_ENABLED, condition: "Family has detail_adapter NONE or its detail source is not enabled/denied (money unchanged, coverage 0 %)"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when:
+      - {code: INPUT_NOT_FINAL, condition: "Detail or MDH not FINAL"}
+    outcome:
+      matched: "detail = total within 1e-6"
+      warning: "detail < total (coverage = detail / total reported, e.g. 13/18 = 72.2 %); money unchanged"
+      failed: "detail > total + 1e-6 (e.g. 19/18) — double counting risk"
+    auto_classification:
+      - {classification: MISSING_SOURCE, auto_reason: DETAIL_BELOW_TOTAL, rule: "detail < total - tolerance", counts_as_approved: true}
+    fixtures: [F-270, F-C4-01]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "SNOWPIPE_FILE A1 2026-08-17", ledger_value: "2.5", reference_value: "2.5", delta: "0", status: MATCHED, arithmetic: "1.5 + 0.75 + 0.25 (hidden pipe) = 2.5 cr"}
+      - {fixture: F-C4-01, scenario: "serverless detail 13 vs 18", ledger_value: "13", reference_value: "18", delta: "-5", status: WARNING, classification: MISSING_SOURCE, arithmetic: "coverage 13/18 = 0.722222222222"}
+      - {fixture: F-C4-01, scenario: "serverless detail 19 vs 18", ledger_value: "19", reference_value: "18", delta: "1", status: FAILED, arithmetic: "19 - 18 = +1 > 1e-6"}
+
+  - id: C5
+    name: LEDGER_TO_INVOICE
+    title: "Normalized ledger → approved statement / invoice reference"
+    purpose: "Independent financial reconciliation against a customer-approved reference (usage statement for capacity contracts, invoice for on-demand, reseller or marketplace invoice, manual totals)."
+    owner_task: FIN-009-S07
+    implementation: data/dbt/models/reconciliation/ctl_c5_ledger_to_invoice.sql
+    compare_unit: CURRENCY
+    ledger_side: {sources: [fct_charge], measure: "Σ cost_effective of active rows in the reference scope (organization, contract_number when the reference names one, usage_date in the period, currency), mapped to line classes per c5_line_class_mapping", filter: "entry_kind <> PRIOR_PERIOD_ADJUSTMENT; trial accounts excluded", finality: "all rows FINAL (period days mature)"}
+    reference_side: {sources: [fct_billing_reference, fct_billing_reference_line], measure: "Σ amount of ACTIVE reference lines of in-scope classes (CONSUMPTION, SUPPORT, ADJUSTMENT, CREDIT_NOTE, MARKETPLACE); TAX, CAPACITY_PURCHASE and OTHER listed separately", finality: "reference ACTIVE (approved + published)"}
+    grain: [organization_id, contract_number, accounting_period, currency, line_class]
+    tolerance: {kind: MINOR_UNIT, rule: "one minor unit per compared line class (only when the reference is itemised) and one minor unit on the in-scope total"}
+    required_for_reconciled: "POLICY:c5_required_for_reconciled"
+    required_for_close: "POLICY:c5_required_for_close"
+    informational: false
+    blocks_publication: false
+    explainable: true
+    cadence: [REFERENCE_ACTIVATED, NIGHTLY, ON_DEMAND, CLOSE_PREVIEW, EXPLANATION_DECIDED]
+    not_applicable_when:
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when:
+      - {code: REFERENCE_MISSING, condition: "No ACTIVE reference for (organization, period, currency) — C5 PENDING, never MATCHED or RECONCILED on its own"}
+      - {code: INPUT_NOT_FINAL, condition: "Any day of the period not FINAL or any in-scope bucket with NULL money"}
+    outcome:
+      matched: "|delta| <= one minor unit on the total and on every itemised line class"
+      warning: "Every excess carries an APPROVED explanation (e.g. TIMING) — never MATCHED"
+      failed: "Unexplained excess on mature inputs (270.00 vs 271.00 -> -1.00)"
+    auto_classification:
+      - {classification: MARKETPLACE_SEPARATE_INVOICE, auto_reason: SEPARATE_INVOICE_SCOPE, rule: "Marketplace rows with billing_channel SEPARATE_INVOICE are moved out of Snowflake-reference comparisons into MARKETPLACE_INVOICE comparisons (scoping, not a difference)", counts_as_approved: true}
+    fixtures: [F-REC-01, F-MKT-01, F-REST-01]
+    worked_outcomes:
+      - {fixture: F-REC-01, scenario: "S1 usage statement total 271.00 (not itemised)", currency: USD, ledger_value: "270.00", reference_value: "271.00", delta: "-1.00", status: FAILED, arithmetic: "270.00 - 271.00 = -1.00; |-1.00| > 0.01"}
+      - {fixture: F-REC-01, scenario: "S2 same difference with an APPROVED TIMING explanation of -1.00", currency: USD, ledger_value: "270.00", reference_value: "271.00", delta: "-1.00", status: WARNING, classification: TIMING, arithmetic: "explained_delta = -1.00 = delta; WARNING, never MATCHED"}
+      - {fixture: F-REC-01, scenario: "S3 no reference uploaded", currency: USD, ledger_value: "270.00", reference_value: null, delta: null, status: PENDING, arithmetic: "REFERENCE_MISSING"}
+      - {fixture: F-REC-01, scenario: "S4 itemised statement with TAX 54.00", currency: USD, ledger_value: "270.00", reference_value: "270.00", delta: "0.00", status: MATCHED, arithmetic: "CONSUMPTION 258.00 + MARKETPLACE 10.00 + SUPPORT 5.00 + CREDIT_NOTE -3.00 = 270.00; TAX 54.00 out of scope"}
+      - {fixture: F-REC-01, scenario: "S5 EUR independent of USD", currency: EUR, ledger_value: "20.00", reference_value: "20.00", delta: "0.00", status: MATCHED, arithmetic: "EUR 20.00 vs EUR 20.00 while USD is FAILED"}
+
+  - id: C6
+    name: ATTRIBUTION_CONSERVATION
+    title: "Attribution bridge → parent charge (exact)"
+    purpose: "Every attribution set of every charge sums exactly to its parent (level 1 to the charge, level 2 to the parent attribution row), including explicit residual rows."
+    owner_task: FIN-009-S06
+    implementation: "data/dbt/models/reconciliation/ctl_c6_attribution_conservation.sql + generic test bridge_conserves_parent (FIN-103-S05)"
+    compare_unit: CURRENCY
+    ledger_side: {sources: [bridge_charge_attribution], measure: "Σ amount per (charge_row_id, attribution_set) at level 1, per parent_attribution_row_id at level 2"}
+    reference_side: {sources: [fct_charge, bridge_charge_attribution], measure: "cost_effective of the parent charge (level 1) or amount of the parent attribution row (level 2)"}
+    grain: [charge_row_id, attribution_set, parent_attribution_row_id]
+    tolerance: {kind: EXACT, value: "0", rule: "delta = 0 exactly at 12 decimals"}
+    required_for_reconciled: true
+    required_for_close: true
+    informational: false
+    blocks_publication: true
+    explainable: false
+    cadence: [EVERY_PUBLICATION]
+    not_applicable_when:
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts (the check model still runs and blocks publication)"}
+    pending_when: []
+    outcome:
+      matched: "Every set conserves exactly"
+      failed: "Any imbalance, even 1e-12 — the tenant's candidate publication is blocked (QUALITY.CHECK_RESULT FAIL, ADR-014 §5)"
+    auto_classification: []
+    fixtures: [F-270, F-D14-01, F-QAS-03, F-AI-10]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "WAREHOUSE_COMPUTE hour/query/idle", currency: USD, ledger_value: "200.000000000000", reference_value: "200.000000000000", delta: "0", status: MATCHED, arithmetic: "query 140.00 + idle 60.00 = 200.00"}
+
+  - id: C7
+    name: ALLOCATION_CONSERVATION
+    title: "Allocation lines → source charge (exact)"
+    purpose: "direct + rule + shared + unallocated = source charge per book and currency (owned by ALC-005, displayed here)."
+    owner_task: FIN-009-S09
+    implementation: "data/dbt/models/reconciliation/ctl_c7_allocation_conservation.sql reading ALC-005 outputs"
+    compare_unit: CURRENCY
+    ledger_side: {sources: [fct_allocation_line], measure: "Σ allocated_amount (all component kinds, including UNALLOCATED) per (charge_row_id, book_id, currency)"}
+    reference_side: {sources: [int_alloc_unit, fct_charge], measure: "cost_effective of the source charge"}
+    grain: [charge_row_id, book_id, currency]
+    tolerance: {kind: EXACT, value: "0", rule: "delta = 0 exactly"}
+    required_for_reconciled: "WHEN:ALLOCATION_ENABLED"
+    required_for_close: "WHEN:ALLOCATION_ENABLED"
+    informational: false
+    blocks_publication: true
+    explainable: false
+    cadence: [EVERY_PUBLICATION]
+    not_applicable_when:
+      - {code: ALLOCATION_DISABLED, condition: "No allocation book published for the tenant (NOT_APPLICABLE, never MATCHED)"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when: []
+    outcome:
+      matched: "Every (charge, book) conserves exactly (book A 120 + 80 = 200; book B 84 + 56 + 60 = 200)"
+      failed: "Any imbalance; allocation publication blocked by ALC-005"
+    auto_classification: []
+    fixtures: [F-270]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "no book published", ledger_value: null, reference_value: null, delta: null, status: null, status_reason: NOT_APPLICABLE, arithmetic: "ALLOCATION_DISABLED"}
+
+  - id: C8
+    name: ESTIMATE_ACCURACY
+    title: "Superseded estimate → authoritative family bucket (informational)"
+    purpose: "Measures estimator accuracy per family bucket at supersession; trend feeds FIN-102 tuning. Never blocks."
+    owner_task: FIN-009-S08
+    implementation: data/dbt/models/reconciliation/ctl_c8_estimate_accuracy.sql
+    compare_unit: CURRENCY
+    ledger_side: {sources: [fct_charge_supersession], measure: "cost_effective of the superseded estimate(s) of the family bucket"}
+    reference_side: {sources: [fct_charge], measure: "Σ cost_effective of the authoritative rows of the same family bucket"}
+    grain: [organization_id, scope_kind, account_id, usage_date, service_family, currency]
+    tolerance: {kind: INFORMATIONAL, rule: "MATCHED when |delta| <= one minor unit, else WARNING (never FAILED)"}
+    required_for_reconciled: false
+    required_for_close: false
+    informational: true
+    blocks_publication: false
+    explainable: false
+    cadence: [EVERY_PUBLICATION, NIGHTLY]
+    not_applicable_when:
+      - {code: NO_ESTIMATES_SUPERSEDED, condition: "No estimate of the scope was superseded"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when: []
+    outcome:
+      matched: "|delta| <= one minor unit"
+      warning: "|delta| > one minor unit (informational); delta_rel reported"
+      failed: "never"
+    auto_classification:
+      - {classification: OVERAGE_PRICING, auto_reason: OVERAGE_BALANCE_SOURCE, rule: "Authoritative rows include funding_class ON_DEMAND", counts_as_approved: true}
+      - {classification: ADJUSTMENT, auto_reason: IS_ADJUSTMENT_ROWS, rule: "Authoritative rows include is_adjustment = TRUE", counts_as_approved: true}
+    fixtures: [F-SUP-01, F-SUP-02]
+    worked_outcomes:
+      - {fixture: F-SUP-01, scenario: "A1 2026-08-17 WAREHOUSE_COMPUTE", currency: USD, ledger_value: "200.00", reference_value: "210.00", delta: "-10.00", status: WARNING, classification: OVERAGE_PRICING, arithmetic: "200.00 - 210.00 = -10.00; delta_rel = -10.00 / 210.00 = -0.047619047619 (-4.761904761905 %)"}
+
+  - id: C9
+    name: CLOSED_PERIOD_DRIFT
+    title: "Current ledger of a closed period → pinned close"
+    purpose: "Detects any change to a CLOSED/RESTATED period after close and opens or updates a correction case (FIN-107)."
+    owner_task: FIN-009-S08
+    implementation: data/dbt/models/reconciliation/ctl_c9_closed_period_drift.sql
+    compare_unit: CURRENCY
+    ledger_side: {sources: [fct_charge], measure: "Σ cost_effective of current active consumption rows (entry_kind <> PRIOR_PERIOD_ADJUSTMENT) with usage_date in the period, per family", finality: "current publication"}
+    reference_side: {sources: [fct_period_close, fct_statement_line, fct_charge], measure: "Σ exact amount of the family in the latest completed close version (read at its pinned pub_seq) + Σ PRIOR_PERIOD_ADJUSTMENT amounts already carried forward from this period for the family"}
+    grain: [organization_id, period, currency, service_family]
+    tolerance: {kind: MINOR_UNIT, rule: "one minor unit per (organization, period, currency, family)"}
+    required_for_reconciled: false
+    required_for_close: false
+    informational: false
+    blocks_publication: false
+    explainable: false
+    cadence: [NIGHTLY, ON_DEMAND]
+    not_applicable_when:
+      - {code: PERIOD_NOT_CLOSED, condition: "Period has no COMPLETED close version"}
+      - {code: TRIAL_ACCOUNT_DEMO_ONLY, condition: "All accounts of the scope are trial accounts"}
+    pending_when: []
+    outcome:
+      matched: "No family drifted beyond one minor unit (after restatement or complete carry-forward the delta is 0)"
+      failed: "A family drifted: a correction case is opened or updated (idempotent per period, publication pair and family); FAILED until the case is RESOLVED or VOIDED"
+    auto_classification: []
+    side_effects: ["open_or_update:finance.correction_case (source C9)", "emit:bridge.finance.correction_case.opened|updated"]
+    fixtures: [F-REST-01]
+    worked_outcomes:
+      - {fixture: F-REST-01, scenario: "2026-10-15 nightly, STORAGE August 2026", currency: USD, ledger_value: "11.00", reference_value: "12.00", delta: "-1.00", status: FAILED, arithmetic: "family STORAGE: 11.00 - (12.00 + 0.00) = -1.00; period total 269.00 - 270.00 = -1.00; opens CC-1"}
+      - {fixture: F-REST-01, scenario: "after CARRY_FORWARD of -1.00", currency: USD, ledger_value: "11.00", reference_value: "11.00", delta: "0.00", status: MATCHED, arithmetic: "11.00 - (12.00 + (-1.00)) = 0.00"}
+
+informational_controls:
+  - id: CS_ADJUSTMENT_RULE
+    name: CS_ADJUSTMENT_RULE
+    title: "Cloud-services adjustment rule check (informational)"
+    purpose: "Detects vendor rule changes: the daily adjustment equals -min(gross cloud services, 10 % of warehouse compute) per account and UTC day; serverless compute is outside the 10 % base (G-FIN-15)."
+    owner_task: FIN-005-S02
+    implementation: data/dbt/models/reconciliation/ctl_cs_adjustment_rule.sql
+    compare_unit: CREDIT
+    ledger_side: {sources: [AU_METERING_DAILY_HISTORY], measure: "Σ credits_adjustment_cloud_services over service types for (account, usage_date)"}
+    reference_side: {sources: [AU_METERING_DAILY_HISTORY], measure: "-min(Σ credits_used_cloud_services, 0.1 x credits_used_compute of WAREHOUSE_METERING) for (account, usage_date)"}
+    grain: [account_id, usage_date]
+    tolerance: {kind: INFORMATIONAL, rule: "MATCHED when |delta| <= 1e-6 credit, else WARNING"}
+    required_for_reconciled: false
+    required_for_close: false
+    informational: true
+    blocks_publication: false
+    explainable: false
+    cadence: [EVERY_PUBLICATION]
+    not_applicable_when: []
+    pending_when:
+      - {code: INPUT_NOT_FINAL, condition: "MDH not FINAL"}
+    outcome:
+      matched: "Rule holds"
+      warning: "Rule violated (possible vendor change) — alarm to FinOps owner, money unchanged"
+      failed: "never"
+    auto_classification: []
+    fixtures: [F-270, F-CS-02]
+    worked_outcomes:
+      - {fixture: F-270, scenario: "A1 2026-08-17", ledger_value: "-10", reference_value: "-10", delta: "0", status: MATCHED, arithmetic: "-min(15, 0.1 x 100 = 10) = -10"}
+      - {fixture: F-CS-02, scenario: "queries A (1 cr, CS 0.5) and B (99 cr, CS 0.5)", ledger_value: "-1", reference_value: "-1", delta: "0", status: MATCHED, arithmetic: "-min(1.0, 0.1 x 100 = 10) = -1.0; billed CS = 1.0 - 1.0 = 0"}

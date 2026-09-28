@@ -1,0 +1,46 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyEcsExecOutsideOpsBastion",
+      "Effect": "Deny",
+      "Action": [
+        "ecs:ExecuteCommand"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "ecs:container-name": [
+            "ops-bastion"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyEnablingExecOnNonBastionTasks",
+      "Effect": "Deny",
+      "Action": [
+        "ecs:RunTask",
+        "ecs:StartTask",
+        "ecs:CreateService",
+        "ecs:UpdateService"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "ecs:enable-execute-command": "true"
+        },
+        "StringNotLike": {
+          "ecs:task-definition": [
+            "arn:aws:ecs:eu-west-1:*:task-definition/bridge-prod-ops-bastion:*"
+          ]
+        }
+      }
+    }
+  ]
+}

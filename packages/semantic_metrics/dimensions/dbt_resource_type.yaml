@@ -1,0 +1,26 @@
+# contract=semantic-dimension:dbt_resource_type version=1 status=DRAFT owner_task=WRK-002 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: dbt_resource_type
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.dbt_resource_type.label
+description_key: dimension.dbt_resource_type.description
+group: WORKLOAD
+kind: ENUM
+value_type: ENUM
+enum_values: [MODEL, TEST, SEED, SNAPSHOT, OPERATION, ANALYSIS, SQL_OPERATION, UNIT_TEST, SOURCE, OVERHEAD]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.dbt_resource_type.value}
+bindings:
+- {relation: v_attribution_daily, column_ref: dbt_resource_type}
+- {relation: v_query_exec, column_ref: dbt_resource_type}
+- {relation: v_workload_exec, column_ref: dbt_resource_type}
+sortable: true
+owner_task: WRK-002
+notes: OVERHEAD = non-node queries carrying connection_name (dbt overhead bucket).

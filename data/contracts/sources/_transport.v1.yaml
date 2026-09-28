@@ -1,0 +1,192 @@
+# contract=transport-schema version=1 status=DRAFT owner_task=ING-001 decisions=D-03,D-10,D-11,D-26 last_changed=2026-09-28
+# Producers: ING-001-S05 (type map, technical columns, fingerprint), ING-004-S01..S04 (writer, key-value metadata, row_hash).
+# Consumers: extractor normalize step (ING-003-S03), Parquet writer (ING-004), RAW DDL generator (ING-006-S01),
+# acceptance (ING-007 rule A5 fingerprint check), staging (DBT-002), float guard (ING-003-S04).
+# Normative sources: ING backlog §3 (Transport schema row, technical columns), G-ING-02, G-ING-03, ingestion.md "Transport and Arrow".
+contract: transport-schema
+version: 1
+transport_schema_version: "1.0"   # MAJOR.MINOR; MINOR bumps for additive columns (ING-001-S06), MAJOR = new RAW major.
+
+# ---------------------------------------------------------------------------------------------
+# 1. Registry type -> Arrow type -> RAW type. Arrow types are written exactly as pyarrow str(type)
+#    so that every implementation computes the same fingerprint.
+# ---------------------------------------------------------------------------------------------
+type_map:
+  - snowflake_type: NUMBER
+    condition: "precision p (1..38), scale s (0..37); NUMBER without explicit precision is NUMBER(38,0)"
+    arrow_type: "decimal128(p, s)"          # e.g. "decimal128(38, 9)"; never float64 (arrow_number_to_decimal=True)
+    raw_type: "NUMBER(p,s)"
+  - snowflake_type: FLOAT
+    condition: "only when the projection column declares float_exception: true (documented FLOAT sources, never money)"
+    arrow_type: "double"
+    raw_type: "FLOAT"
+  - snowflake_type: VARCHAR
+    condition: "any length"
+    arrow_type: "large_string"
+    raw_type: "VARCHAR"
+  - snowflake_type: BOOLEAN
+    arrow_type: "bool"
+    raw_type: "BOOLEAN"
+  - snowflake_type: DATE
+    arrow_type: "date32[day]"
+    raw_type: "DATE"
+  - snowflake_type: TIMESTAMP_LTZ
+    condition: "scale <= 6 (session TIMEZONE='UTC'; values converted to UTC at extraction)"
+    arrow_type: "timestamp[us, tz=UTC]"
+    raw_type: "TIMESTAMP_NTZ(9)"          # holds UTC (CONVENTIONS §4); load behaviour with USE_LOGICAL_TYPE verified in ING-006-S08
+  - snowflake_type: TIMESTAMP_LTZ
+    condition: "scale 7..9"
+    arrow_type: "timestamp[ns, tz=UTC]"
+    raw_type: "TIMESTAMP_NTZ(9)"
+  - snowflake_type: TIMESTAMP_TZ
+    condition: "scale <= 6"
+    arrow_type: "timestamp[us, tz=UTC]"
+    raw_type: "TIMESTAMP_NTZ(9)"
+  - snowflake_type: TIMESTAMP_TZ
+    condition: "scale 7..9"
+    arrow_type: "timestamp[ns, tz=UTC]"
+    raw_type: "TIMESTAMP_NTZ(9)"
+  - snowflake_type: TIMESTAMP_NTZ
+    condition: "scale <= 6; the source contract must state the wall-clock semantics in the column description; never a guessed local zone"
+    arrow_type: "timestamp[us]"
+    raw_type: "TIMESTAMP_NTZ(9)"
+  - snowflake_type: TIMESTAMP_NTZ
+    condition: "scale 7..9"
+    arrow_type: "timestamp[ns]"
+    raw_type: "TIMESTAMP_NTZ(9)"
+  - snowflake_type: VARIANT
+    condition: "individually approved columns only; serialized with TO_JSON in the customer warehouse (canonical key order not required); parsed in dbt"
+    arrow_type: "large_string"
+    raw_type: "VARCHAR"
+  - snowflake_type: OBJECT
+    condition: "as VARIANT"
+    arrow_type: "large_string"
+    raw_type: "VARCHAR"
+  - snowflake_type: ARRAY
+    condition: "as VARIANT"
+    arrow_type: "large_string"
+    raw_type: "VARCHAR"
+  - snowflake_type: BINARY
+    condition: "forbidden in v1 (no approved source column)"
+    arrow_type: null
+    raw_type: null
+
+exact_decimal_parse_rule: >-
+  A VARCHAR or VARIANT source column holding a numeric measure (exact_decimal_parse: true, e.g.
+  AU.SERVERLESS_TASK_HISTORY.CREDITS_USED, AU.DATA_TRANSFER_HISTORY.BYTES_TRANSFERRED) is transported as
+  large_string without any float conversion. dbt staging parses it with TRY_TO_DECIMAL(<col>, 38, 12) (money-scale
+  columns) or TRY_TO_NUMBER(<col>, 38, 0) (byte counts); a non-null input that fails to parse quarantines the
+  partition with reason MALFORMED_EXACT_DECIMAL (FIN owns the staging parse rule, ING-104-S02).
+
+float_guard: >-
+  Contract test tests/contracts/test_no_float.py (ING-003-S04) fails when any transport schema contains 'double' or
+  'float' for a column that does not declare float_exception: true. The allowlist is generated from the registry and
+  printed in the test output.
+
+# ---------------------------------------------------------------------------------------------
+# 2. Technical columns: first in every Parquet file and RAW table, in this order. Never queried
+#    from the customer; a projection transport_name may never equal one of these names (LR-06).
+# ---------------------------------------------------------------------------------------------
+technical_columns:
+  - {name: tenant_id,                arrow_type: large_string,          raw_type: "VARCHAR(36)",      nullable: false, x-privacy: INTERNAL, rule: "Lower-case canonical UUIDv7 of the tenant; single-valued per file; equals the key path and the manifest (acceptance A5)."}
+  - {name: organization_id,          arrow_type: large_string,          raw_type: "VARCHAR(36)",      nullable: false, x-privacy: INTERNAL, rule: "connection.organization.id (UUID); single-valued per file."}
+  - {name: account_id,               arrow_type: large_string,          raw_type: "VARCHAR(36)",      nullable: scope_dependent, x-privacy: INTERNAL, rule: "connection.account.id; nullable (and NULL) only when the source scope is ORGANIZATION (the key path then carries the literal 'org'); NOT NULL for ACCOUNT scope, in the Parquet schema, the fingerprint and RAW; single-valued per file."}
+  - {name: source_batch_id,          arrow_type: large_string,          raw_type: "VARCHAR(36)",      nullable: false, x-privacy: INTERNAL, rule: "batch_id issued by the control plane (sync.batch_attempt.id); equals the key path batch_id and the manifest."}
+  - {name: logical_window_id,        arrow_type: large_string,          raw_type: "VARCHAR(36)",      nullable: false, x-privacy: INTERNAL, rule: "UUIDv5(logical_window namespace, tenant_id ␟ account_id-or-'org' ␟ source_id ␟ window_start ␟ window_end ␟ schema_major); timestamps rendered RFC 3339 UTC with milliseconds."}
+  - {name: source_window_start,      arrow_type: "timestamp[us, tz=UTC]", raw_type: "TIMESTAMP_NTZ(9)", nullable: false, x-privacy: INTERNAL, rule: "Inclusive window start of the extraction predicate (:ws or :ds at 00:00 UTC). For SNAPSHOT: capture start."}
+  - {name: source_window_end,        arrow_type: "timestamp[us, tz=UTC]", raw_type: "TIMESTAMP_NTZ(9)", nullable: false, x-privacy: INTERNAL, rule: "Exclusive window end (:we or :de at 00:00 UTC). For SNAPSHOT: capture end."}
+  - {name: source_extracted_at,      arrow_type: "timestamp[us, tz=UTC]", raw_type: "TIMESTAMP_NTZ(9)", nullable: false, x-privacy: INTERNAL, rule: "Snowflake CURRENT_TIMESTAMP() captured in the extraction session right before the source statement (DB time, never client time)."}
+  - {name: source_schema_version,    arrow_type: int32,                 raw_type: "NUMBER(10,0)",     nullable: false, x-privacy: INTERNAL, rule: "Source contract MAJOR (schema_major)."}
+  - {name: transport_schema_version, arrow_type: large_string,          raw_type: "VARCHAR(16)",      nullable: false, x-privacy: INTERNAL, rule: "Transport schema MAJOR.MINOR of the source contract (transport_schema.version)."}
+  - {name: privacy_policy_version,   arrow_type: int32,                 raw_type: "NUMBER(10,0)",     nullable: false, x-privacy: INTERNAL, rule: "Version of the privacy policy applied by ING-107 (SEC-007 sanitizer + SEC-103 pseudonym scheme); replay keeps the original (ING-107-S07)."}
+  - {name: row_hash,                 arrow_type: large_string,          raw_type: "VARCHAR(64)",      nullable: false, x-privacy: INTERNAL, rule: "Diagnostics only, never deduplication (section 5)."}
+
+# Loader metadata columns: RAW only (INCLUDE_METADATA of the pipe / repair COPY), never in Parquet.
+loader_columns:
+  - {name: loader_filename,           raw_type: "VARCHAR",          nullable: false, metadata: "METADATA$FILENAME"}
+  - {name: loader_file_row_number,    raw_type: "NUMBER(38,0)",     nullable: false, metadata: "METADATA$FILE_ROW_NUMBER"}
+  - {name: loader_start_scan_time,    raw_type: "TIMESTAMP_LTZ(9)", nullable: false, metadata: "METADATA$START_SCAN_TIME", note: "LTZ kept as generated by Snowflake (account TIMEZONE='UTC', INF-008-S06); used for staging pruning and the RAW retention clock."}
+  - {name: loader_file_last_modified, raw_type: "TIMESTAMP_LTZ(9)", nullable: false, metadata: "METADATA$FILE_LAST_MODIFIED"}
+  - {name: loader_file_content_key,   raw_type: "VARCHAR",          nullable: false, metadata: "METADATA$FILE_CONTENT_KEY"}
+
+# ---------------------------------------------------------------------------------------------
+# 3. Column naming
+# ---------------------------------------------------------------------------------------------
+naming:
+  parquet_field_names: "lower-snake transport_name from the registry, ^[a-z][a-z0-9_]{0,62}$"
+  raw_column_names: "the same names unquoted in DDL (stored upper-case by Snowflake); pipes load with MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE (refines PRD §30 CASE_SENSITIVE)"
+  case_fold_collisions: "rejected by the writer (ING-004-S01) and by loader rule LR-06"
+
+# ---------------------------------------------------------------------------------------------
+# 4. Fingerprint (algorithm id bridge-transport-fingerprint-v1)
+# ---------------------------------------------------------------------------------------------
+fingerprint:
+  algorithm: bridge-transport-fingerprint-v1
+  input: >-
+    The list of [name_lower, arrow_type, nullable] for every transported column = technical_columns +
+    projection columns whose privacy_action is not DROP (transport_name) + extractor_columns. Extension column groups
+    (WorkloadMetaV1) are excluded and carry their own fingerprint in Parquet key-value metadata
+    bridge.extension_fingerprints.
+  canonicalization: >-
+    Sort the list by name_lower (byte order of UTF-8). Serialize as JSON with separators (",", ":"), no whitespace,
+    ensure_ascii=false, booleans lower-case, e.g. [["account_id","large_string",true],["cluster_number","decimal128(38, 0)",true],...].
+  digest: "lower-case hex SHA-256 of the UTF-8 bytes"
+  properties: "stable across dictionary ordering; changing the scale or nullability of one column changes it (ING-001-S05 oracle)"
+  where_used: ["source contract transport_schema.fingerprint", "Parquet key-value metadata bridge.schema_fingerprint", "manifest files[].parquet_schema_fingerprint", "acceptance rule A5"]
+  reference_implementation: |
+    import hashlib, json
+    def transport_fingerprint(columns):  # columns: iterable of (name, arrow_type_str, nullable)
+        canon = sorted([[n.lower(), t, bool(nl)] for n, t, nl in columns], key=lambda c: c[0].encode("utf-8"))
+        return hashlib.sha256(json.dumps(canon, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+# ---------------------------------------------------------------------------------------------
+# 5. row_hash (ING-004-S04)
+# ---------------------------------------------------------------------------------------------
+row_hash:
+  scope: "transported projection columns + extractor columns, in registry projection order (post-privacy values; plaintext never hashed)"
+  encoding:
+    null: "\\u0000N"                     # the two characters NUL + 'N'
+    decimal: "plain notation, '-' for negatives, exactly `scale` fractional digits, no exponent, -0 normalized to 0"
+    timestamp: "ISO-8601 UTC 'YYYY-MM-DDTHH:MM:SS.ffffffZ' (microseconds) or 9 fractional digits for ns columns"
+    date: "YYYY-MM-DD"
+    boolean: "true | false"
+    string: "UTF-8 bytes as is (no normalization)"
+    double: "Python repr() of the float (shortest round-trip)"
+  separator: "U+001F between fields"
+  digest: "lower-case hex SHA-256"
+  purpose: "diagnostics and replay equality checks; staging never deduplicates by row_hash (legitimate identical rows exist, G-ING-06)"
+  throughput_target: ">= 200k rows/s/core, vectorized per batch"
+
+# ---------------------------------------------------------------------------------------------
+# 6. Batch normalization (ING-003-S02/S03)
+# ---------------------------------------------------------------------------------------------
+normalization:
+  connector_flags: {arrow_number_to_decimal: true, force_microsecond_precision: "true when every timestamp column of the source has scale <= 6"}
+  cast: "pa.Table.cast(registry_schema, safe=True); overflow or invalid value -> TransportCastError(column_name) and the window is RETRYABLE_FAILED (no row content in the error)"
+  empty_result: "zero batches; the writer receives the registry schema; the manifest has empty_window=true and files=[]"
+  schema_source: "the Parquet schema is always the registry-derived schema, never the first batch"
+
+# ---------------------------------------------------------------------------------------------
+# 7. Parquet writer (ING-004-S02/S03/S05/S06)
+# ---------------------------------------------------------------------------------------------
+parquet_writer:
+  format_version: "2.6"
+  compression: zstd
+  compression_level: 3
+  write_statistics: true
+  use_dictionary: "low-cardinality string columns listed by the registry generator (names, types, statuses); never on query_text_sanitized"
+  data_page_size_bytes: 1048576
+  row_group_target_uncompressed_bytes: 67108864
+  rotate_when_file_bytes_at_least: 134217728    # checked after each row group
+  hard_cap_file_bytes: 268435456                # single-part PutObject eligible (G-ING-05)
+  file_naming: "part-<5-digit ordinal>.parquet starting at part-00000"
+  key_value_metadata:
+    bridge.batch_id: "UUID"
+    bridge.logical_window_id: "UUID"
+    bridge.schema_fingerprint: "bridge-transport-fingerprint-v1 hex"
+    bridge.contract_version: "source contract_version"
+    bridge.source_id: "registry source_id"
+    bridge.extractor_image_digest: "sha256:<64 hex>"
+    bridge.privacy_policy_version: "integer as string"
+    bridge.extension_fingerprints: "JSON object {group: sha256} or {}"
+  local_disk: "ephemeral spool; ENOSPC fails the batch without a manifest (attempt RETRYABLE_FAILED)"

@@ -1,0 +1,95 @@
+# contract=semantic-records:ai_usage version=1 status=DRAFT owner_task=UX-007 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: ai_usage
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.ai_usage.label
+relation: v_ai_usage
+tier: FULL
+row_key: [ai_usage_row_key]
+default_sort:
+- {column: usage_hour, direction: DESC}
+page_max: 200
+sync_max_range_days: 31
+privacy: {capability: analytics.read}
+columns:
+- id: usage_hour
+  column_ref: usage_hour
+  type: TIMESTAMP
+  label_key: records.ai_usage.column.usage_hour
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.ai_usage.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: ai_family
+  column_ref: ai_family
+  type: ENUM
+  label_key: records.ai_usage.column.ai_family
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: ai_family
+- id: ai_model
+  column_ref: ai_model
+  type: STRING
+  label_key: records.ai_usage.column.ai_model
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: ai_model
+- id: ai_function
+  column_ref: ai_function
+  type: STRING
+  label_key: records.ai_usage.column.ai_function
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: request_id
+  column_ref: request_id
+  type: STRING
+  label_key: records.ai_usage.column.request_id
+  sortable: false
+  filter_ops: [EQ]
+- id: parent_request_id
+  column_ref: parent_request_id
+  type: STRING
+  label_key: records.ai_usage.column.parent_request_id
+  sortable: false
+  filter_ops: [EQ]
+- id: component_role
+  column_ref: component_role
+  type: ENUM
+  label_key: records.ai_usage.column.component_role
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: tokens
+  column_ref: tokens
+  type: INTEGER
+  label_key: records.ai_usage.column.tokens
+  sortable: true
+  filter_ops: []
+- id: requests
+  column_ref: requests
+  type: INTEGER
+  label_key: records.ai_usage.column.requests
+  sortable: true
+  filter_ops: []
+- id: amount
+  column_ref: amount
+  type: MONEY
+  label_key: records.ai_usage.column.amount
+  sortable: true
+  filter_ops: []
+  currency_column: currency
+- id: query_id
+  column_ref: query_id
+  type: STRING
+  label_key: records.ai_usage.column.query_id
+  sortable: false
+  filter_ops: [EQ]
+  default_visible: false
+owner_task: UX-007
+notes: AI parent requests list their child components and residual; children are components of the parent, never added to it (10 = 4 + 6).

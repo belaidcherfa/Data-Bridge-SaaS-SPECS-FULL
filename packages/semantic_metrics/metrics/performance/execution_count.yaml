@@ -1,0 +1,35 @@
+# contract=semantic-metric:execution_count version=1 status=DRAFT owner_task=WRK-002 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: execution_count
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.execution_count.label
+description_key: metric.execution_count.description
+population_key: metric.execution_count.population
+category: WORKLOAD
+unit: {kind: COUNT, currency_policy: NOT_APPLICABLE, quantity_unit: EXECUTION, display_hint: INTEGER}
+relation: v_workload_exec
+measure:
+  type: COUNT_DISTINCT
+  distinct_column_ref: execution_id
+  population:
+  - {column: basis, op: EQ, value: VERIFIED}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, execution_kind, workload_type, workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, warehouse, dynamic_table,
+  task, evidence_class, query_status, data_status]
+required_filter_or_dimension: [execution_kind]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#execution_count
+  child_resolvers: [execution_set]
+screen_keys: [dbtruns, modelruns, pbiactivities]
+owner_task: WRK-002
+notes: COUNT DISTINCT verified execution ids of one execution_kind (invocation, model execution, activity, graph run, refresh). APPROXIMATE groupings are excluded from run counts (G-WRK-11).
+  Execution-level facts are retained 400 days, so the value is exact over the whole range.

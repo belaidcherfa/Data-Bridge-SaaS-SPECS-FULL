@@ -1,0 +1,83 @@
+# contract=state-machine-ruleset version=1 status=DRAFT owner_task=ALC-003 decisions=D-04,D-05,D-06,D-16 last_changed=2026-09-28
+# Lifecycle of every versioned allocation configuration document that goes through simulation,
+# maker-checker review and config publication (ALC-003 machinery, reused by ALC-004 and ALC-006):
+#   - tag ruleset versions      governance.ruleset_version      (content: data/contracts/rule-ast.json)
+#   - group hierarchy versions  governance.hierarchy_version    (content: data/contracts/usage-groups.json)
+#   - allocation policy versions allocation.policy_version      (content: data/contracts/allocation-policy.json)
+# Content is immutable once the version leaves DRAFT (DB trigger). Editing a frozen version means creating
+# a new DRAFT version (based_on_version_id). Rollback creates version N+1 with the prior content (ALC-003-S11).
+# Sources: backlog/ALC.md G-ALC-02, G-ALC-07, G-ALC-08, G-ALC-09, ALC-003-S01..S13; ADR-007 amendment (D-04).
+machine: ruleset
+version: 1
+owner_task: ALC-003
+entity: governance.ruleset_version
+also_entities: [governance.hierarchy_version, allocation.policy_version]
+state_field: status
+initial: DRAFT
+terminal: [SUPERSEDED, DISCARDED]
+states:
+  DRAFT: {description: "Editable. Static validation (rule-ast.json, attribute registry, overlap check) runs on every save; content_sha256 is NULL."}
+  SIMULATING: {description: "Content frozen (content_sha256 set). A simulation (allocation.simulation) is queued or running on a pinned input publication and window."}
+  SIMULATION_FAILED: {description: "The simulation ended FAILED/CANCELLED/EXPIRED before success. Content stays frozen; re-simulate or discard."}
+  REVIEWABLE: {description: "Simulation SUCCEEDED; preview, movement matrix, conflicts and access impact are available. Awaiting approvals."}
+  APPROVED: {description: "Every required approval is present, bound to (object revision, content_sha256, simulation_id, window_fingerprint), unexpired (7 days) and by an approver different from the author."}
+  STALE: {description: "Approval basis invalidated: revision inside the simulated window (fingerprint change), dependency version change, content-hash change, approval age > 7 days or changed access impact. Approvals are VOIDED; re-simulate or discard."}
+  PUBLISHING: {description: "config_version allocated; the config-publisher writes CONFIG.cfg_* rows then the CONFIG.CONFIG_VERSION header; waiting for the ORC publication that pins this config_version for the tenant."}
+  PUBLISH_FAILED: {description: "Config publication FAILED (e.g. CONFIG_VERSION_CONFLICT) or the first build pinning the version failed its checks. Retry while approvals are valid."}
+  PUBLISHED: {description: "Live. Exactly one PUBLISHED version per (tenant, dimension) for rulesets, per (tenant, group_set) for hierarchies, per (tenant, book) for policies."}
+  SUPERSEDED: {description: "A newer version of the same line reached PUBLISHED. Retained for replay and explain (bitemporal history)."}
+  DISCARDED: {description: "Abandoned by its author or an admin before publication."}
+transitions:
+  - {from: DRAFT, to: SIMULATING, event: simulate_requested, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [content_valid, window_within_hot_days, simulation_quota_available, closed_period_guard], effects: [freeze_content_sha256, create:allocation.simulation, emit:bridge.allocation.simulation.requested]}
+  - {from: SIMULATION_FAILED, to: SIMULATING, event: simulate_requested, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [window_within_hot_days, simulation_quota_available], effects: [create:allocation.simulation, emit:bridge.allocation.simulation.requested]}
+  - {from: STALE, to: SIMULATING, event: simulate_requested, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [window_within_hot_days, simulation_quota_available, closed_period_guard], effects: [void_open_approvals, create:allocation.simulation, emit:bridge.allocation.simulation.requested]}
+  - {from: SIMULATING, to: REVIEWABLE, event: simulation_succeeded, actors: ["system:allocation-sim-job"], guards: [simulation_matches_content_sha256], effects: [store_access_impact_review, emit:bridge.allocation.ruleset.reviewable]}
+  - {from: SIMULATING, to: SIMULATION_FAILED, event: simulation_failed, actors: ["system:allocation-sim-job", "system:simulation-reaper"], guards: [], effects: [record_failure_reason, emit:bridge.allocation.ruleset.simulation_failed]}
+  - {from: SIMULATING, to: SIMULATION_FAILED, event: simulation_cancelled, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [cancel:dagster_run, emit:bridge.allocation.ruleset.simulation_failed]}
+  - {from: REVIEWABLE, to: REVIEWABLE, event: approval_recorded, actors: [rule.approve, access.review], guards: [approver_is_not_author, approver_kind_allowed, approval_basis_current, required_approvals_incomplete], effects: [insert:governance.approval, emit:bridge.allocation.ruleset.approval_recorded]}
+  - {from: REVIEWABLE, to: APPROVED, event: approval_recorded, actors: [rule.approve, access.review], guards: [approver_is_not_author, approver_kind_allowed, approval_basis_current, no_unresolved_conflicts, required_approvals_complete], effects: [insert:governance.approval, emit:bridge.allocation.ruleset.approved]}
+  - {from: REVIEWABLE, to: DRAFT, event: approval_rejected, actors: [rule.approve, access.review], guards: [approver_is_not_author], effects: [insert:governance.approval, new_draft_from_content, emit:bridge.allocation.ruleset.rejected]}
+  - {from: REVIEWABLE, to: STALE, event: staleness_detected, actors: ["system:staleness-checker"], guards: [basis_changed], effects: [void_open_approvals, emit:bridge.allocation.ruleset.staled]}
+  - {from: APPROVED, to: STALE, event: staleness_detected, actors: ["system:staleness-checker"], guards: [basis_changed], effects: [void_open_approvals, emit:bridge.allocation.ruleset.staled]}
+  - {from: APPROVED, to: PUBLISHING, event: publish_requested, actors: [rule.publish], guards: [approvals_valid_at_execution, fingerprint_unchanged, dependency_versions_unchanged, content_sha256_unchanged, approval_age_within_ttl, access_impact_rechecked_unchanged, closed_period_guard, no_other_publishing_version_in_line], effects: [allocate_config_version, mark_dirty_partitions, emit:bridge.allocation.ruleset.publish_requested]}
+  - {from: PUBLISHING, to: PUBLISHED, event: publication_advanced, actors: ["system:orc-publication-ack"], guards: [publication_pins_config_version], effects: [supersede_previous_published, bump_permission_epoch_if_access_relevant, emit:bridge.allocation.ruleset.published]}
+  - {from: PUBLISHING, to: PUBLISH_FAILED, event: publication_failed, actors: ["system:config-publisher", "system:orc-publication-ack"], guards: [], effects: [record_failure_code, emit:bridge.allocation.ruleset.publish_failed]}
+  - {from: PUBLISH_FAILED, to: PUBLISHING, event: publish_retried, actors: [rule.publish], guards: [approvals_valid_at_execution, fingerprint_unchanged, dependency_versions_unchanged, approval_age_within_ttl, access_impact_rechecked_unchanged], effects: [reuse_config_version, emit:bridge.allocation.ruleset.publish_requested]}
+  - {from: PUBLISH_FAILED, to: STALE, event: staleness_detected, actors: ["system:staleness-checker"], guards: [basis_changed], effects: [void_open_approvals, emit:bridge.allocation.ruleset.staled]}
+  - {from: PUBLISHED, to: SUPERSEDED, event: superseded, actors: ["system:orc-publication-ack"], guards: [newer_version_published_in_line], effects: [emit:bridge.allocation.ruleset.superseded]}
+  - {from: DRAFT, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [emit:bridge.allocation.ruleset.discarded]}
+  - {from: SIMULATION_FAILED, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [emit:bridge.allocation.ruleset.discarded]}
+  - {from: REVIEWABLE, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [void_open_approvals, emit:bridge.allocation.ruleset.discarded]}
+  - {from: APPROVED, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [void_open_approvals, emit:bridge.allocation.ruleset.discarded]}
+  - {from: STALE, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [emit:bridge.allocation.ruleset.discarded]}
+  - {from: PUBLISH_FAILED, to: DISCARDED, event: discarded, actors: [tag_rule.edit, allocation_rule.edit, group_set.edit], guards: [], effects: [void_open_approvals, emit:bridge.allocation.ruleset.discarded]}
+guards:
+  content_valid: "Document validates against its JSON Schema (rule-ast.json / usage-groups.json / allocation-policy.json), the attribute registry (ATTRIBUTE_UNAVAILABLE on missing capability), static overlap check (OVERLAP error; POTENTIAL_OVERLAP is a warning), weights sum exactly to 1, hierarchy acyclic/depth<=8/<=5000 groups, policy complete (every family covered) and fallback chains acyclic."
+  window_within_hot_days: "window_end - window_start <= hot_days (plan parameter, default 365; request default 90 days); else 422 ALLOC_SIMULATION_WINDOW_TOO_LONG."
+  simulation_quota_available: "< 30 simulations started by the tenant in the current UTC day; else 429 ALLOC_SIMULATION_QUOTA_EXCEEDED. Concurrency (1 running per tenant, 2 global) is a queue, not a rejection."
+  closed_period_guard: "min(valid_from) >= first_open_period_start of every affected scope (FIN-010 period read interface), or apply_from=FIRST_OPEN_PERIOD clamps it (warning). Else 422 ALLOC_CLOSED_PERIOD_RETROACTIVE."
+  simulation_matches_content_sha256: "allocation.simulation.content_sha256 = version.content_sha256 and simulation.status = SUCCEEDED."
+  approver_is_not_author: "decided_by <> created_by and <> updated_by of the frozen version (SEC-102 SoD); else 403 ALLOC_SELF_APPROVAL_FORBIDDEN. FINANCIAL four-eyes may be relaxed by tenant policy only via SEC-102 SELF_APPROVAL_WITH_STEPUP; ACCESS never."
+  approver_kind_allowed: "FINANCIAL requires rule.approve over the version scope (FinOps Admin/Owner); ACCESS requires access.review (Org Admin/Owner); else 403 ALLOC_APPROVAL_KIND_FORBIDDEN."
+  approval_basis_current: "The approval request carries simulation_id, window_fingerprint and content_sha256 equal to the version's current values and the recomputed fingerprint/dependency versions are unchanged; else 409 ALLOC_SIMULATION_STALE."
+  no_unresolved_conflicts: "The simulation reports 0 conflicts in the window, or every reported conflict (subject, dimension) is covered by an explicit resolution in the content (an override or a unique priority). Else 409 ALLOC_CONFLICTS_UNRESOLVED."
+  required_approvals_incomplete: "Not all of {FINANCIAL} ∪ ({ACCESS} if access_relevant) are APPROVED."
+  required_approvals_complete: "All of {FINANCIAL} ∪ ({ACCESS} if access_relevant) are APPROVED and unexpired."
+  basis_changed: "Any of: recomputed window_fingerprint differs; config dependency versions (dimension definitions, group set/hierarchy version, active policy version, base published version of the line) differ; content_sha256 differs; oldest approval older than 7 days; recomputed access impact digest differs."
+  approvals_valid_at_execution: "SEC-102 require_approval: APPROVED, unexpired, same revision+hash, approver still holds the checker capability over the object scope."
+  fingerprint_unchanged: "sha256 over ordered (charge_id, charge_revision) of charges in window∩scope at the current publication equals the simulation's fingerprint; data appended after window_end never changes it. Else 409 ALLOC_SIMULATION_STALE."
+  dependency_versions_unchanged: "Else 409 ALLOC_SIMULATION_STALE."
+  content_sha256_unchanged: "Else 409 ALLOC_SIMULATION_STALE."
+  approval_age_within_ttl: "now() - oldest approval decided_at <= 7 days; else 409 ALLOC_APPROVAL_EXPIRED."
+  access_impact_rechecked_unchanged: "Access impact recomputed against the grants active at publish time; a non-empty impact not covered by the ACCESS approval digest → 409 ALLOC_ACCESS_REVIEW_STALE."
+  no_other_publishing_version_in_line: "No other version of the same line is PUBLISHING (partial unique index); else 409 ALLOC_PUBLICATION_IN_PROGRESS."
+  publication_pins_config_version: "PUBLICATION.BUILD_CONFIG_PIN of the advanced tenant pointer references this config_version (ORC-005 acknowledgement platform.dataset_publication_refs)."
+  newer_version_published_in_line: "Another version of the same line reached PUBLISHED."
+invariants:
+  - "Content (content_json, rules, overrides, edges, mappings) of a version is immutable once status <> DRAFT (trigger governance.tg_ruleset_version_immutable)."
+  - "At most one PUBLISHED and at most one PUBLISHING version per line (partial unique indexes)."
+  - "A duplicate publish request (same Idempotency-Key or same version) yields exactly one config_version."
+  - "PUBLISHED is reached only after the ORC publication pointer advanced with the pinned config_version; never on config insert alone."
+  - "Publication never recomputes a CLOSED period; dirty partitions are [max(valid_from, first_open_period_start), today]."
+  - "Access-relevant versions cannot reach PUBLISHING without an unexpired ACCESS approval by an Org Admin/Owner different from the author, rechecked at publish time."
+  - "Conflicts visible in the simulation window block APPROVED (conflict_count must be 0 unless every conflict carries an approved explicit resolution); conflicts first seen after publication never pick a winner (UNASSIGNED + CONFLICT)."

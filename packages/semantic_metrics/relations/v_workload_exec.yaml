@@ -1,0 +1,123 @@
+# contract=semantic-relation:v_workload_exec version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_workload_exec
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_workload_exec
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: 'Execution-level facts retained 400 days (G-WRK-08): dbt invocations and model executions, Power BI activities, task-graph runs and task runs, procedure calls, dynamic-table
+  refreshes. Exact across the whole 400-day range.'
+serving_view: bridge.serving.serving_workload_exec
+dataset_id: workload_exec
+dbt_model: fct_execution
+upstream_owner_tasks: [WRK-002, WRK-003, WRK-004, WRK-104, DBT-006]
+grain_keys: [tenant_id, account_id, execution_id]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: START_TIME}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [au.task_history, au.dynamic_table_refresh_history, au.query_attribution_history, au.sessions]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL, description: 'UTC date of start_time (an execution belongs to the period containing its start, G-WRK-11).'}
+- {name: execution_id, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- {name: currency, type: VARCHAR(3), nullable: true, role: DIMENSION, privacy: INTERNAL, description: ISO 4217; NULL when the row carries no money (price unknown).}
+- name: execution_kind
+  type: VARCHAR(16)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT_INVOCATION, DBT_MODEL_EXEC, PBI_ACTIVITY, TASK_GRAPH_RUN, TASK_RUN, PROCEDURE_CALL, DT_REFRESH]
+- name: basis
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [VERIFIED, APPROXIMATE]
+- {name: complete, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- name: status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [SUCCEEDED, FAILED, CANCELLED, RUNNING, PARTIAL, UNKNOWN]
+- {name: has_failed_leaf, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: start_time, type: TIMESTAMP_NTZ(9), nullable: false, role: TIME, privacy: INTERNAL}
+- {name: end_time, type: TIMESTAMP_NTZ(9), nullable: true, role: TIME, privacy: INTERNAL}
+- name: workload_type
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT, POWER_BI, TASK, PROCEDURE, DYNAMIC_TABLE, SNOWPIPE, NATIVE_APP, SPCS, CORTEX, CUSTOM_APP, BI_OTHER, AD_HOC, BRIDGE_OVERHEAD, UNKNOWN]
+- {name: workload_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: project_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: environment
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [PRODUCTION, STAGING, DEV, OTHER, UNKNOWN]
+- {name: dbt_model_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: dbt_resource_type
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [MODEL, TEST, SEED, SNAPSHOT, OPERATION, ANALYSIS, SQL_OPERATION, UNIT_TEST, SOURCE, OVERHEAD]
+- name: pbi_mode
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [IMPORT, DIRECT_QUERY, UNKNOWN]
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: dynamic_table_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: task_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: root_task_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: graph_run_group_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: parent_execution_id, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: evidence_class
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [VERIFIED, DECLARED_CORROBORATED, DECLARED, OBSERVED, INFERRED, UNKNOWN]
+- {name: query_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: Distinct linked queries (fct_execution_query_link).}
+- {name: compute_cost, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Σ distinct linked query compute (+ serverless overlap share for serverless
+    task runs).}
+- name: cost_basis
+  type: VARCHAR(24)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [EXACT, APPROXIMATE_OVERLAP, LOWER_BOUND]
+- {name: wall_time_ms, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL, description: max(end) − min(start); NULL unless complete.}
+- {name: exec_sum_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: Σ EXECUTION_TIME of linked leaf queries.}
+- {name: queued_ms_sum, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: lag_ms, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL, description: 'DT_REFRESH only: refresh end − DATA_TIMESTAMP.'}
+- {name: target_lag_ms, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: failed_leaf_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: linkage_coverage, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: 'PROCEDURE_CALL only: linked child compute / (linked + unlinked compute
+    in the session window).'}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

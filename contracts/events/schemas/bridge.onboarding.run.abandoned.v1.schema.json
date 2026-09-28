@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.run.abandoned:v1",
+  "$comment": "contract=event-bridge.onboarding.run.abandoned version=1 status=DRAFT owner_task=ONB-001 decisions=D-17 last_changed=2026-09-28",
+  "title": "bridge.onboarding.run.abandoned v1 payload",
+  "description": "The run ended without FV-1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "run_revision",
+    "reason_code"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "run_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "CUSTOMER_WITHDREW",
+        "TENANT_OFFBOARDING",
+        "REPLACED_BY_NEW_RUN",
+        "PILOT_NOT_CONVERTED"
+      ],
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "run_revision": 9,
+      "reason_code": "TENANT_OFFBOARDING"
+    }
+  ]
+}

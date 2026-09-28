@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:data:reconciliation-controls:v1",
+  "$comment": "contract=reconciliation-controls-schema version=1 status=DRAFT owner_task=FIN-009 decisions=D-12,D-13,D-35 last_changed=2026-09-28",
+  "title": "Reconciliation control catalog",
+  "description": "Validates data/contracts/reconciliation/controls.yaml (FIN backlog §3.4, FIN-009-S01).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "version", "status", "owner_task", "decisions", "last_changed", "common", "classifications", "c5_line_class_mapping", "controls", "informational_controls"],
+  "properties": {
+    "contract": {"const": "reconciliation-controls"},
+    "version": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["DRAFT", "ACCEPTED", "DEPRECATED"]},
+    "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+    "decisions": {"type": "array", "items": {"type": "string", "pattern": "^D-[0-9]{2}$"}},
+    "last_changed": {"type": "string", "format": "date"},
+    "common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delta", "correction_delta", "per_currency", "no_balancing_plug", "outcome_enum", "not_applicable", "bucket_outcome_rules", "control_rollup_rules", "period_reconciled_rule", "scope_eligibility", "difference_identity"],
+      "properties": {
+        "delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["formula", "abs", "rel", "ui_label"],
+          "properties": {
+            "formula": {"const": "ledger_value - reference_value"},
+            "abs": {"type": "string"},
+            "rel": {"type": "string"},
+            "ui_label": {"type": "string"}
+          }
+        },
+        "correction_delta": {"const": "new - closed"},
+        "per_currency": {"type": "string"},
+        "no_balancing_plug": {"const": true},
+        "outcome_enum": {"type": "array", "const": ["PENDING", "MATCHED", "WARNING", "FAILED"]},
+        "not_applicable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["representation", "status_reasons", "codes"],
+          "properties": {
+            "representation": {"type": "string"},
+            "status_reasons": {"type": "array", "items": {"enum": ["NOT_APPLICABLE", "TRIAL_ACCOUNT"]}},
+            "codes": {"type": "array", "items": {"$ref": "#/$defs/na_code_entry"}}
+          }
+        },
+        "bucket_outcome_rules": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/ordered_rule"}},
+        "control_rollup_rules": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/ordered_rule"}},
+        "period_reconciled_rule": {"type": "string"},
+        "scope_eligibility": {"type": "array", "items": {"type": "string"}},
+        "difference_identity": {"type": "string"}
+      }
+    },
+    "classifications": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "description", "auto_assignable_by"],
+        "properties": {
+          "code": {"$ref": "#/$defs/classification_code"},
+          "description": {"type": "string"},
+          "auto_assignable_by": {"type": "array", "items": {"$ref": "#/$defs/control_id"}}
+        }
+      }
+    },
+    "c5_line_class_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["in_scope_reference_classes", "out_of_scope_reference_classes", "ledger_rules", "excluded_ledger_rows"],
+      "properties": {
+        "in_scope_reference_classes": {"type": "array", "items": {"$ref": "#/$defs/line_class"}},
+        "out_of_scope_reference_classes": {"type": "array", "items": {"$ref": "#/$defs/line_class"}},
+        "ledger_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["line_class", "ledger_filter"],
+            "properties": {"line_class": {"$ref": "#/$defs/line_class"}, "ledger_filter": {"type": "string"}}
+          }
+        },
+        "excluded_ledger_rows": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {"$ref": "#/$defs/control"}
+    },
+    "informational_controls": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/control"}
+    }
+  },
+  "$defs": {
+    "control_id": {"type": "string", "enum": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "CS_ADJUSTMENT_RULE"]},
+    "classification_code": {"type": "string", "enum": ["TIMING", "TAX_SCOPE", "CAPACITY_PURCHASE", "RATE_MISMATCH", "OVERAGE_PRICING", "ADJUSTMENT", "UNMAPPED_SERVICE", "MISSING_SOURCE", "MARKETPLACE_SEPARATE_INVOICE", "OTHER"]},
+    "line_class": {"type": "string", "enum": ["CONSUMPTION", "TAX", "CAPACITY_PURCHASE", "SUPPORT", "CREDIT_NOTE", "ADJUSTMENT", "MARKETPLACE", "OTHER"]},
+    "na_code_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "status_reason", "meaning"],
+      "properties": {
+        "code": {"enum": ["ALLOCATION_DISABLED", "TRIAL_ACCOUNT_DEMO_ONLY", "ORGANIZATION_USAGE_UNAVAILABLE", "NO_ESTIMATES_SUPERSEDED", "PERIOD_NOT_CLOSED", "NO_DETAIL_SOURCE_ENABLED", "NO_CREDIT_FAMILIES"]},
+        "status_reason": {"enum": ["NOT_APPLICABLE", "TRIAL_ACCOUNT"]},
+        "meaning": {"type": "string"}
+      }
+    },
+    "ordered_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "result", "when"],
+      "properties": {
+        "order": {"type": "integer", "minimum": 1},
+        "result": {"type": "string", "enum": ["NOT_APPLICABLE", "PENDING", "MATCHED", "WARNING", "FAILED", "EXPLAINED"]},
+        "when": {"type": "string"}
+      }
+    },
+    "decimal_string": {"type": "string", "pattern": "^-?(0|[1-9][0-9]{0,25})(\\.[0-9]{1,12})?$"},
+    "side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "measure"],
+      "properties": {
+        "sources": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "measure": {"type": "string"},
+        "filter": {"type": "string"},
+        "finality": {"type": "string"}
+      }
+    },
+    "requirement": {
+      "oneOf": [
+        {"type": "boolean"},
+        {"type": "string", "pattern": "^(POLICY:[a-z0-9_]+|WHEN:[A-Z0-9_]+)$"}
+      ]
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "title", "purpose", "owner_task", "implementation", "compare_unit", "ledger_side", "reference_side", "grain", "tolerance", "required_for_reconciled", "required_for_close", "informational", "blocks_publication", "explainable", "cadence", "not_applicable_when", "pending_when", "outcome", "fixtures"],
+      "properties": {
+        "id": {"$ref": "#/$defs/control_id"},
+        "name": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "title": {"type": "string"},
+        "purpose": {"type": "string"},
+        "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}(-S[0-9]{2})?$"},
+        "implementation": {"type": "string"},
+        "compare_unit": {"enum": ["CREDIT", "CURRENCY"]},
+        "ledger_side": {"$ref": "#/$defs/side"},
+        "reference_side": {"$ref": "#/$defs/side"},
+        "grain": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
+        "tolerance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "rule"],
+          "properties": {
+            "kind": {"enum": ["ABSOLUTE_CREDIT", "MINOR_UNIT", "EXACT", "INFORMATIONAL"]},
+            "value": {"$ref": "#/$defs/decimal_string"},
+            "rule": {"type": "string"},
+            "evidence": {"type": "string"}
+          },
+          "allOf": [
+            {"if": {"properties": {"kind": {"const": "ABSOLUTE_CREDIT"}}}, "then": {"required": ["value"]}},
+            {"if": {"properties": {"kind": {"const": "EXACT"}}}, "then": {"properties": {"value": {"const": "0"}}, "required": ["value"]}}
+          ]
+        },
+        "required_for_reconciled": {"$ref": "#/$defs/requirement"},
+        "required_for_close": {"$ref": "#/$defs/requirement"},
+        "informational": {"type": "boolean"},
+        "blocks_publication": {"type": "boolean"},
+        "explainable": {"type": "boolean"},
+        "cadence": {"type": "array", "minItems": 1, "items": {"enum": ["EVERY_PUBLICATION", "NIGHTLY", "ON_DEMAND", "REFERENCE_ACTIVATED", "EXPLANATION_DECIDED", "CLOSE_PREVIEW"]}},
+        "not_applicable_when": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "condition"],
+            "properties": {"code": {"type": "string"}, "condition": {"type": "string"}}
+          }
+        },
+        "pending_when": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "condition"],
+            "properties": {"code": {"enum": ["INPUT_NOT_FINAL", "INPUT_ABSENT", "REFERENCE_MISSING", "COVERAGE_GAP"]}, "condition": {"type": "string"}}
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["matched", "failed"],
+          "properties": {
+            "matched": {"type": "string"},
+            "warning": {"type": "string"},
+            "failed": {"type": "string"}
+          }
+        },
+        "auto_classification": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["classification", "rule", "counts_as_approved"],
+            "properties": {
+              "classification": {"$ref": "#/$defs/classification_code"},
+              "auto_reason": {"type": "string"},
+              "rule": {"type": "string"},
+              "counts_as_approved": {"type": "boolean"}
+            }
+          }
+        },
+        "side_effects": {"type": "array", "items": {"type": "string"}},
+        "fixtures": {"type": "array", "items": {"type": "string", "pattern": "^F-[A-Z0-9]+(-[0-9]{2,3})?$"}},
+        "worked_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fixture", "ledger_value", "reference_value", "delta", "status"],
+            "properties": {
+              "fixture": {"type": "string"},
+              "scenario": {"type": "string"},
+              "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+              "ledger_value": {"oneOf": [{"$ref": "#/$defs/decimal_string"}, {"type": "null"}]},
+              "reference_value": {"oneOf": [{"$ref": "#/$defs/decimal_string"}, {"type": "null"}]},
+              "delta": {"oneOf": [{"$ref": "#/$defs/decimal_string"}, {"type": "null"}]},
+              "status": {"enum": ["PENDING", "MATCHED", "WARNING", "FAILED", null]},
+              "status_reason": {"type": "string"},
+              "classification": {"$ref": "#/$defs/classification_code"},
+              "arithmetic": {"type": "string"}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"tolerance": {"properties": {"kind": {"const": "EXACT"}}}}}, "then": {"properties": {"explainable": {"const": false}}}},
+        {"if": {"properties": {"informational": {"const": true}}}, "then": {"properties": {"required_for_reconciled": {"const": false}, "required_for_close": {"const": false}}}},
+        {"if": {"properties": {"blocks_publication": {"const": true}}}, "then": {"properties": {"tolerance": {"properties": {"kind": {"const": "EXACT"}}}}}}
+      ]
+    }
+  }
+}

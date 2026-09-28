@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.subscription.state_changed:v1",
+  "$comment": "contract=event-bridge.commercial.subscription.state_changed version=1 status=DRAFT owner_task=LCH-001 decisions=D-17 last_changed=2026-09-28",
+  "title": "bridge.commercial.subscription.state_changed v1 payload",
+  "description": "The subscription changed state (includes creation, from_state null). Consumers apply the effect matrix (docs/commercial/subscription-state-machine.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "subscription_id",
+    "subscription_seq",
+    "from_state",
+    "to_state",
+    "event",
+    "effective_at",
+    "plan_id",
+    "plan_version",
+    "grace_until",
+    "export_window_until"
+  ],
+  "properties": {
+    "subscription_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "subscription_seq": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "from_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "PILOT",
+        "ACTIVE_PENDING_PAYMENT",
+        "ACTIVE_PAID",
+        "PAST_DUE",
+        "SUSPENDED",
+        "CANCELLED",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_state": {
+      "type": "string",
+      "enum": [
+        "PILOT",
+        "ACTIVE_PENDING_PAYMENT",
+        "ACTIVE_PAID",
+        "PAST_DUE",
+        "SUSPENDED",
+        "CANCELLED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "pilot_order_recorded",
+        "commercial_order_recorded",
+        "invoice_settled",
+        "renewal_invoice_recorded",
+        "payment_overdue",
+        "payment_reversed",
+        "overdue_cleared_by_credit_note",
+        "suspension_approved",
+        "pilot_expired",
+        "resumption_approved",
+        "cancellation_approved"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "plan_version": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "grace_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "x-privacy": "INTERNAL"
+    },
+    "export_window_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "subscription_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e20",
+      "subscription_seq": 3,
+      "from_state": "ACTIVE_PENDING_PAYMENT",
+      "to_state": "ACTIVE_PAID",
+      "event": "invoice_settled",
+      "effective_at": "2026-11-02T10:00:00.000Z",
+      "plan_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e21",
+      "plan_version": 2,
+      "grace_until": null,
+      "export_window_until": null
+    }
+  ]
+}

@@ -1,0 +1,407 @@
+# contract=source-contract:AU_TASK_HISTORY version=1.0.0 status=DRAFT owner_task=ING-104 decisions=D-20,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_TASK_HISTORY
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-104
+decisions:
+- D-20
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage TASK_HISTORY (completion-time sweep)
+description: Task runs and graph runs for R1 workload graphs (WRK-004; moved from R2 ING-105 by RECONCILIATION C-10).
+family: WORKLOAD_EXECUTION
+module: WORKLOAD_EXECUTION
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/task_history
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.USAGE_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: TO_VERIFY_LIVE
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: QUERY_ID
+  transport_name: query_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: Populated once a task starts running.
+- name: NAME
+  transport_name: name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: DATABASE_NAME
+  transport_name: database_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: SCHEMA_NAME
+  transport_name: schema_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: ROOT_TASK_ID
+  transport_name: root_task_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by:
+  - WRK-004
+  description: ''
+- name: GRAPH_RUN_GROUP_ID
+  transport_name: graph_run_group_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by:
+  - WRK-004
+  description: ''
+- name: RUN_ID
+  transport_name: run_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-004
+  description: ''
+- name: STATE
+  transport_name: state
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: ERROR_CODE
+  transport_name: error_code
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: SCHEDULED_TIME
+  transport_name: scheduled_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Pruning column.
+- name: QUERY_START_TIME
+  transport_name: query_start_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: COMPLETED_TIME
+  transport_name: completed_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Watermark column.
+- name: ATTEMPT_NUMBER
+  transport_name: attempt_number
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-004
+  description: ''
+extractor_columns: []
+extension_schemas: []
+watermark_mode: END_TIME_SWEEP
+watermark_column: COMPLETED_TIME
+pruning_column: SCHEDULED_TIME
+pruning_horizon_days: 8
+predicate_template: COMPLETED_TIME >= :ws AND COMPLETED_TIME < :we AND SCHEDULED_TIME >= DATEADD(day, -8, :ws)
+pending_refresh: null
+horizon_alarm_days: 7
+cycle: STEADY_HOURLY
+window_steady_seconds: 3600
+first_delay_seconds: 3600
+settle_seconds: 7200
+extraction_order_rank: 82
+semantics: EVENT_UPSERT
+key:
+- database_name
+- schema_name
+- name
+- scheduled_time
+- attempt_number
+partition_key: null
+snapshot_key: []
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: false
+  zero_rows: false
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: WEEKLY
+  method: CHECKSUM
+  window:
+    kind: LAST_N_DAYS
+    n: 30
+  additive_only: true
+  checksum_measures:
+  - COUNT(*)
+backfill_supported: true
+backfill_chunk_seconds: 86400
+min_chunk_seconds: 300
+max_chunk_seconds: 86400
+backfill_split_rows_threshold: 2000000
+sizing_query: null
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: FINANCIAL
+journal_retention_days: 400
+raw_retention_days: 400
+query_detail_tiering: null
+documented_latency_seconds: 2700
+latency_verification: TO_VERIFY_LIVE
+maturity:
+  data_final_horizon_seconds: null
+  attribution_final_horizon_seconds: 86400
+  attribution_horizon_rule: null
+  month_stability_days: null
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_TASK_HISTORY version=0
+health:
+  expected_lag_seconds: 7200
+  grace_seconds: 1800
+  delayed_after_seconds: 9000
+  stale_after_seconds: 18000
+authority:
+  measure_roles:
+  - ACTIVITY
+  service_families:
+  - SERVERLESS_TASK
+  - WAREHOUSE_COMPUTE
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Warehouse-executed tasks are warehouse workload (WRK), never serverless charges.
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: true
+  canary: false
+  timeout_seconds: 30
+  predicate_template: COMPLETED_TIME >= :probe_from AND COMPLETED_TIME < :probe_to
+transport_schema:
+  version: '1.0'
+  fingerprint: 8e410ea4643d73845a758689f7f15a947584a9c7c335eda415b84a376c8140fb
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: ROOT_TASK_ID and GRAPH_RUN_GROUP_ID exist; QUERY_ID populated once the task runs.
+  status: VERIFIED_SNIPPET
+  evidence: WRK G-WRK
+- fact: ATTEMPT_NUMBER presence/nullability and key uniqueness of (database, schema, name, scheduled_time, attempt).
+  status: TO_VERIFY_LIVE
+  verify_in: ING-104-S03
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+adapter_override: null
+notes:
+- 'Completion-time sweep (ADR-006 amendment 1): every completed row falls into exactly one COMPLETED_TIME window whatever its duration; coverage means ''all rows
+  completed before T''. The SCHEDULED_TIME bound is only a pruning hint (7-day maximum statement timeout + 1 day).'
+- 'retention_class FINANCIAL: execution-level facts are 400-day facts (RECONCILIATION C-01 (3)) and the source carries no user identity.'

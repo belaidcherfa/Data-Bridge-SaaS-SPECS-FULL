@@ -1,0 +1,45 @@
+# contract=state-machine-restatement version=1 status=DRAFT owner_task=FIN-107 decisions=D-05,D-25 last_changed=2026-09-28
+# Closed-period correction case lifecycle (restatement vs carry-forward) — FIN-107-S01…S06, S10; FIN backlog §3.5 F-REST-01.
+# Coupled with machine `period` (RESTATEMENT_PROPOSED leg).
+machine: restatement
+version: 1
+owner_task: FIN-107
+entity: finance.correction_case
+state_field: status
+initial: OPEN
+terminal: [RESOLVED, MERGED, VOIDED]
+states:
+  OPEN: {description: "Drift detected by nightly C9 (delta = current - (closed + carried forward), per family) or opened manually; materiality evaluated; proposed_default = RESTATE when material, else CARRY_FORWARD."}
+  PROPOSED: {description: "A maker proposed RESTATE or CARRY_FORWARD (with target accounting period); period in RESTATEMENT_PROPOSED; proposal_pins_sha256 recorded."}
+  APPROVED: {description: "A second user approved; execution in progress (restated close artifacts, or PRIOR_PERIOD_ADJUSTMENT publication)."}
+  RESOLVED: {description: "Decision executed: restated close version COMPLETED, or PRIOR_PERIOD_ADJUSTMENT rows published and visible in the accounting period."}
+  MERGED: {description: "Absorbed by a RESTATE decision of another case of the same period (the new close version pins every change)."}
+  VOIDED: {description: "Drift disappeared before any decision (a later revision restored the closed values); no action needed."}
+transitions:
+  - {from: OPEN, to: PROPOSED, event: proposed, actors: [finance.period.restate.request], guards: [period_closed_or_restated, decision_valid, carry_forward_target_open], effects: ["write:finance.financial_period(status=RESTATEMENT_PROPOSED)", "emit:bridge.finance.correction_case.proposed"]}
+  - {from: OPEN, to: OPEN, event: drift_updated, actors: ["system:finance-worker"], guards: [newer_publication_changes_delta], effects: ["write:delta,current_pub_seq,lines", "emit:bridge.finance.correction_case.updated"]}
+  - {from: PROPOSED, to: OPEN, event: proposal_withdrawn, actors: [finance.period.restate.request, finance.period.restate.approve], guards: [], effects: ["write:finance.financial_period(status=CLOSED|RESTATED)", "emit:bridge.finance.correction_case.proposal_withdrawn"]}
+  - {from: PROPOSED, to: OPEN, event: proposal_invalidated, actors: ["system:finance-worker"], guards: [proposal_pins_changed], effects: ["write:delta,current_pub_seq,lines", "write:finance.financial_period(status=CLOSED|RESTATED)", "emit:bridge.finance.correction_case.proposal_withdrawn"]}
+  - {from: PROPOSED, to: APPROVED, event: approved, actors: [finance.period.restate.approve], guards: [approver_differs_from_proposer, proposal_pins_unchanged, fresh_durable_authz_check, step_up_recent], effects: ["execute:restate_or_carry_forward", "emit:bridge.finance.correction_case.decided"]}
+  - {from: APPROVED, to: RESOLVED, event: executed, actors: ["system:finance-worker"], guards: [restated_close_completed_or_ppa_published], effects: ["emit:bridge.finance.correction_case.resolved"]}
+  - {from: OPEN, to: MERGED, event: merged, actors: ["system:finance-worker"], guards: [restatement_of_same_period_approved], effects: ["write:merged_into_id"]}
+  - {from: PROPOSED, to: MERGED, event: merged, actors: ["system:finance-worker"], guards: [restatement_of_same_period_approved], effects: ["write:merged_into_id"]}
+  - {from: OPEN, to: VOIDED, event: drift_cleared, actors: ["system:finance-worker"], guards: [current_delta_zero_for_all_lines], effects: ["emit:bridge.finance.correction_case.resolved"]}
+guards:
+  period_closed_or_restated: "financial_period.status IN (CLOSED, RESTATED)"
+  decision_valid: "decision IN (RESTATE, CARRY_FORWARD); the maker may override proposed_default (the UI shows the materiality result)"
+  carry_forward_target_open: "For CARRY_FORWARD: target_accounting_period > period and its financial_period (same organization, currency) is OPEN or MONTH_STABLE"
+  newer_publication_changes_delta: "A C9 run on a newer pub_seq yields a different delta for the case family (FIN-107-S10 merge)"
+  proposal_pins_changed: "sha256(current_pub_seq, lines) differs from proposal_pins_sha256"
+  proposal_pins_unchanged: "sha256(current_pub_seq, lines) = proposal_pins_sha256; else 409 FIN_CORRECTION_PROPOSAL_INVALIDATED"
+  approver_differs_from_proposer: "actor <> proposed_by (no waiver); else 409 FIN_MAKER_CHECKER_VIOLATION"
+  fresh_durable_authz_check: "Capability re-read with the current permission epoch"
+  step_up_recent: "auth_time within 10 min"
+  restated_close_completed_or_ppa_published: "RESTATE: result_close_id COMPLETED; CARRY_FORWARD: CONFIG.PRIOR_PERIOD_ADJUSTMENT header verified for every line"
+  restatement_of_same_period_approved: "Another case of the same period was APPROVED with decision RESTATE"
+  current_delta_zero_for_all_lines: "Every correction_case_line delta recomputed to 0 by C9"
+invariants:
+  - "A correction never mutates a closed statement; RESTATE creates close version n+1 and statement v(n+1) linked to vn with explicit difference lines (new - closed per family and account)."
+  - "CARRY_FORWARD creates PRIOR_PERIOD_ADJUSTMENT rows only in the accounting period of the decision; usage_date stays in the original period; consumption KPIs are unchanged."
+  - "Sum over issued statements (closed versions + carried-forward adjustments) = current truth once every case is RESOLVED (FIN-107-S05); no period ever shows the double effect (e.g. 268.00 in F-REST-01)."
+  - "At most one OPEN/PROPOSED/APPROVED case per (period, service_family) (unique partial index); C9 reruns are idempotent."

@@ -1,0 +1,27 @@
+# contract=semantic-dimension:environment version=1 status=DRAFT owner_task=WRK-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: environment
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.environment.label
+description_key: dimension.environment.description
+group: WORKLOAD
+kind: ENUM
+value_type: ENUM
+enum_values: [PRODUCTION, STAGING, DEV, OTHER, UNKNOWN]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.environment.value}
+bindings:
+- {relation: v_attribution_daily, column_ref: environment}
+- {relation: v_query_exec, column_ref: environment}
+- {relation: v_query_family_daily, column_ref: environment}
+- {relation: v_workload_exec, column_ref: environment}
+sortable: true
+owner_task: WRK-001
+notes: Tenant mapping of dbt target_name (WRK config); raw label kept in v_dim_workload.environment_raw_label.

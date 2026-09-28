@@ -1,0 +1,102 @@
+# contract=event-catalog-commercial version=1 status=DRAFT owner_task=LCH-001 decisions=D-17,D-30,D-35,D-36 last_changed=2026-09-28
+# Event catalog of the `commercial` domain (event types bridge.commercial.*). Envelope: contracts/common/event-envelope.schema.json.
+# privacy = envelope privacy class; ordering AGGREGATE = FIFO per (aggregate_type, aggregate_id) (CTL-101 outbox ordering column);
+# tenant_scoped false = platform event (envelope tenant_id null). Payloads carry IDs and versions only.
+domain: commercial
+version: 1
+events:
+- type: bridge.commercial.subscription.state_changed
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.subscription.state_changed.v1.schema.json
+  aggregate: subscription
+  producer: commercial-service
+  consumers:
+  - entitlements-cache
+  - tenant-lifecycle (CTL-102, K2)
+  - sync-scheduler (K3)
+  - onboarding-projector
+  - saas-lifecycle (K10)
+  - internal-cost (OPS-009)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-001
+  description: The subscription changed state (includes creation, from_state null). Consumers apply the effect matrix (docs/commercial/subscription-state-machine.md).
+- type: bridge.commercial.entitlement.changed
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.entitlement.changed.v1.schema.json
+  aggregate: tenant_entitlement
+  producer: commercial-service
+  consumers:
+  - entitlements-cache
+  - onboarding-projector
+  - sync-admission (ORC-003, K4)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-101
+  description: A new entitlement version became ACTIVE; caches are invalidated by epoch (<= 30 s, LCH-101-S05).
+- type: bridge.commercial.invoice_ref.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.invoice_ref.recorded.v1.schema.json
+  aggregate: subscription
+  producer: ops-api
+  consumers:
+  - commercial-service
+  - internal-cost (OPS-009)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-001
+  description: An invoice or credit note reference was recorded by a finance operator (manual form or CSV import).
+- type: bridge.commercial.payment_event.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.payment_event.recorded.v1.schema.json
+  aggregate: subscription
+  producer: ops-api
+  consumers:
+  - commercial-service
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-001
+  description: Payment evidence (or a reversal) was recorded; it has no effect until verified by a second operator.
+- type: bridge.commercial.payment_event.verified
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.payment_event.verified.v1.schema.json
+  aggregate: subscription
+  producer: ops-api
+  consumers:
+  - commercial-service
+  - internal-cost (OPS-009)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-001
+  description: A second finance operator verified a payment or reversal; the subscription state is recomputed in the same transaction.
+- type: bridge.commercial.spend_band_assignment.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.spend_band_assignment.recorded.v1.schema.json
+  aggregate: spend_band_assignment
+  producer: spend-metering
+  consumers:
+  - ops-console (finance operator)
+  - internal-cost (OPS-009)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: LCH-105
+  description: A monthly managed-spend band assignment (or superseding revision) was recorded.
+- type: bridge.commercial.plan.published
+  schema_version: 1
+  schema: ../schemas/bridge.commercial.plan.published.v1.schema.json
+  aggregate: plan
+  producer: ops-api
+  consumers:
+  - entitlements-cache
+  - internal-cost (OPS-009)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: false
+  owner_task: LCH-101
+  description: A plan version was published (platform event, tenant_id null).

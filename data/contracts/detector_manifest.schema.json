@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:insights:detector-manifest:v1",
+  "$comment": "contract=detector-manifest version=1 status=DRAFT owner_task=INS-001 decisions=D-01,D-05,D-10,D-11,D-13,D-20 last_changed=2026-09-28. Validates services/intelligence/detectors.v1.yaml (INS-001-S01/S02). Cross-field rules that JSON Schema cannot express are listed in x-bridge-loader-rules and enforced by services/intelligence/registry.py.",
+  "title": "Insight detector registry (manifest)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registry", "registry_version", "contract_header", "parameter_catalog", "cost_pool_kinds", "detectors"],
+  "properties": {
+    "registry": {"const": "insight-detectors"},
+    "registry_version": {"$ref": "#/$defs/semver"},
+    "contract_header": {
+      "type": "object",
+      "required": ["contract", "version", "status", "owner_task", "decisions", "last_changed"],
+      "properties": {
+        "contract": {"type": "string"},
+        "version": {"type": "integer", "minimum": 1},
+        "status": {"enum": ["DRAFT", "ACCEPTED", "DEPRECATED"]},
+        "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+        "decisions": {"type": "array", "items": {"type": "string", "pattern": "^D-[0-9]{2}$"}},
+        "last_changed": {"type": "string", "format": "date"}
+      }
+    },
+    "parameter_catalog": {
+      "type": "string",
+      "description": "Path of the config catalog whose keys detector parameters reference (data/contracts/insights/config_catalog.v1.yaml)."
+    },
+    "projection_request": {"type": "string", "description": "Path of the source projection change request (data/contracts/insights/source_projection_request.v1.yaml)."},
+    "cost_pool_kinds": {
+      "type": "object",
+      "description": "Cost-pool tree node kinds (G-INS-11). value(node) = min(pool_cost(node), min CEILING member impact, max(max ESTIMATE member potential, Σ value(children))); null when the subtree has no ESTIMATE.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["key_template", "parent", "pool_cost"],
+        "additionalProperties": false,
+        "properties": {
+          "key_template": {"type": "string"},
+          "parent": {"type": ["string", "null"], "description": "Parent pool kind, null for a root."},
+          "pool_cost": {"type": "string", "description": "How the pool's 30-day run-rate cost is computed (feature dataset and measure)."},
+          "release": {"enum": ["R1", "R2"]}
+        }
+      }
+    },
+    "detectors": {
+      "type": "array",
+      "minItems": 41,
+      "maxItems": 41,
+      "items": {"$ref": "#/$defs/detector"}
+    }
+  },
+  "$defs": {
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "decimal_string": {"type": "string", "pattern": "^-?(0|[1-9][0-9]{0,25})(\\.[0-9]{1,12})?$"},
+    "detector_id": {"type": "string", "pattern": "^(WH|Q|ST|PL|PI|AI|SP)[0-9]{2}$"},
+    "capability_key": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$"},
+    "parameter_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "used_for", "capability_key", "projection"],
+      "properties": {
+        "kind": {"enum": ["SOURCE_COLUMN", "DATASET", "TENANT_CONFIG", "CUSTOMER_INPUT"]},
+        "source_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+        "column": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "dataset": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "used_for": {"enum": ["DETECTION", "ESTIMATE", "EVIDENCE"]},
+        "capability_key": {"$ref": "#/$defs/capability_key"},
+        "projection": {
+          "enum": ["REQUIRED_CORE", "REQUESTED_ING101", "NEW_SOURCE_INS102", "R2_ADAPTER", "PRODUCED_DATASET", "NO_SOURCE"],
+          "description": "REQUIRED_CORE = in the catalog REQUIRED projection; REQUESTED_ING101 = one of the 16 QH columns frozen in ING-101 (C-10); NEW_SOURCE_INS102 = SHOW_WAREHOUSES snapshot; R2_ADAPTER = ING-105 list; PRODUCED_DATASET = a Bridge dataset (ledger/WRK/FIN); NO_SOURCE = no source exists (capability-gated)."
+        },
+        "note": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "SOURCE_COLUMN"}}}, "then": {"required": ["source_id", "column"]}},
+        {"if": {"properties": {"kind": {"enum": ["DATASET", "CUSTOMER_INPUT", "TENANT_CONFIG"]}}}, "then": {"required": ["dataset"]}}
+      ]
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "unit", "length"],
+      "properties": {
+        "kind": {"enum": ["TRAILING_COMPLETE", "COHORT_BASELINE", "COHORT_CURRENT", "SNAPSHOT_SERIES", "SINGLE_DAY", "ALL_OBSERVED"]},
+        "unit": {"enum": ["HOUR", "DAY", "SNAPSHOT"]},
+        "length": {"type": ["integer", "null"], "minimum": 1},
+        "offset": {"type": "integer", "description": "Offset in units from the evaluation day D (negative = earlier)."},
+        "note": {"type": "string"}
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "op"],
+      "properties": {
+        "metric": {"type": "string"},
+        "op": {"enum": ["GT", "GE", "LT", "LE", "EQ", "ALL_GT", "COUNT_GE"], "description": "Strict comparators are the default: equality at a strict threshold does not qualify (EQUAL_AT_THRESHOLD)."},
+        "parameter": {"$ref": "#/$defs/parameter_key"},
+        "value": {"type": "string"}
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "given", "expected"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z]{1,2}[0-9]{2}-F[0-9]{2}$"},
+        "kind": {"enum": ["POSITIVE", "BOUNDARY", "NEGATIVE", "MISSING_CAPABILITY", "FALSE_POSITIVE", "SUPPRESSION", "GROUPING", "FLOOR"]},
+        "given": {"type": "string"},
+        "config": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Parameter overrides for this fixture (e.g. insights.impact_floor_30d = 0.00 in contract fixtures)."},
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eligibility_status"],
+          "properties": {
+            "eligibility_status": {"enum": ["QUALIFIED", "NOT_QUALIFIED", "SUPPRESSED", "INSUFFICIENT_DATA", "NO_OBSERVATION"]},
+            "reason_code": {"type": "string"},
+            "severity_tier": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+            "metrics": {"type": "object", "additionalProperties": {"type": "string"}},
+            "impact_amount_window": {"$ref": "#/$defs/decimal_string"},
+            "impact_amount_30d": {"$ref": "#/$defs/decimal_string"},
+            "potential_30d": {"oneOf": [{"$ref": "#/$defs/decimal_string"}, {"type": "null"}]},
+            "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+            "group_value_30d": {"oneOf": [{"$ref": "#/$defs/decimal_string"}, {"type": "null"}]},
+            "eligible_on": {"type": "string", "format": "date"},
+            "note": {"type": "string"}
+          }
+        },
+        "arithmetic": {"type": "string", "description": "Independently computed expected values, shown step by step."}
+      }
+    },
+    "detector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "name", "family", "release", "status", "owner_task", "resource", "required_inputs", "eligibility", "windows", "predicate", "impact", "cost_pool", "suppressions", "severity", "fixtures"],
+      "properties": {
+        "id": {"$ref": "#/$defs/detector_id"},
+        "version": {"$ref": "#/$defs/semver"},
+        "name": {"type": "string", "maxLength": 80},
+        "family": {"enum": ["WAREHOUSE", "QUERY", "STORAGE", "PIPELINE", "INGESTION", "AI", "SPCS"]},
+        "release": {"enum": ["R1", "R2", "GATED"]},
+        "status": {
+          "enum": ["ACTIVE", "ALIAS", "PLANNED", "CAPABILITY_GATED", "ON_DEMAND_EVIDENCE"],
+          "description": "ACTIVE = implemented in its release; ALIAS = folded into another detector (WH04 → WH01 HIGH tier), never emits its own insight; PLANNED = R2 not yet implemented; CAPABILITY_GATED = permanently SUPPRESSED until a new input contract exists; ON_DEMAND_EVIDENCE = shown as evidence only, never a recurring observation."
+        },
+        "alias_of": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["detector_id", "severity_tier"],
+          "properties": {"detector_id": {"$ref": "#/$defs/detector_id"}, "severity_tier": {"enum": ["LOW", "MEDIUM", "HIGH"]}}
+        },
+        "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+        "original_owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+        "qualification_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "min_precision", "min_reviewed"],
+          "properties": {
+            "required": {"type": "boolean"},
+            "min_precision": {"$ref": "#/$defs/decimal_string"},
+            "min_reviewed": {"type": "integer", "minimum": 1},
+            "record": {"type": ["string", "null"], "description": "INS-105 evidence bundle path once the gate passed; null = not yet enabled for customer tenants."}
+          }
+        },
+        "resource": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "native_id", "variant"],
+          "properties": {
+            "type": {"enum": ["WAREHOUSE", "QUERY_FAMILY", "TABLE", "ACCOUNT", "PIPE", "DBT_MODEL", "TASK", "PIPELINE", "AI_SERVICE", "AI_MODEL", "COMPUTE_POOL", "APPLICATION", "LOGICAL_EXECUTION"]},
+            "native_id": {"type": "array", "items": {"type": "string"}, "minItems": 1, "description": "Native identifier components joined with ':' into native_resource_id (never names, windows, publications, numbers or minor versions; G-INS-10)."},
+            "variant": {"type": ["string", "null"], "description": "Optional disambiguator included in the fingerprint (e.g. warehouse_id for query families)."}
+          }
+        },
+        "required_inputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/input"}},
+        "feature_datasets": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
+        "eligibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min_history_days", "completeness", "backfill_eligible"],
+          "properties": {
+            "min_history_days": {"type": "integer", "minimum": 0},
+            "completeness": {"type": "string", "description": "What 'complete' means for the window (e.g. 336 complete metering hours, 14 consecutive complete snapshots)."},
+            "backfill_eligible": {"type": "boolean", "description": "true = eligible on day 1 from the 365-day Account Usage backfill; false = needs snapshots after enrollment (eligible_on)."},
+            "maturity": {"enum": ["PROVISIONAL", "FINAL"], "description": "Minimum data_status of inputs (D-13); default PROVISIONAL with maturity shown."}
+          }
+        },
+        "windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evaluation_cadence", "current"],
+          "properties": {
+            "evaluation_cadence": {"enum": ["DAILY", "HOURLY", "ON_DEMAND"]},
+            "current": {"$ref": "#/$defs/window"},
+            "baseline": {"oneOf": [{"$ref": "#/$defs/window"}, {"type": "null"}]}
+          }
+        },
+        "predicate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["expression", "comparisons"],
+          "properties": {
+            "expression": {"type": "string"},
+            "comparisons": {"type": "array", "items": {"$ref": "#/$defs/comparison"}}
+          }
+        },
+        "parameters": {"type": "array", "items": {"$ref": "#/$defs/parameter_key"}},
+        "impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["impact_kind", "window_amount", "run_rate_30d", "floor_policy", "potential_method", "potential_formula", "ranking"],
+          "properties": {
+            "impact_kind": {"enum": ["ESTIMATE", "CEILING", "EXPOSURE", "OBSERVED_EXCESS", "NONE"]},
+            "window_amount": {"type": ["string", "null"], "description": "Formula of impact_amount_window in native currency, or null (impact_kind NONE)."},
+            "run_rate_30d": {"type": ["string", "null"], "description": "Formula of impact_amount_30d (window_amount × 30 / window_days unless stated), Decimal precision 38, stored NUMBER(38,12) HALF_EVEN."},
+            "floor_policy": {"enum": ["APPLY", "APPLY_TO_POOL_COST", "EXEMPT"], "description": "APPLY: impact_amount_30d > insights.impact_floor_30d (strict); APPLY_TO_POOL_COST: the resource's pool cost run-rate is compared (Q03); EXEMPT: non-monetary or explicitly exempt, ranked below monetary insights."},
+            "potential_method": {"type": ["string", "null"], "enum": ["WH02_GAP_SIMULATION", "Q01_UNIT_COST_RETURN", "ST_RETENTION_REDUCTION", "WH03_EXPERIMENT", null]},
+            "potential_formula": {"type": ["string", "null"]},
+            "ranking": {"enum": ["MONETARY", "NON_MONETARY", "RECONCILIATION_CHECK"]},
+            "routing": {"enum": ["INSIGHTS", "FIN_RECONCILIATION"], "description": "FIN_RECONCILIATION = routed to FIN-011 reconciliation, never an insight (PI04)."}
+          }
+        },
+        "cost_pool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "member_role"],
+          "properties": {
+            "kind": {"type": ["string", "null"], "description": "Key of cost_pool_kinds; null for non-monetary detectors (no grouping)."},
+            "member_role": {"enum": ["ESTIMATE", "CEILING", "OBSERVATION_ONLY", "NONE"]},
+            "group_note": {"type": "string"}
+          }
+        },
+        "suppressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["when", "status", "reason_code"],
+            "properties": {
+              "when": {"type": "string"},
+              "status": {"enum": ["SUPPRESSED", "INSUFFICIENT_DATA", "NOT_QUALIFIED", "NO_OBSERVATION"]},
+              "reason_code": {"type": "string"},
+              "estimate_only": {"type": "boolean", "description": "true = only the numeric potential is suppressed; the observation may still qualify."}
+            }
+          }
+        },
+        "severity": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tier", "when"],
+            "properties": {"tier": {"enum": ["LOW", "MEDIUM", "HIGH"]}, "when": {"type": "string"}}
+          }
+        },
+        "action_types": {"type": "array", "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "description": "Action types an insight of this detector may spawn; keys of the measurement contract normalizer catalog."},
+        "recommendation_template": {"type": ["string", "null"], "pattern": "^[a-z0-9_.]+\\.v[0-9]+$"},
+        "evidence": {"type": "string", "description": "Evidence payload types (≤ 200 rows per observation, INS-001-S09)."},
+        "fixtures": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/fixture"}},
+        "notes": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "ALIAS"}}}, "then": {"required": ["alias_of"]}},
+        {"if": {"properties": {"release": {"const": "R1"}, "status": {"const": "ACTIVE"}}}, "then": {"required": ["qualification_gate", "parameters", "action_types", "feature_datasets"]}},
+        {"if": {"properties": {"impact": {"properties": {"impact_kind": {"const": "NONE"}}}}}, "then": {"properties": {"impact": {"properties": {"floor_policy": {"const": "EXEMPT"}, "potential_method": {"const": null}}}}}}
+      ]
+    }
+  },
+  "x-bridge-loader-rules": [
+    "Detector ids are unique; exactly 41 ids (WH01–WH08, Q01–Q08, ST01–ST05, PL01–PL05, PI01–PI04, AI01–AI07, SP01–SP04).",
+    "Release counts: R1 = 9 ids (8 detectors + WH04 alias), R2 = 28, GATED = 4 (AI02, AI07, SP01, SP03).",
+    "Every parameter key exists in the config catalog; every capability_key exists in the projection request capability_keys map.",
+    "An ACTIVE detector whose required_inputs contains a SOURCE_COLUMN with used_for DETECTION fails validation when the (source_id, column) is absent from the ING-001 registry projection (INS-001-S02 oracle: AU_QUERY_HISTORY.BYTES_SPILLED_TO_REMOTE_STORAGE).",
+    "cost_pool.kind is null iff impact.impact_kind = NONE or impact.routing = FIN_RECONCILIATION.",
+    "potential_method is non-null iff potential_formula is non-null; impact_kind ESTIMATE requires a potential_method.",
+    "A version bump changing thresholds, predicate or formula is at least a minor bump; changing resource identity or fingerprint inputs is a major bump (new fingerprint, old insights RESOLVED(SUPERSEDED_BY_VERSION)).",
+    "Every fixture id prefix equals its detector id."
+  ]
+}

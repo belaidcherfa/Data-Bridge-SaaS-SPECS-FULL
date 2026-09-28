@@ -1,0 +1,28 @@
+# contract=semantic-dimension:workload_type version=1 status=DRAFT owner_task=WRK-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: workload_type
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.workload_type.label
+description_key: dimension.workload_type.description
+group: WORKLOAD
+kind: ENUM
+value_type: ENUM
+enum_values: [DBT, POWER_BI, TASK, PROCEDURE, DYNAMIC_TABLE, SNOWPIPE, NATIVE_APP, SPCS, CORTEX, CUSTOM_APP, BI_OTHER, AD_HOC, BRIDGE_OVERHEAD, UNKNOWN]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.workload_type.value}
+bindings:
+- {relation: v_attribution_daily, column_ref: workload_type}
+- {relation: v_query_exec, column_ref: workload_type}
+- {relation: v_query_family_daily, column_ref: workload_type}
+- {relation: v_workload_exec, column_ref: workload_type}
+- {relation: v_dim_workload, column_ref: workload_type}
+sortable: true
+owner_task: WRK-001
+notes: Taxonomy v1 (packages/workload_meta/taxonomy_v1.yaml). UNKNOWN is never merged into AD_HOC.

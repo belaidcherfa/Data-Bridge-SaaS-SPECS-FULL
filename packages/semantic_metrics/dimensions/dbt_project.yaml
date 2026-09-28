@@ -1,0 +1,27 @@
+# contract=semantic-dimension:dbt_project version=1 status=DRAFT owner_task=WRK-002 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: dbt_project
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.dbt_project.label
+description_key: dimension.dbt_project.description
+group: WORKLOAD
+kind: ENTITY
+value_type: HASH
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ, IN, NOT_IN, IS_NULL, IS_NOT_NULL]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 0, max_results: 20, source_relation: v_dim_workload, match_column: workload_name}
+label: {source: DICTIONARY_RELATION, relation: v_dim_workload, key_column: project_key, label_column: workload_name}
+sentinels: [__UNKNOWN__]
+bindings:
+- {relation: v_attribution_daily, column_ref: dbt_project_key}
+- {relation: v_query_exec, column_ref: dbt_project_key}
+- {relation: v_query_family_daily, column_ref: dbt_project_key}
+- {relation: v_workload_exec, column_ref: project_key}
+sortable: true
+owner_task: WRK-002
+notes: __UNKNOWN__ = 'unassigned project' bucket (dbt detected by session only, G-WRK).

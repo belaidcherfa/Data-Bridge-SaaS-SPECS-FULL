@@ -1,0 +1,113 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyOutsideEuWest1AndUsEast1",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "account:*",
+        "sts:*",
+        "route53:*",
+        "route53domains:*",
+        "cloudfront:*",
+        "budgets:*",
+        "ce:*",
+        "cur:*",
+        "bcm-data-exports:*",
+        "billing:*",
+        "aws-portal:*",
+        "health:*",
+        "support:*",
+        "trustedadvisor:*",
+        "pricing:*",
+        "savingsplans:*",
+        "freetier:*",
+        "shield:*",
+        "globalaccelerator:*",
+        "networkmanager:*",
+        "sso:*",
+        "identitystore:*",
+        "sso-directory:*",
+        "ec2:DescribeRegions",
+        "s3:ListAllMyBuckets",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:PutAccountPublicAccessBlock",
+        "notifications:*",
+        "tag:GetResources"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "eu-west-1",
+            "us-east-1"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "UsEast1OnlyForEdgeResources",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "account:*",
+        "sts:*",
+        "route53:*",
+        "route53domains:*",
+        "cloudfront:*",
+        "budgets:*",
+        "ce:*",
+        "cur:*",
+        "bcm-data-exports:*",
+        "billing:*",
+        "aws-portal:*",
+        "health:*",
+        "support:*",
+        "trustedadvisor:*",
+        "pricing:*",
+        "savingsplans:*",
+        "freetier:*",
+        "shield:*",
+        "globalaccelerator:*",
+        "networkmanager:*",
+        "sso:*",
+        "identitystore:*",
+        "sso-directory:*",
+        "ec2:DescribeRegions",
+        "s3:ListAllMyBuckets",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:PutAccountPublicAccessBlock",
+        "notifications:*",
+        "tag:GetResources",
+        "acm:*",
+        "wafv2:*",
+        "cloudwatch:*",
+        "sns:*",
+        "logs:*",
+        "kms:*",
+        "events:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": [
+            "us-east-1"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    }
+  ]
+}

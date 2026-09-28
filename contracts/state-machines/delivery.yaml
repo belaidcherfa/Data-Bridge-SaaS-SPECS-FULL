@@ -1,0 +1,59 @@
+# contract=state-machine-delivery version=1 status=DRAFT owner_task=GOV-007 decisions=D-10,D-18 last_changed=2026-09-28
+# One logical delivery row (monitor.delivery) per (logical_delivery_id, recipient_key):
+#   logical_delivery_id = uuid5(NS_logical_delivery, event_id ␟ destination_id)   (contracts/common/namespaces.yaml)
+#   recipient_key       = recipient subject_id for EMAIL (one message per recipient), '' otherwise.
+# template_version and destination_version are pinned at the FIRST attempt, so a deploy during a retry window
+# never creates a second logical delivery. At-least-once with logical deduplication: after an ambiguous
+# timeout the provider may deliver twice; every retry carries the same webhook-id (= logical_delivery_id).
+# Retry schedule and classification: data/contracts/delivery-classification.json.
+# Sources: backlog/GOV.md G-GOV-11, G-GOV-13, GOV-007-S01..S10.
+machine: delivery
+version: 1
+owner_task: GOV-007
+entity: monitor.delivery
+state_field: status
+initial: PENDING
+terminal: [ACCEPTED, SKIPPED_UNAUTHORIZED, SUPPRESSED_SILENCE, CANCELLED]
+states:
+  PENDING: {description: "Enqueued from an outbox event (incident/digest/test) for a destination; next_attempt_at = now (or the scheduled retry time after replay)."}
+  SENDING: {description: "Claimed by a dispatcher (FOR UPDATE SKIP LOCKED, fenced lease); reauthorization, payload composition and the provider call are in progress."}
+  RETRY_SCHEDULED: {description: "Last attempt TRANSIENT or RATE_LIMITED; next_attempt_at from the retry schedule (offset from first attempt, ±20 % jitter, Retry-After ≤ 1 h honoured)."}
+  ACCEPTED: {description: "Provider accepted (2xx). accepted_kind = ACCEPTED (Email/Slack/Webhook) or ACCEPTED_BY_PROVIDER (Teams Workflows 202 — acceptance, not proof of posting)."}
+  DEAD: {description: "8 attempts used, 24 h window exhausted, PERMANENT failure, or destination paused/revoked. In the DLQ; replayable by an admin under the same logical id with current authorization."}
+  SKIPPED_UNAUTHORIZED: {description: "Send-time reauthorization failed (recipient no longer a member / scope no longer ⊇ partition / destination authorized_scope revoked). Audited."}
+  SUPPRESSED_SILENCE: {description: "An active silence covers the incident (monitor or monitor+partition); nothing sent. The silence expiry may later emit one STILL_ACTIVE update."}
+  CANCELLED: {description: "Destination deleted, or the delivery became irrelevant (test deliveries of a deleted destination)."}
+transitions:
+  - {from: PENDING, to: SENDING, event: claimed, actors: ["system:notification-dispatcher"], guards: [lease_acquired, destination_dispatchable, token_bucket_available], effects: [pin_template_and_destination_version_if_first_attempt, increment_attempt_count]}
+  - {from: PENDING, to: SUPPRESSED_SILENCE, event: silence_matched, actors: ["system:notification-dispatcher"], guards: [active_silence_covers_incident], effects: [record_silence_id]}
+  - {from: PENDING, to: CANCELLED, event: destination_deleted, actors: ["system:notification-dispatcher"], guards: [], effects: []}
+  - {from: PENDING, to: DEAD, event: destination_paused, actors: ["system:notification-dispatcher"], guards: [], effects: ["dead_reason=DESTINATION_PAUSED", emit:bridge.governance.delivery.dead_lettered]}
+  - {from: SENDING, to: ACCEPTED, event: attempt_accepted, actors: ["system:notification-dispatcher"], guards: [fence_valid], effects: [insert:monitor.delivery_attempt, store_provider_ref, store_thread_ref_if_opening_message, emit:bridge.governance.delivery.accepted]}
+  - {from: SENDING, to: RETRY_SCHEDULED, event: attempt_transient, actors: ["system:notification-dispatcher"], guards: [fence_valid, attempts_remaining, within_24h_window], effects: [insert:monitor.delivery_attempt, schedule_next_attempt]}
+  - {from: SENDING, to: RETRY_SCHEDULED, event: attempt_rate_limited, actors: ["system:notification-dispatcher"], guards: [fence_valid, attempts_remaining, within_24h_window], effects: [insert:monitor.delivery_attempt, "schedule_next_attempt(max(schedule, now + min(retry_after, 1 h)))"]}
+  - {from: SENDING, to: DEAD, event: attempt_transient, actors: ["system:notification-dispatcher"], guards: [fence_valid, no_attempts_remaining_or_window_exhausted], effects: [insert:monitor.delivery_attempt, "dead_reason=RETRIES_EXHAUSTED", degrade_destination_if_threshold, emit:bridge.governance.delivery.dead_lettered]}
+  - {from: SENDING, to: DEAD, event: attempt_rate_limited, actors: ["system:notification-dispatcher"], guards: [fence_valid, no_attempts_remaining_or_window_exhausted], effects: [insert:monitor.delivery_attempt, "dead_reason=RETRIES_EXHAUSTED", emit:bridge.governance.delivery.dead_lettered]}
+  - {from: SENDING, to: DEAD, event: attempt_permanent, actors: ["system:notification-dispatcher"], guards: [fence_valid], effects: [insert:monitor.delivery_attempt, "dead_reason=PERMANENT", pause_destination_with_remediation, emit:bridge.governance.delivery.dead_lettered]}
+  - {from: SENDING, to: SKIPPED_UNAUTHORIZED, event: reauthorization_failed, actors: ["system:notification-dispatcher"], guards: [fence_valid], effects: [audit, emit:bridge.governance.delivery.skipped]}
+  - {from: SENDING, to: PENDING, event: lease_expired, actors: ["system:notification-dispatcher"], guards: [lease_expired_without_result], effects: ["attempt outcome unknown → recorded as TRANSIENT(LEASE_LOST); possible external duplicate carries the same webhook-id"]}
+  - {from: RETRY_SCHEDULED, to: SENDING, event: claimed, actors: ["system:notification-dispatcher"], guards: [lease_acquired, destination_dispatchable, token_bucket_available, next_attempt_due], effects: [increment_attempt_count]}
+  - {from: RETRY_SCHEDULED, to: DEAD, event: destination_paused, actors: ["system:notification-dispatcher"], guards: [], effects: ["dead_reason=DESTINATION_PAUSED", emit:bridge.governance.delivery.dead_lettered]}
+  - {from: RETRY_SCHEDULED, to: CANCELLED, event: destination_deleted, actors: ["system:notification-dispatcher"], guards: [], effects: []}
+  - {from: DEAD, to: PENDING, event: replayed, actors: [notification.destination.manage], guards: [destination_dispatchable, replay_limit_not_exceeded], effects: ["replay_count++", "attempt budget reset (8 attempts / 24 h from replay)", "same logical_delivery_id; pinned versions kept", audit, emit:bridge.governance.delivery.replayed]}
+  - {from: DEAD, to: CANCELLED, event: destination_deleted, actors: ["system:notification-dispatcher"], guards: [], effects: []}
+guards:
+  lease_acquired: "Row claimed with FOR UPDATE SKIP LOCKED and a fenced lease (platform.leases, fence token stored on the row)."
+  destination_dispatchable: "Destination status in CONFIGURED, VERIFIED, DEGRADED."
+  token_bucket_available: "Per-destination bucket: Slack 1 msg/s/channel, Teams 1 msg/s/URL, webhook 10/s default, email ≤ SES account quota; Redis with an in-process fallback bucket at 50 % rate when Redis is unavailable."
+  active_silence_covers_incident: "A non-ended monitor.silence with starts_at ≤ now < expires_at matches the incident's monitor (and partition when set)."
+  fence_valid: "platform.assert_fence(kind='delivery', key=delivery_id, token) succeeds in the transaction recording the result; a fenced-out worker cannot write."
+  attempts_remaining: "attempt_count < 8."
+  within_24h_window: "The next scheduled attempt time ≤ first_attempt_at + 24 h."
+  no_attempts_remaining_or_window_exhausted: "attempt_count >= 8 or the next attempt would fall after first_attempt_at + 24 h."
+  lease_expired_without_result: "lease_expires_at < now() and no attempt result recorded."
+  next_attempt_due: "next_attempt_at <= now()."
+  replay_limit_not_exceeded: "replay_count < 5."
+invariants:
+  - "Exactly one logical delivery row per (logical_delivery_id, recipient_key) across retries, crashes and template deploys (unique index)."
+  - "Every provider call carries webhook-id / idempotency reference = logical_delivery_id; external duplicates after ambiguous timeouts carry the same id."
+  - "Payloads are composed at send time after reauthorization; they never contain SQL text or secrets, and contain a savings line only when a validated INS opportunity exists for the same scope, window and currency."

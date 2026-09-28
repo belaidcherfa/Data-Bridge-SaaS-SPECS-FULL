@@ -1,0 +1,25 @@
+# contract=semantic-dimension:query_status version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: query_status
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.query_status.label
+description_key: dimension.query_status.description
+group: WORKLOAD
+kind: ENUM
+value_type: ENUM
+enum_values: [BLOCKED, CANCELLED, FAILED, PARTIAL, QUEUED, RUNNING, SUCCEEDED, UNKNOWN]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.query_status.value}
+bindings:
+- {relation: v_query_exec, column_ref: status_class}
+- {relation: v_workload_exec, column_ref: status}
+sortable: true
+owner_task: API-001
+notes: Query statuses follow taxonomies/query_status_v1.yaml; execution statuses add PARTIAL.

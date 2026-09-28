@@ -1,0 +1,47 @@
+{
+  "$comment": "contract=infra-environment-manifest-instance version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-23,D-25 last_changed=2026-09-28. REQUIRED_INPUT values come from config/environments/<env>.yaml (see schema x-bridge-config-path); GENERATED values are written by the pipeline after apply. Never replace REQUIRED_INPUT with real identifiers in this public file.",
+  "schema_version": 1,
+  "name": "shared-services",
+  "kind": "SHARED_SERVICES",
+  "account_name": "bridge-shared-services",
+  "organizational_unit": "infrastructure",
+  "aws_account_id": "REQUIRED_INPUT",
+  "region": "eu-west-1",
+  "global_region": "us-east-1",
+  "state": {
+    "bucket": "bridge-tfstate-shared-services-${aws_account_id}-euw1",
+    "kms_key_alias": "alias/bridge-tfstate-shared-services",
+    "kms_key_arn": "GENERATED",
+    "use_lockfile": true
+  },
+  "stacks": [
+    "00-bootstrap",
+    "10-baseline",
+    "shared"
+  ],
+  "budget_usd": "REQUIRED_INPUT",
+  "ci_oidc_subjects": {
+    "tf_plan": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:pull_request"
+    ],
+    "tf_apply": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:environment:shared"
+    ],
+    "build": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:environment:build"
+    ]
+  },
+  "tags": {
+    "environment": "org",
+    "managed_by": "terraform",
+    "cost_owner": "platform"
+  },
+  "network": {
+    "vpc_enabled": false,
+    "vpc_cidr": "10.40.0.0/16",
+    "nat_gateways": 0,
+    "interface_endpoint_azs": 0,
+    "flow_logs_destination": "S3"
+  },
+  "dns_zone": "REQUIRED_INPUT"
+}

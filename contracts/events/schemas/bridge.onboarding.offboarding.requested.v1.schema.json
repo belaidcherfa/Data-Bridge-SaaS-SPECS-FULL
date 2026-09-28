@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.offboarding.requested:v1",
+  "$comment": "contract=event-bridge.onboarding.offboarding.requested version=1 status=DRAFT owner_task=ONB-102 decisions=D-10 last_changed=2026-09-28",
+  "title": "bridge.onboarding.offboarding.requested v1 payload",
+  "description": "The Organization Owner confirmed offboarding (ONB-102-S03); CTL-102 moves the tenant to OFFBOARDING and the TENANT_DELETION request waits for the export window.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deletion_request_id",
+    "export_job_id",
+    "export_waived",
+    "execute_not_before",
+    "requested_by_membership_id"
+  ],
+  "properties": {
+    "deletion_request_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "export_job_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "export_waived": {
+      "type": "boolean",
+      "x-privacy": "INTERNAL"
+    },
+    "execute_not_before": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "requested_by_membership_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "deletion_request_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e13",
+      "export_job_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e14",
+      "export_waived": false,
+      "execute_not_before": "2026-11-10T00:00:00.000Z",
+      "requested_by_membership_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e0a"
+    }
+  ]
+}

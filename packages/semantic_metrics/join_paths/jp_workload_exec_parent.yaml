@@ -1,0 +1,16 @@
+# contract=semantic-join-path:jp_workload_exec_parent version=1 status=DRAFT owner_task=WRK-004 decisions=D-05 last_changed=2026-09-28
+# Allowlisted join (API-001-S02 loader rejects any join not declared here).
+id: jp_workload_exec_parent
+version: 1
+status: ACTIVE
+from_relation: v_workload_exec
+to_relation: v_workload_exec
+cardinality: MANY_TO_ONE
+join_type: LEFT
+'on':
+- {from_column: tenant_id, to_column: tenant_id}
+- {from_column: account_id, to_column: account_id}
+- {from_column: parent_execution_id, to_column: execution_id}
+tenant_bound: true
+purpose: Parent execution attributes for records/entity views (model execution → invocation). Never used to sum parent and child measures together.
+owner_task: WRK-004

@@ -1,0 +1,942 @@
+# contract=source-contract:AU_QUERY_HISTORY version=1.0.0 status=DRAFT owner_task=ING-101 decisions=D-08,D-10,D-11,D-13,D-15,D-20,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_QUERY_HISTORY
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-101
+decisions:
+- D-08
+- D-10
+- D-11
+- D-13
+- D-15
+- D-20
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage QUERY_HISTORY (completion-time sweep)
+description: 'Query-level activity: identity, warehouse, timings, spill, partitions, cloud-services credits and sanitized text. Projection union frozen before the
+  first 365-day backfill (RECONCILIATION C-10): catalog projection + the 16 INS columns (G-INS-01) + DATABASE_ID/NAME, SCHEMA_ID/NAME (G-ALC-11) + the COLD-tier tail
+  comment (C-01). Fields not extracted during the backfill are lost for history.'
+family: QUERY
+module: QUERIES
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/query_history
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.GOVERNANCE_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: VERIFIED_SNIPPET
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: QUERY_ID
+  transport_name: query_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by: []
+  description: Snowflake query id (key).
+- name: START_TIME
+  transport_name: start_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by: []
+  description: Statement start (pruning column).
+- name: END_TIME
+  transport_name: end_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by: []
+  description: Statement end (watermark column).
+- name: WAREHOUSE_ID
+  transport_name: warehouse_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-003
+  description: ''
+- name: WAREHOUSE_NAME
+  transport_name: warehouse_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: WAREHOUSE_SIZE
+  transport_name: warehouse_size
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: WAREHOUSE_TYPE
+  transport_name: warehouse_type
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: CLUSTER_NUMBER
+  transport_name: cluster_number
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: USER_NAME
+  transport_name: user_name_pseudonym
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: PERSONAL
+  privacy_action: HMAC_USER
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - SEC-103
+  description: Replaced at extraction by the per-tenant HMAC pseudonym u1_... (D-10); plaintext used only for is_bridge_overhead before pseudonymization.
+- name: ROLE_NAME
+  transport_name: role_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: SESSION_ID
+  transport_name: session_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: Join key to AU_SESSIONS.
+- name: DATABASE_ID
+  transport_name: database_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - ALC-005
+  description: ''
+- name: DATABASE_NAME
+  transport_name: database_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - ALC-005
+  description: ''
+- name: SCHEMA_ID
+  transport_name: schema_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - ALC-005
+  description: ''
+- name: SCHEMA_NAME
+  transport_name: schema_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - ALC-005
+  description: ''
+- name: QUERY_TYPE
+  transport_name: query_type
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: EXECUTION_STATUS
+  transport_name: execution_status
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: ERROR_CODE
+  transport_name: error_code
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: Error code only; ERROR_MESSAGE is never projected (ADR-009 G.1).
+- name: TOTAL_ELAPSED_TIME
+  transport_name: total_elapsed_time
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Milliseconds.
+- name: EXECUTION_TIME
+  transport_name: execution_time
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Milliseconds.
+- name: COMPILATION_TIME
+  transport_name: compilation_time
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - WRK-001
+  description: Milliseconds.
+- name: QUEUED_OVERLOAD_TIME
+  transport_name: queued_overload_time
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - WRK-001
+  description: Milliseconds.
+- name: QUEUED_PROVISIONING_TIME
+  transport_name: queued_provisioning_time
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - WRK-001
+  description: Milliseconds.
+- name: BYTES_SPILLED_TO_LOCAL_STORAGE
+  transport_name: bytes_spilled_to_local_storage
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: BYTES_SPILLED_TO_REMOTE_STORAGE
+  transport_name: bytes_spilled_to_remote_storage
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: PARTITIONS_SCANNED
+  transport_name: partitions_scanned
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: PARTITIONS_TOTAL
+  transport_name: partitions_total
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: ROWS_INSERTED
+  transport_name: rows_inserted
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: ROWS_UPDATED
+  transport_name: rows_updated
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: ROWS_DELETED
+  transport_name: rows_deleted
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: CREDITS_USED_CLOUD_SERVICES
+  transport_name: credits_used_cloud_services
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - ALC-005
+  - FIN-005
+  description: Gross cloud-services credits of the query; the D-15 cloud-services allocation driver. Scale recorded live in ING-101-S04.
+- name: QUERY_HASH
+  transport_name: query_hash
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: QUERY_HASH_VERSION
+  transport_name: query_hash_version
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  description: ''
+- name: QUERY_PARAMETERIZED_HASH
+  transport_name: query_parameterized_hash
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - WRK-104
+  - API-001
+  description: Query family key of fct_query_family_daily (D-11).
+- name: QUERY_PARAMETERIZED_HASH_VERSION
+  transport_name: query_parameterized_hash_version
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - INS-001
+  - WRK-104
+  description: ''
+- name: QUERY_TAG
+  transport_name: query_tag_sanitized
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: SQL_TEXT
+  privacy_action: SANITIZE_TAG
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-101
+  description: Allowlisted keys kept (WRK-101 allowlist v1), other values -> t1_ pseudonyms (SEC-007); diagnostic only, never identity (ADR-005).
+- name: QUERY_TEXT
+  transport_name: query_text_sanitized
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: HOT
+  privacy_class: SQL_TEXT
+  privacy_action: TIER_WINDOW
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - SEC-007
+  - WRK-101
+  description: 'HOT tier only (window end within hot_days, default 365): sanitized by SEC-007 after WRK-101 metadata extraction; null in COLD/NONE tiers, on sanitizer
+    failure (METADATA_ONLY) and above 100 KiB (OMITTED_SIZE).'
+- name: QUERY_TEXT_TAIL_COMMENT
+  transport_name: query_text_tail_comment
+  expression: LEFT(REGEXP_SUBSTR(QUERY_TEXT, '/\\*[^*]*\\*+([^/*][^*]*\\*+)*/\\s*;?\\s*$'), 4096)
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: COLD
+  privacy_class: SQL_TEXT
+  privacy_action: DROP
+  arrow_type: null
+  raw_type: null
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-101
+  description: 'COLD tier only (plans with hot_days < 365): trailing block comment computed in the customer warehouse, truncated to 4,096 chars, parsed in process
+    by the WRK-101 fragment path (WorkloadMetaV1) and never persisted as text (RECONCILIATION C-01).'
+extractor_columns:
+- transport_name: is_bridge_overhead
+  arrow_type: bool
+  raw_type: BOOLEAN
+  nullable: false
+  privacy_class: INTERNAL
+  rule: TRUE iff (WAREHOUSE_NAME, USER_NAME) is ('BRIDGE_FINOPS_WH','BRIDGE_FINOPS_READER_USER') or ('BRIDGE_FINOPS_ORG_WH','BRIDGE_FINOPS_ORG_USER'), compared on
+    plaintext in process before pseudonymization (ING-107 order step 1, G-CON-11); QUERY_TAG is never used for this flag; Bridge overhead is never excluded from totals.
+  owner_task: CON-101
+- transport_name: query_text_mode
+  arrow_type: large_string
+  raw_type: VARCHAR(16)
+  nullable: false
+  privacy_class: INTERNAL
+  rule: 'HOT_SANITIZED (window inside hot_days, sanitizer succeeded) | COLD_FRAGMENT (window older than hot_days: only the tail comment was read and parsed by WRK-101,
+    no text stored) | METADATA_ONLY (sanitizer failure, text null, ING-107-S06) | OMITTED_SIZE (QUERY_TEXT > limits.oversized_text_bytes, ING-003-S08) | NONE (tenant
+    privacy mode METADATA_ONLY).'
+  owner_task: ING-107
+extension_schemas:
+- WorkloadMetaV1
+watermark_mode: END_TIME_SWEEP
+watermark_column: END_TIME
+pruning_column: START_TIME
+pruning_horizon_days: 8
+predicate_template: END_TIME >= :ws AND END_TIME < :we AND START_TIME >= DATEADD(day, -8, :ws)
+pending_refresh: null
+horizon_alarm_days: 7
+cycle: STEADY_HOURLY
+window_steady_seconds: 3600
+first_delay_seconds: 3600
+settle_seconds: 7200
+extraction_order_rank: 80
+semantics: EVENT_UPSERT
+key:
+- query_id
+partition_key: null
+snapshot_key: []
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: false
+  zero_rows: false
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: WEEKLY
+  method: CHECKSUM
+  window:
+    kind: LAST_N_DAYS
+    n: 30
+  additive_only: true
+  checksum_measures:
+  - COUNT(*)
+  - COUNT(DISTINCT QUERY_ID)
+  - SUM(TOTAL_ELAPSED_TIME)
+backfill_supported: true
+backfill_chunk_seconds: 86400
+min_chunk_seconds: 300
+max_chunk_seconds: 86400
+backfill_split_rows_threshold: 2000000
+sizing_query: SELECT DATE_TRUNC('day', END_TIME) AS usage_day, COUNT(*) AS row_count FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY WHERE END_TIME >= :start AND END_TIME
+  < :end GROUP BY 1
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: QUERY_GRAIN
+journal_retention_days: 90
+raw_retention_days: 90
+query_detail_tiering:
+  hot_days_default: 365
+  hot_days_max: 365
+  hot_columns:
+  - QUERY_TEXT
+  cold_columns:
+  - QUERY_TEXT_TAIL_COMMENT
+  cold_expression_column: QUERY_TEXT_TAIL_COMMENT
+  fallback_note: hot_days comes from the tenant entitlement (LCH-101, default 365 = full Account Usage retention, D-11 owner decision); COLD applies only to windows
+    older than hot_days; NONE when the tenant privacy mode is METADATA_ONLY.
+documented_latency_seconds: 2700
+latency_verification: VERIFIED_SNIPPET
+maturity:
+  data_final_horizon_seconds: 86400
+  attribution_final_horizon_seconds: 259200
+  attribution_horizon_rule: 'Query dimensions used for hourly attribution follow QAH: hour_end + T + 24 h, T = min(max STATEMENT_TIMEOUT_IN_SECONDS, 48 h) (D-13,
+    G-FIN-08).'
+  month_stability_days: null
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_QUERY_HISTORY version=0
+health:
+  expected_lag_seconds: 7200
+  grace_seconds: 1800
+  delayed_after_seconds: 9000
+  stale_after_seconds: 18000
+authority:
+  measure_roles:
+  - ACTIVITY
+  service_families:
+  - WAREHOUSE_COMPUTE
+  - CLOUD_SERVICES
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Dimensions and drivers only; money never comes from QUERY_HISTORY.
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: 102400
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: false
+  canary: true
+  timeout_seconds: 30
+  predicate_template: END_TIME >= :probe_from AND END_TIME < :probe_to
+transport_schema:
+  version: '1.0'
+  fingerprint: a3d9fb66b9d1963e96f7b5444d60ad7ce8bb2a3b206230d682ad58c664ee3075
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: QUERY_HISTORY requires SNOWFLAKE.GOVERNANCE_VIEWER (also exposes QUERY_TEXT, ACCESS_HISTORY, policy metadata; disclosed to the customer).
+  status: VERIFIED_SNIPPET
+  evidence: docs.snowflake.com snowflake-db-roles, 2026-09-28 (G-CON-02)
+- fact: Documented latency up to 45 minutes.
+  status: VERIFIED_SNIPPET
+  evidence: source-catalog.md
+- fact: Whether AU.QUERY_HISTORY exposes running queries (design does not depend on it).
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S03
+- fact: Column types, scales (CREDITS_USED_CLOUD_SERVICES, timestamps) and nullability of the frozen projection.
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S04
+- fact: Maximum STATEMENT_TIMEOUT_IN_SECONDS is 604800 s (7 days); default 172800 s.
+  status: VERIFIED_SNIPPET
+  evidence: docs.snowflake.com parameters (G-ING-01)
+- fact: QUERY_TEXT storage truncation limit (affects the tail comment).
+  status: TO_VERIFY_LIVE
+  verify_in: WRK-101-S12
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- LONG_QUERY_OVER_2H
+- PRIVACY_SENTINEL
+- BRIDGE_OVERHEAD_FLAG
+- TIER_PROJECTION
+adapter_override: null
+notes:
+- 'Completion-time sweep (ADR-006 amendment 1): every completed row falls into exactly one END_TIME window whatever its duration; coverage means ''all rows completed
+  before T''. The START_TIME bound is only a pruning hint (7-day maximum statement timeout + 1 day).'
+- 'The canary rule applies: Bridge''s own verification query must be visible after 45 min + margin; absence means SUSPECT_EMPTY or DENIED, never AVAILABLE_EMPTY (G-CON-08).'
+- 'Anti-entropy is additive only: mismatched END_TIME days are re-extracted and upserted, never deleted (G-ING-07).'

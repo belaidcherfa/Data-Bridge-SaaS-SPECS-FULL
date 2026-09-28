@@ -1,0 +1,114 @@
+# contract=event-catalog-ops version=1 status=DRAFT owner_task=OPS-005 decisions=D-10,D-25 last_changed=2026-09-28
+# Event catalog of the `ops` domain (event types bridge.ops.*). Envelope: contracts/common/event-envelope.schema.json.
+# privacy = envelope privacy class; ordering AGGREGATE = FIFO per (aggregate_type, aggregate_id) (CTL-101 outbox ordering column);
+# tenant_scoped false = platform event (envelope tenant_id null). Payloads carry IDs and versions only.
+domain: ops
+version: 1
+events:
+- type: bridge.ops.tombstone.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.ops.tombstone.recorded.v1.schema.json
+  aggregate: tenant
+  producer: privacy-orchestrator
+  consumers:
+  - tombstone-mirror (dispatcher -> S3 log)
+  - identity-dictionary (SEC-103, K2)
+  - tenant-restore-guard (CTL-102, K2)
+  privacy: NONE
+  ordering: NONE
+  tenant_scoped: true
+  owner_task: OPS-104
+  description: A tombstone was appended to privacy.tombstone; the mirror writes tombstones/seq=<20-digit>.json (tombstone.v1.json) byte-identically on retry.
+- type: bridge.ops.deletion_request.status_changed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.deletion_request.status_changed.v1.schema.json
+  aggregate: deletion_request
+  producer: privacy-orchestrator
+  consumers:
+  - tenant-lifecycle (CTL-102, K2)
+  - web-notifications (K10)
+  - ops-metrics
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: OPS-005
+  description: A privacy request changed status (deletion_request.yaml). TENANT_DELETION CERTIFIED lets CTL-102 move the tenant to DELETED.
+- type: bridge.ops.deletion_stage.completed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.deletion_stage.completed.v1.schema.json
+  aggregate: deletion_request
+  producer: privacy-orchestrator
+  consumers:
+  - ops-metrics
+  - web-notifications (K10)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: OPS-005
+  description: A deletion stage reached a terminal or held status (DONE, VERIFIED, HELD, FAILED, SKIPPED).
+- type: bridge.ops.legal_hold.status_changed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.legal_hold.status_changed.v1.schema.json
+  aggregate: legal_hold
+  producer: ops-api
+  consumers:
+  - privacy-orchestrator
+  - ops-alerting
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: OPS-005
+  description: A legal hold changed status (REQUESTED, ACTIVE, REVIEW_OVERDUE, RELEASED, REJECTED); holds re-evaluate open deletion stages.
+- type: bridge.ops.support_grant.status_changed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.support_grant.status_changed.v1.schema.json
+  aggregate: support_access_grant
+  producer: ops-api
+  consumers:
+  - support-membership-materializer (SEC-104, K2)
+  - web-notifications (K10)
+  - audit-exporter
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: SEC-104
+  description: A support access grant changed status (support_access.yaml); activation creates and end removes the synthetic SUPPORT membership.
+- type: bridge.ops.feature_flag.changed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.feature_flag.changed.v1.schema.json
+  aggregate: feature_flag
+  producer: ops-api
+  consumers:
+  - flag-cache (all services)
+  - audit-exporter
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: false
+  owner_task: REL-102
+  description: A feature flag or kill switch value changed (platform event, tenant_id null; the scope carries tenant/account ids).
+- type: bridge.ops.release.status_changed
+  schema_version: 1
+  schema: ../schemas/bridge.ops.release.status_changed.v1.schema.json
+  aggregate: release
+  producer: ops-api
+  consumers:
+  - ops-console
+  - evidence-collector (OPS-108)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: false
+  owner_task: REL-001
+  description: A release changed status (release.yaml). Platform event.
+- type: bridge.ops.deployment.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.ops.deployment.recorded.v1.schema.json
+  aggregate: release
+  producer: ops-api
+  consumers:
+  - evidence-collector (OPS-108)
+  - ops-console
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: false
+  owner_task: REL-002
+  description: A deployment record was written or closed (deployment-record.v1.json). Platform event.

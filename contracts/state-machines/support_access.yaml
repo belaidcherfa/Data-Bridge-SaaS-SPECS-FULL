@@ -1,0 +1,49 @@
+# contract=state-machine-support-access version=1 status=DRAFT owner_task=SEC-104 decisions=D-02,D-22,D-25 last_changed=2026-09-28
+# Customer-approved support access grant (RECONCILIATION U-05, C-15). Table: support.access_grant (contract lane K9; task owner SEC-104).
+machine: support_access
+version: 1
+owner_task: SEC-104
+entity: support.access_grant
+state_field: status
+initial: REQUESTED
+terminal: [DENIED, CANCELLED, REVOKED, EXPIRED]
+states:
+  REQUESTED: {description: "Operator (support_agent / incident_responder) requested read-only access via the ops API with reason_code, case_ref, scopes and window (default 4 h, max 8 h). Lapses after request_expires_at (<= 24 h)."}
+  APPROVED: {description: "A tenant member holding support.grant approved (step-up), or the tenant auto-approve policy approved a health_read-only grant. Waiting for starts_at."}
+  ACTIVE: {description: "Read-only synthetic membership kind=SUPPORT exists with the support profile (sanitized SQL, pseudonymous identities); every request is audited and visible to the tenant."}
+  DENIED: {description: "Tenant member refused the request."}
+  CANCELLED: {description: "Operator withdrew the request before approval."}
+  REVOKED: {description: "Ended early by the tenant, the operator (work done), security containment or tenant suspension/offboarding."}
+  EXPIRED: {description: "Window ended (expires_at) or the request lapsed unapproved."}
+transitions:
+  - {from: REQUESTED, to: APPROVED, event: approved, actors: [support.grant], guards: [approver_active_member_of_tenant, step_up_recent, window_within_8h, scopes_in_r1_set, tenant_active], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: REQUESTED, to: APPROVED, event: auto_approved, actors: ["system:support-policy"], guards: [tenant_policy_auto_approves_health_read, scopes_equal_health_read_only, window_within_8h, tenant_active], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: REQUESTED, to: DENIED, event: denied, actors: [support.grant], guards: [approver_active_member_of_tenant], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: REQUESTED, to: CANCELLED, event: withdrawn, actors: [ops.support.request], guards: [operator_is_requester], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: REQUESTED, to: EXPIRED, event: request_lapsed, actors: ["system:support-reaper"], guards: [request_window_passed], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: APPROVED, to: ACTIVE, event: activated, actors: ["system:support-reaper"], guards: [starts_at_reached, tenant_active, subscription_allows_support], effects: ["emit:bridge.ops.support_grant.status_changed", "enqueue:identity.materialize_support_membership"]}
+  - {from: APPROVED, to: REVOKED, event: revoked, actors: [support.grant, ops.support.request, "system:security-containment", "system:tenant-lifecycle"], guards: [revoke_reason_given], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: APPROVED, to: EXPIRED, event: expired, actors: ["system:support-reaper"], guards: [expires_at_reached], effects: ["emit:bridge.ops.support_grant.status_changed"]}
+  - {from: ACTIVE, to: REVOKED, event: revoked, actors: [support.grant, ops.support.request, "system:security-containment", "system:tenant-lifecycle"], guards: [revoke_reason_given], effects: ["emit:bridge.ops.support_grant.status_changed", "enqueue:identity.remove_support_membership"]}
+  - {from: ACTIVE, to: EXPIRED, event: expired, actors: ["system:support-reaper"], guards: [expires_at_reached], effects: ["emit:bridge.ops.support_grant.status_changed", "enqueue:identity.remove_support_membership"]}
+guards:
+  approver_active_member_of_tenant: "caller is an ACTIVE MEMBER (not SUPPORT) of the grant's tenant holding support.grant; an operator can never approve"
+  step_up_recent: "auth_time <= 10 min (SEC Appendix C.4, support.grant)"
+  window_within_8h: "expires_at - starts_at <= 8 h (DB CHECK access_grant_window_ck); default 4 h"
+  scopes_in_r1_set: "support_scopes subset of {health_read, analytics_read}; config_write rejected (OPS_SUPPORT_SCOPE_NOT_ALLOWED)"
+  tenant_active: "tenant lifecycle state ACTIVE (a SUSPENDED tenant still allows health_read for incident support; OFFBOARDING/DELETED never)"
+  tenant_policy_auto_approves_health_read: "tenant security policy flag support_auto_approve_health_read = true (identity.tenants.security_policy, SEC-104-S03)"
+  scopes_equal_health_read_only: "support_scopes = [health_read] (DB CHECK access_grant_auto_ck)"
+  operator_is_requester: "caller operator_subject equals the grant's operator_subject"
+  request_window_passed: "now() >= request_expires_at"
+  starts_at_reached: "now() >= starts_at"
+  subscription_allows_support: "always true in R1 (support is available in every subscription state); kept as a named guard for R2 plan features"
+  revoke_reason_given: "revoke_reason_code present (CUSTOMER_REVOKED, OPERATOR_DONE, SECURITY_CONTAINMENT, TENANT_SUSPENDED, TENANT_OFFBOARDING)"
+  expires_at_reached: "now() >= expires_at"
+invariants:
+  - "A grant never carries a mutation capability; config_write is not a support scope in R1 (C-15)."
+  - "Duration <= 8 h; default 4 h (C-15)."
+  - "Operators have no standing access to tenant analytics: ops API reads of tenant data require an ACTIVE grant for that tenant and scope (OPS_SUPPORT_GRANT_NOT_ACTIVE otherwise)."
+  - "A grant for tenant A is never usable for tenant B (tenant-scoped row, X-Bridge-Tenant must match)."
+  - "Every approval, activation, use and end is visible in the tenant audit (SEC-104-S06) and emits an outbox event."
+  - "Ending a grant removes the synthetic membership and bumps its permission epoch within 30 s."

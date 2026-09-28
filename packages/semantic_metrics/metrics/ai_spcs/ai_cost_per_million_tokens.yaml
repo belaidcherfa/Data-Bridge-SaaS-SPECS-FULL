@@ -1,0 +1,34 @@
+# contract=semantic-metric:ai_cost_per_million_tokens version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: ai_cost_per_million_tokens
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.ai_cost_per_million_tokens.label
+description_key: metric.ai_cost_per_million_tokens.description
+population_key: metric.ai_cost_per_million_tokens.population
+category: AI_SPCS
+unit: {kind: MONEY_PER_MILLION_TOKENS, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: null
+measure:
+  type: DERIVED
+  operator: DIVIDE_SCALED
+  scale: '1000000'
+  operands:
+  - {metric: ai_attributed_cost, version: 1}
+  - {metric: ai_tokens, version: 1}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, ai_family, ai_model, warehouse, user, data_status, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, capability_missing_reason: NOT_SUPPORTED, empty_population: NULL_INSUFFICIENT_DATA}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#ai_cost_per_million_tokens
+  child_resolvers: [formula_operands]
+screen_keys: [tokenrate]
+owner_task: API-001
+notes: cost × 1,000,000 / tokens at the same grain; null when tokens are null or zero.

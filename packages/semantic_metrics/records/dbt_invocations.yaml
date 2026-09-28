@@ -1,0 +1,122 @@
+# contract=semantic-records:dbt_invocations version=1 status=DRAFT owner_task=WRK-002 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: dbt_invocations
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.dbt_invocations.label
+relation: v_workload_exec
+population:
+- {column: execution_kind, op: EQ, value: DBT_INVOCATION}
+tier: FULL
+row_key: [account_id, execution_id]
+default_sort:
+- {column: start_time, direction: DESC}
+page_max: 200
+sync_max_range_days: 92
+privacy: {capability: analytics.read}
+columns:
+- id: execution_id
+  column_ref: execution_id
+  type: HASH
+  label_key: records.dbt_invocations.column.execution_id
+  sortable: false
+  filter_ops: [EQ]
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.dbt_invocations.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: start_time
+  column_ref: start_time
+  type: TIMESTAMP
+  label_key: records.dbt_invocations.column.start_time
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: end_time
+  column_ref: end_time
+  type: TIMESTAMP
+  label_key: records.dbt_invocations.column.end_time
+  sortable: true
+  filter_ops: []
+- id: status
+  column_ref: status
+  type: ENUM
+  label_key: records.dbt_invocations.column.status
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: query_status
+- id: basis
+  column_ref: basis
+  type: ENUM
+  label_key: records.dbt_invocations.column.basis
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: complete
+  column_ref: complete
+  type: BOOLEAN
+  label_key: records.dbt_invocations.column.complete
+  sortable: false
+  filter_ops: [EQ]
+- id: query_count
+  column_ref: query_count
+  type: INTEGER
+  label_key: records.dbt_invocations.column.query_count
+  sortable: true
+  filter_ops: []
+- id: compute_cost
+  column_ref: compute_cost
+  type: MONEY
+  label_key: records.dbt_invocations.column.compute_cost
+  sortable: true
+  filter_ops: []
+  currency_column: currency
+- id: cost_basis
+  column_ref: cost_basis
+  type: ENUM
+  label_key: records.dbt_invocations.column.cost_basis
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: wall_time_ms
+  column_ref: wall_time_ms
+  type: DURATION_MS
+  label_key: records.dbt_invocations.column.wall_time_ms
+  sortable: true
+  filter_ops: []
+- id: exec_sum_ms
+  column_ref: exec_sum_ms
+  type: DURATION_MS
+  label_key: records.dbt_invocations.column.exec_sum_ms
+  sortable: true
+  filter_ops: []
+- id: evidence_class
+  column_ref: evidence_class
+  type: ENUM
+  label_key: records.dbt_invocations.column.evidence_class
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: evidence_class
+- id: dbt_project
+  column_ref: project_key
+  type: HASH
+  label_key: records.dbt_invocations.column.dbt_project
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: dbt_project
+- id: environment
+  column_ref: environment
+  type: ENUM
+  label_key: records.dbt_invocations.column.environment
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: environment
+- id: failed_leaf_count
+  column_ref: failed_leaf_count
+  type: INTEGER
+  label_key: records.dbt_invocations.column.failed_leaf_count
+  sortable: true
+  filter_ops: []
+owner_task: WRK-002
+notes: VERIFIED invocations (invocation_id in the dbt comment) and APPROXIMATE groupings (flagged; excluded from run counts, G-WRK-11).

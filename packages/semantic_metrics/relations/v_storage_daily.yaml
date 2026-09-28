@@ -1,0 +1,62 @@
+# contract=semantic-relation:v_storage_daily version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_storage_daily
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_storage_daily
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: 'Byte gauges by storage class. Never summed across days as current storage: storage_bytes is LATEST (default) or TWA (Σ bytes×seconds / Σ seconds). Billed storage money
+  comes only from spend/attributed_cost (G-UX-11).'
+serving_view: bridge.serving.serving_storage_daily
+dataset_id: storage_daily
+dbt_model: serving_storage_daily
+upstream_owner_tasks: [FIN-006, DBT-006]
+grain_keys: [tenant_id, storage_row_key]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: null
+data_status_column: data_status
+required_sources: [au.database_storage_usage_history, au.stage_storage_usage_history, ou.storage_daily_history]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: storage_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- {name: database_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: NULL for stage/account-level storage.}
+- {name: schema_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: storage_object_kind
+  type: VARCHAR(16)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DATABASE, SCHEMA, STAGE, HYBRID_TABLE, ARCHIVE, ACCOUNT]
+- name: storage_class
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [ACTIVE, TIME_TRAVEL, FAILSAFE, RETAINED_FOR_CLONE, STAGE, HYBRID, ARCHIVE_COOL, ARCHIVE_COLD]
+- {name: average_bytes, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: Average bytes over the observed seconds of the UTC day.}
+- {name: observation_seconds, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: 86400 for complete days; fewer for the current day or first observation.}
+- {name: is_dropped, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: first_observed_date, type: DATE, nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

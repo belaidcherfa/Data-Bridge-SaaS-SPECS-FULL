@@ -1,0 +1,45 @@
+# contract=state-machine-billing-reference version=1 status=DRAFT owner_task=FIN-101 decisions=D-04,D-10,D-25 last_changed=2026-09-28
+# Billing reference intake lifecycle (usage statements, invoices, reseller/marketplace invoices, manual totals) — FIN-101-S06.
+machine: billing_reference
+version: 1
+owner_task: FIN-101
+entity: finance.billing_reference
+state_field: status
+initial: DRAFT
+terminal: [REJECTED, SUPERSEDED, DISCARDED]
+states:
+  DRAFT: {description: "Created (v1 or a new version n+1 of a lineage); header, file upload and lines editable by makers."}
+  SUBMITTED: {description: "Frozen content (content_sha256) awaiting a second authorized user."}
+  APPROVED: {description: "Approved by a checker; queued for immutable D-04 publication to CONFIG.BILLING_REFERENCE(+_LINE)."}
+  ACTIVE: {description: "Published and verified; the reference version used by control C5 for its (organization, period, currency)."}
+  REJECTED: {description: "Rejected by a checker; a corrected content is entered as a new version of the same lineage."}
+  SUPERSEDED: {description: "A later version of the same lineage became ACTIVE; stays queryable by version (pinned by closes)."}
+  DISCARDED: {description: "Draft abandoned by its maker before submission."}
+transitions:
+  - {from: DRAFT, to: SUBMITTED, event: submitted, actors: [finance.reference.enter], guards: [original_file_clean_if_present, lines_present, lines_total_equals_declared_total, credit_note_lines_non_positive, currency_in_minor_unit_seed, no_duplicate_document, parse_not_failed], effects: ["write:content_sha256", "request:approval(action=finance.reference.approve)", "emit:bridge.finance.billing_reference.submitted"]}
+  - {from: SUBMITTED, to: DRAFT, event: withdrawn, actors: [finance.reference.enter], guards: [actor_is_submitter], effects: ["cancel:approval", "emit:bridge.finance.billing_reference.withdrawn"]}
+  - {from: SUBMITTED, to: APPROVED, event: approved, actors: [finance.reference.approve], guards: [approver_differs_from_submitter, approver_scope_covers_organization, content_unchanged_since_submission, fresh_durable_authz_check], effects: ["enqueue:config_publication(kind=BILLING_REFERENCE)", "set:evidence_file.retain_until=approved_at+record_retention_days", "emit:bridge.finance.billing_reference.approved"]}
+  - {from: SUBMITTED, to: REJECTED, event: rejected, actors: [finance.reference.approve], guards: [approver_differs_from_submitter], effects: ["emit:bridge.finance.billing_reference.rejected"]}
+  - {from: APPROVED, to: ACTIVE, event: published, actors: ["system:config-publisher"], guards: [config_publication_verified], effects: ["supersede:predecessor_version", "enqueue:reconciliation_run(trigger=REFERENCE_ACTIVATED,controls=[C5])", "emit:bridge.finance.billing_reference.activated"]}
+  - {from: ACTIVE, to: SUPERSEDED, event: superseded, actors: ["system:finance-worker"], guards: [successor_version_active], effects: ["emit:bridge.finance.billing_reference.superseded"]}
+  - {from: DRAFT, to: DISCARDED, event: discarded, actors: [finance.reference.enter], guards: [], effects: ["expire:unattached_uploads", "emit:bridge.finance.billing_reference.discarded"]}
+guards:
+  original_file_clean_if_present: "original_file_id IS NULL or evidence_file.status = CLEAN (malware scan, FIN-101-S03); SCAN_PENDING -> 409 FIN_EVIDENCE_SCAN_PENDING; INFECTED -> 422 FIN_EVIDENCE_INFECTED"
+  lines_present: "line_count >= 1"
+  lines_total_equals_declared_total: "Sum(line.amount) = declared_total exactly (FIN-101-S05); else 422 FIN_REFERENCE_TOTAL_MISMATCH"
+  credit_note_lines_non_positive: "Every CREDIT_NOTE line amount <= 0"
+  currency_in_minor_unit_seed: "currency present in ref_currency_minor_unit"
+  no_duplicate_document: "No other lineage with the same (organization, reference_type, document_number, period) and no other lineage claiming the same original file sha256; else 409 FIN_REFERENCE_DUPLICATE"
+  parse_not_failed: "parse_status <> FAILED (CSV usage statements must parse; manual entry uses NOT_APPLICABLE)"
+  actor_is_submitter: "actor = submitted_by"
+  approver_differs_from_submitter: "actor <> submitted_by (no waiver for references); else 409 FIN_MAKER_CHECKER_VIOLATION"
+  approver_scope_covers_organization: "Approver scope subsumes the organization; organization references require finance.org_scope.read"
+  content_unchanged_since_submission: "content_sha256 recomputed = stored (approval binds (object, revision, content_sha256), SEC Appendix C.4)"
+  fresh_durable_authz_check: "Capability re-read with the current permission epoch at approval"
+  config_publication_verified: "CONFIG header for (tenant, BILLING_REFERENCE, config_version) exists with matching row count and content hash"
+  successor_version_active: "The version n+1 of the same lineage reached ACTIVE"
+invariants:
+  - "No reference is used by C5 before a second authorized user approved it (APPROVED) and its publication was verified (ACTIVE)."
+  - "At most one version per lineage is DRAFT/SUBMITTED/APPROVED and at most one is ACTIVE (unique partial indexes)."
+  - "Published versions are immutable in Snowflake; a superseded version stays queryable and pinned by any close that used it."
+  - "Files are tenant-prefixed, SSE-KMS encrypted, malware-scanned, Object Lock GOVERNANCE (ADR-009 amendment item 5; FIN-101-S02's 'compliance after approval' is superseded by the ADR); deletion is refused under legal hold."

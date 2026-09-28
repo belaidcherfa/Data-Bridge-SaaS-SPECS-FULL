@@ -1,0 +1,37 @@
+# contract=state-machine-reconciliation-explanation version=1 status=DRAFT owner_task=FIN-009 decisions=D-25 last_changed=2026-09-28
+# Classified explanation of a reconciliation difference (or control-level exception) — FIN-009-S11.
+# Machine name not listed in contracts/README.md; FIN-owned addition recorded in contracts/_handoffs/K5.md.
+machine: reconciliation_explanation
+version: 1
+owner_task: FIN-009
+entity: finance.reconciliation_explanation
+state_field: status
+initial: SUBMITTED
+terminal: [REJECTED, WITHDRAWN, INVALIDATED]
+states:
+  SUBMITTED: {description: "Created with classification, explained delta (= difference delta, exactly), note and at least one evidence file; awaiting a checker."}
+  APPROVED: {description: "Approved by a second user; published to CONFIG.RECONCILIATION_EXPLANATION; the explained bucket counts as WARNING (never MATCHED)."}
+  REJECTED: {description: "Rejected by the checker; the difference stays FAILED/PENDING."}
+  WITHDRAWN: {description: "Withdrawn by its author before decision, or revoked by a checker after approval (a revocation is published)."}
+  INVALIDATED: {description: "The underlying difference changed (other ledger or reference value in a later run) or disappeared; the explanation no longer applies."}
+transitions:
+  - {from: SUBMITTED, to: APPROVED, event: approved, actors: [finance.reconciliation.approve_explanation], guards: [approver_differs_from_author, evidence_present_and_clean, explained_delta_equals_difference_delta, difference_unchanged, approver_scope_covers_organization, fresh_durable_authz_check], effects: ["enqueue:config_publication(kind=RECONCILIATION_EXPLANATION)", "enqueue:reconciliation_run(trigger=EXPLANATION_DECIDED)", "emit:bridge.finance.reconciliation_explanation.approved"]}
+  - {from: SUBMITTED, to: REJECTED, event: rejected, actors: [finance.reconciliation.approve_explanation], guards: [approver_differs_from_author], effects: ["emit:bridge.finance.reconciliation_explanation.rejected"]}
+  - {from: SUBMITTED, to: WITHDRAWN, event: withdrawn, actors: [finance.reconciliation.explain], guards: [actor_is_author], effects: ["emit:bridge.finance.reconciliation_explanation.withdrawn"]}
+  - {from: SUBMITTED, to: INVALIDATED, event: difference_changed, actors: ["system:finance-worker"], guards: [difference_etag_changed_or_absent], effects: ["emit:bridge.finance.reconciliation_explanation.invalidated"]}
+  - {from: APPROVED, to: INVALIDATED, event: difference_changed, actors: ["system:finance-worker"], guards: [difference_etag_changed_or_absent], effects: ["enqueue:config_publication(kind=RECONCILIATION_EXPLANATION, revocation)", "emit:bridge.finance.reconciliation_explanation.invalidated"]}
+  - {from: APPROVED, to: WITHDRAWN, event: revoked, actors: [finance.reconciliation.approve_explanation], guards: [approver_differs_from_author, period_not_closed_on_it], effects: ["enqueue:config_publication(kind=RECONCILIATION_EXPLANATION, revocation)", "enqueue:reconciliation_run(trigger=EXPLANATION_DECIDED)", "emit:bridge.finance.reconciliation_explanation.withdrawn"]}
+guards:
+  approver_differs_from_author: "actor <> author_id; else 409 FIN_MAKER_CHECKER_VIOLATION (FIN-009-S11)"
+  evidence_present_and_clean: "At least one evidence file linked and every linked file CLEAN; else 422 FIN_EXPLANATION_EVIDENCE_REQUIRED"
+  explained_delta_equals_difference_delta: "For DIFFERENCE targets explained_delta = fct_reconciliation.delta of the explained row exactly; CONTROL targets carry no amount; else 422 FIN_EXPLANATION_AMOUNT_MISMATCH"
+  difference_unchanged: "The latest completed run for the scope still has the difference with the same etag; else 409 FIN_EXPLANATION_STALE"
+  approver_scope_covers_organization: "Approver scope subsumes the organization of the difference"
+  fresh_durable_authz_check: "Capability re-read with the current permission epoch"
+  actor_is_author: "actor = author_id"
+  difference_etag_changed_or_absent: "A completed run for the same scope has no difference with this difference_grain_key, or it has other ledger/reference values"
+  period_not_closed_on_it: "No close record pins this explanation (revocation after close would change evidence of an issued statement); else 409 FIN_PERIOD_STATE_CONFLICT"
+invariants:
+  - "An approved explanation turns FAILED into WARNING, never into MATCHED; C6 and C7 (exact conservation) are never explainable (DB check)."
+  - "Explanations never write fct_charge (the API role has no Snowflake ledger write privilege)."
+  - "At most one SUBMITTED or APPROVED explanation per (control, organization, period, currency, difference) (unique partial index)."

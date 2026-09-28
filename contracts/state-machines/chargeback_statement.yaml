@@ -1,0 +1,63 @@
+# contract=state-machine-chargeback-statement version=1 status=DRAFT owner_task=ALC-008 decisions=D-05,D-25,D-35 last_changed=2026-09-28
+# One internal chargeback statement = (tenant, book, target group, accounting period, currency, version_no).
+# Header in PostgreSQL (governance.chargeback_statement); frozen lines in Snowflake
+# (bridge.allocation.fct_chargeback_statement_line, insert-only, no UPDATE/DELETE grant).
+# Statements of one (book, period, currency) are prepared together (governance.chargeback_preparation) because
+# rounding is hierarchical: book total → targets → lines (docs/11-allocation/alc-rounding.md).
+# "Issued" = lines frozen + digest recorded + visible to the target group's readers + idempotency key consumed.
+# Issue never waits for the PDF (rendered asynchronously by the RPT-002 worker; pdf_status on the header).
+# Sources: backlog/ALC.md G-ALC-12, ALC-008-S01..S12; allocation.md (amended: RECORD retention class, MONTH_STABLE + CLOSED gate);
+# SEC Appendix C.4 (statement.issue four-eyes + step-up).
+machine: chargeback_statement
+version: 1
+owner_task: ALC-008
+entity: governance.chargeback_statement
+state_field: status
+initial: DRAFT
+terminal: [SUPERSEDED, VOIDED_DRAFT]
+states:
+  DRAFT: {description: "Header created for a target in a (book, period, currency); no frozen lines."}
+  PREPARING: {description: "Preparation job running: pins the close record's allocation publication, computes exact amounts per (target, category, component, account), applies hierarchical signed largest remainder, inserts frozen lines for this prepare_seq."}
+  PREPARED: {description: "Lines frozen for prepare_seq; digest (line_count, rounded_total, lines_sha256) recorded; preconditions evaluated and listed."}
+  REVIEWED: {description: "A reviewer (statement.issue capability) confirmed the preview, preconditions and explain links."}
+  APPROVED: {description: "An approver different from the preparer approved the exact digest (governance.approval action statement.issue, object_type CHARGEBACK_STATEMENT, content_sha256 = lines_sha256)."}
+  ISSUED: {description: "Immutable. Visible to the target group's readers. Only superseded_by / pdf_* columns may change afterwards (trigger)."}
+  SUPERSEDED: {description: "Replaced by version n+1 (RESTATEMENT correction after a FIN-010 restate). Retained under the RECORD retention class."}
+  VOIDED_DRAFT: {description: "Abandoned before issue (void or re-scope). Frozen lines of its prepare_seqs remain (insert-only) but are unreferenced."}
+transitions:
+  - {from: DRAFT, to: PREPARING, event: prepare_requested, actors: [statement.issue], guards: [single_book_single_currency, period_known, no_other_preparation_running], effects: [create:governance.chargeback_preparation, pin:allocation_publication, launch:dagster_job:chargeback_prepare, emit:bridge.allocation.statement.prepare_requested]}
+  - {from: PREPARING, to: PREPARED, event: preparation_completed, actors: ["system:chargeback-prepare-job"], guards: [lines_digest_reported, conservation_holds], effects: [store_digest, evaluate_preconditions, emit:bridge.allocation.statement.prepared]}
+  - {from: PREPARING, to: DRAFT, event: preparation_failed, actors: ["system:chargeback-prepare-job"], guards: [], effects: [record_failure_code, emit:bridge.allocation.statement.prepare_failed]}
+  - {from: PREPARED, to: PREPARING, event: prepare_requested, actors: [statement.issue], guards: [no_other_preparation_running], effects: [void_open_approvals, create:governance.chargeback_preparation, launch:dagster_job:chargeback_prepare, emit:bridge.allocation.statement.prepare_requested]}
+  - {from: PREPARED, to: REVIEWED, event: reviewed, actors: [statement.issue], guards: [digest_matches_request], effects: [record_reviewer, emit:bridge.allocation.statement.reviewed]}
+  - {from: REVIEWED, to: PREPARING, event: prepare_requested, actors: [statement.issue], guards: [no_other_preparation_running], effects: [void_open_approvals, create:governance.chargeback_preparation, launch:dagster_job:chargeback_prepare, emit:bridge.allocation.statement.prepare_requested]}
+  - {from: REVIEWED, to: APPROVED, event: approved, actors: [statement.issue], guards: [approver_is_not_preparer, digest_matches_request, step_up_recent], effects: [insert:governance.approval, emit:bridge.allocation.statement.approved]}
+  - {from: REVIEWED, to: PREPARED, event: approval_rejected, actors: [statement.issue], guards: [approver_is_not_preparer], effects: [insert:governance.approval, emit:bridge.allocation.statement.rejected]}
+  - {from: APPROVED, to: PREPARING, event: prepare_requested, actors: [statement.issue], guards: [no_other_preparation_running], effects: [void_open_approvals, create:governance.chargeback_preparation, launch:dagster_job:chargeback_prepare, emit:bridge.allocation.statement.prepare_requested]}
+  - {from: APPROVED, to: ISSUED, event: issue_requested, actors: [statement.issue], guards: [approval_valid_at_execution, preconditions_met_or_excepted, ledger_not_stale, digest_matches_request, step_up_recent, not_trial_account_scope], effects: [freeze_header_digest, consume_idempotency_key, request_pdf_render, emit:bridge.allocation.statement.issued]}
+  - {from: ISSUED, to: SUPERSEDED, event: superseded, actors: ["system:chargeback-restatement"], guards: [successor_issued], effects: [set_superseded_by, emit:bridge.allocation.statement.superseded]}
+  - {from: DRAFT, to: VOIDED_DRAFT, event: voided, actors: [statement.issue], guards: [], effects: [emit:bridge.allocation.statement.voided]}
+  - {from: PREPARED, to: VOIDED_DRAFT, event: voided, actors: [statement.issue], guards: [], effects: [emit:bridge.allocation.statement.voided]}
+  - {from: REVIEWED, to: VOIDED_DRAFT, event: voided, actors: [statement.issue], guards: [], effects: [void_open_approvals, emit:bridge.allocation.statement.voided]}
+  - {from: APPROVED, to: VOIDED_DRAFT, event: voided, actors: [statement.issue], guards: [], effects: [void_open_approvals, emit:bridge.allocation.statement.voided]}
+guards:
+  single_book_single_currency: "The preparation covers exactly one book and one ISO-4217 currency; mixed currencies produce separate statements (never summed)."
+  period_known: "period is 'YYYY-MM' of a FIN-010 period of the scope."
+  no_other_preparation_running: "No statement of the same (book, period, currency) is PREPARING (partial unique index)."
+  lines_digest_reported: "The prepare job reported (line_count, rounded_total, lines_sha256) for (statement_id, prepare_seq) and SELECT on the frozen lines reproduces them."
+  conservation_holds: "Σ rounded statement totals of the preparation = rounded book total; Σ rounded lines = statement rounded total; Σ exact lines = Σ exact allocated amount of the pinned allocation publication for the book/period/currency."
+  digest_matches_request: "The request's lines_sha256 equals the header's current digest (prevents acting on a preview that was re-prepared)."
+  approver_is_not_preparer: "decided_by <> prepared_by (default four-eyes, SEC Appendix C.4 REQUIRED, no self-approval); else 403 ALLOC_SELF_APPROVAL_FORBIDDEN."
+  step_up_recent: "Session auth_time within 10 minutes (SEC-102 step-up); else 401 AUTH_STEP_UP_REQUIRED (K2)."
+  approval_valid_at_execution: "SEC-102 require_approval(statement.issue): APPROVED, unexpired, same revision + content hash, approver still holds statement.issue over the book scope."
+  preconditions_met_or_excepted: "Each precondition PASS or covered by a recorded, approved exception: PERIOD_CLOSED (FIN-010 period CLOSED and MONTH_STABLE for the scope), CONTROLS_RECONCILED (required controls RECONCILED), PRICE_BASIS_BILLED (price_basis = BILLED_SOURCE for all lines), SINGLE_BOOK_CURRENCY, FOUR_EYES. Else 409 ALLOC_STATEMENT_PRECONDITION_FAILED with the failing codes."
+  ledger_not_stale: "The close record's allocation publication equals the preparation's pinned publication; else 409 ALLOC_STATEMENT_STALE_LEDGER (re-prepare)."
+  not_trial_account_scope: "No line belongs to an account flagged TRIAL_ACCOUNT (D-35); else 409 ALLOC_STATEMENT_PRECONDITION_FAILED(TRIAL_ACCOUNT_EXCLUDED)."
+  successor_issued: "Version n+1 of the same (book, target, period, currency) reached ISSUED."
+invariants:
+  - "After ISSUED only status→SUPERSEDED, superseded_by_statement_id, superseded_at and the pdf_* columns may change (trigger governance.tg_chargeback_statement_immutable)."
+  - "At most one ISSUED statement per (tenant, book, target_group, period, currency) (partial unique index); corrections either post PRIOR_PERIOD_ADJUSTMENT lines on the next open statement (default NEXT_PERIOD_ADJUSTMENT) or create version n+1 (RESTATEMENT, only after a FIN-010 restate)."
+  - "Frozen lines are insert-only; the Snowflake role used by services has no UPDATE/DELETE privilege on fct_chargeback_statement_line."
+  - "A duplicate issue request (same Idempotency-Key, or statement already ISSUED with the same digest) returns the same statement."
+  - "The statement is labelled 'internal cost statement, not a tax invoice' in every rendering."
+  - "The PDF is stored in S3 with Object Lock GOVERNANCE under retention class RECORD (max(400 days, contract)); download is streamed through the API after re-authorization, never a raw S3 URL."

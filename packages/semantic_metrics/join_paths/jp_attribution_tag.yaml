@@ -1,0 +1,20 @@
+# contract=semantic-join-path:jp_attribution_tag version=1 status=DRAFT owner_task=API-001 decisions=D-05 last_changed=2026-09-28
+# Allowlisted join (API-001-S02 loader rejects any join not declared here).
+id: jp_attribution_tag
+version: 1
+status: ACTIVE
+from_relation: v_attribution_daily
+to_relation: v_tag_assignment
+cardinality: MANY_TO_MANY_EXISTS
+join_type: SEMI
+'on':
+- {from_column: tenant_id, to_column: tenant_id}
+- {from_column: target_kind, to_column: target_kind}
+- {from_column: target_id, to_column: target_id}
+tenant_bound: true
+as_of: {from_time_column: usage_date, valid_from_column: valid_from, valid_to_column: valid_to}
+purpose: EXISTS semi-join restricting attribution rows to resources carrying tag_key (tag_coverage numerator) or tag_pair (tag filter). Never multiplies the measure.
+required_params: [tag_key]
+param_predicates:
+- {to_column: tag_key, param: tag_key}
+owner_task: API-001

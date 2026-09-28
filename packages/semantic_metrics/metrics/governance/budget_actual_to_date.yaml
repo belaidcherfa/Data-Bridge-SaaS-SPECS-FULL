@@ -1,0 +1,39 @@
+# contract=semantic-metric:budget_actual_to_date version=1 status=DRAFT owner_task=GOV-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: budget_actual_to_date
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.budget_actual_to_date.label
+description_key: metric.budget_actual_to_date.description
+population_key: metric.budget_actual_to_date.population
+category: GOVERNANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_budget_daily
+measure:
+  type: SUM
+  column_ref: actual_amount
+  population:
+  - {column: is_complete_day, op: EQ, value: true}
+params:
+- {name: budget_id, type: UUID, required: true, binds_column: budget_id, floating_default: NONE}
+additivity:
+  across_dimensions: LISTED
+  listed_dimensions: [day, week, month]
+  across_time: SUM
+  within_param: budget_id
+  top_n_other: NOT_ALLOWED
+dimensions: [day, week, month]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#budget_actual_to_date
+  child_resolvers: [charge_by_service]
+screen_keys: [budgetactual]
+owner_task: GOV-001
+notes: The same spend (or allocated_spend for team budgets) as the explorer, over complete UTC days of the budget scope.

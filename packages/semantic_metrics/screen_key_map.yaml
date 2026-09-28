@@ -1,0 +1,562 @@
+# contract=screen-key-map version=1 status=DRAFT owner_task=API-001 decisions=D-12,D-20 last_changed=2026-09-28
+# Maps all 176 KPI keys of docs/21-ui-ux (prototypes/finops-react/src/catalog/metrics.json) to a registry metric
+# (+ filters/params) or a named non-registry API (API.md §3.3). Placeholders <…> are fixture ids chosen by each screen contract.
+id: screen_key_map_v1
+version: 1
+registry_version_note: 'Generated check: every design key resolves (API-001 task acceptance).'
+counts: {total: 176, registry_metric: 76, non_registry: 100}
+keys:
+- {key: spend, source: REGISTRY_METRIC, metric: spend, version: 1}
+- {key: warehouse, source: REGISTRY_METRIC, metric: warehouse_compute_cost, version: 1}
+- key: storage
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [STORAGE]
+- key: orgnet
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: scope_kind
+    op: EQ
+    values: [ORGANIZATION]
+- key: accountcost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: scope_kind
+    op: EQ
+    values: [ACCOUNT]
+- key: serverless
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [SERVERLESS]
+- key: cortex
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [AI]
+- key: spcs
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [SPCS]
+- {key: querycompute, source: REGISTRY_METRIC, metric: query_compute_cost, version: 1}
+- {key: idle, source: REGISTRY_METRIC, metric: idle_cost, version: 1}
+- key: dbtcost
+  source: REGISTRY_METRIC
+  metric: query_compute_cost
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [DBT]
+- key: pbicost
+  source: REGISTRY_METRIC
+  metric: query_compute_cost
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [POWER_BI]
+- key: modelcost
+  source: REGISTRY_METRIC
+  metric: query_compute_cost
+  version: 1
+  filters:
+  - dimension: dbt_model
+    op: EQ
+    values: [<dbt_model_key>]
+- key: pipelinecost
+  source: REGISTRY_METRIC
+  metric: attributed_cost
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [TASK]
+- key: analyticsstorage
+  source: REGISTRY_METRIC
+  metric: attributed_cost
+  version: 1
+  filters:
+  - dimension: database
+    op: EQ
+    values: [<database_id>]
+  - dimension: service_category
+    op: EQ
+    values: [STORAGE]
+- key: taskcost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_family
+    op: EQ
+    values: [SERVERLESS_TASK]
+- key: pipecost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_family
+    op: EQ
+    values: [SNOWPIPE_FILE]
+- key: otherServerless
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [SERVERLESS]
+  - dimension: service_family
+    op: NOT_IN
+    values: [SERVERLESS_TASK, SNOWPIPE_FILE]
+- key: aifunctioncost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: ai_family
+    op: EQ
+    values: [AI_FUNCTIONS]
+- key: financealloc
+  source: REGISTRY_METRIC
+  metric: allocated_spend
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<finance_group_id>]
+  params: {book_id: <teams_book_id>}
+- key: marketingalloc
+  source: REGISTRY_METRIC
+  metric: allocated_spend
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<marketing_group_id>]
+  params: {book_id: <teams_book_id>}
+- key: unallocated
+  source: REGISTRY_METRIC
+  metric: unallocated_spend
+  version: 1
+  params: {book_id: <teams_book_id>}
+- {key: eligible, source: REGISTRY_METRIC, metric: query_compute_cost, version: 1}
+- key: financequery
+  source: REGISTRY_METRIC
+  metric: allocated_spend
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<finance_group_id>]
+  - dimension: component_kind
+    op: EQ
+    values: [QUERY_COMPUTE]
+  params: {book_id: <teams_book_id>}
+- key: financeidle
+  source: REGISTRY_METRIC
+  metric: allocated_spend
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<finance_group_id>]
+  - dimension: component_kind
+    op: EQ
+    values: [IDLE]
+  params: {book_id: <teams_book_id>}
+- {key: statementtotal, source: DOMAIN_API, endpoint: ALC-008 chargeback statements / FIN-010 periods and statements APIs, owner_task: ALC-008}
+- key: spcsunallocated
+  source: REGISTRY_METRIC
+  metric: unattributed_cost
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [SPCS]
+- {key: singlequery, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/queries/{account_id}/{query_id}', owner_task: API-104, note: 'Query detail attributes (compute, timing breakdown, rows).'}
+- key: runcost
+  source: REGISTRY_METRIC
+  metric: query_compute_cost
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [DBT]
+- key: pbiactivitycost
+  source: REGISTRY_METRIC
+  metric: query_compute_cost
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [POWER_BI]
+- {key: aicallcost, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/entities/ai_request/{entity_id}', owner_task: API-104, note: 'AI parent request: cost with child components and residual
+    (10 = 4 + 6).'}
+- {key: tokenrate, source: REGISTRY_METRIC, metric: ai_cost_per_million_tokens, version: 1}
+- {key: potential, source: REGISTRY_METRIC, metric: potential_savings, version: 1}
+- {key: teamopportunity, source: REGISTRY_METRIC, metric: potential_savings, version: 1}
+- {key: verifiedsavings, source: REGISTRY_METRIC, metric: realized_savings, version: 1}
+- {key: baseline, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: postcost, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: normalized, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: ledgercompare, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- {key: invoicecompare, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- {key: recondelta, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- key: budget
+  source: REGISTRY_METRIC
+  metric: budget_amount
+  version: 1
+  params: {budget_id: <budget_id>}
+- key: budgetactual
+  source: REGISTRY_METRIC
+  metric: budget_actual_to_date
+  version: 1
+  params: {budget_id: <budget_id>}
+- key: remaining
+  source: REGISTRY_METRIC
+  metric: budget_remaining
+  version: 1
+  params: {budget_id: <budget_id>}
+- key: forecast
+  source: REGISTRY_METRIC
+  metric: forecast_total
+  version: 1
+  params: {budget_id: <budget_id>}
+- key: forecastvariance
+  source: REGISTRY_METRIC
+  metric: forecast_variance
+  version: 1
+  params: {budget_id: <budget_id>}
+- key: burnday
+  source: REGISTRY_METRIC
+  metric: run_rate_daily
+  version: 1
+  params: {budget_id: <budget_id>}
+- {key: incidentvalue, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: threshold, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- key: allocation
+  source: REGISTRY_METRIC
+  metric: allocation_coverage
+  version: 1
+  params: {book_id: <warehouse_book_id>}
+- {key: recon, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- {key: queries, source: REGISTRY_METRIC, metric: query_count, version: 1}
+- {key: p95, source: REGISTRY_METRIC, metric: query_execution_p95, version: 1}
+- {key: failed, source: REGISTRY_METRIC, metric: failed_query_count, version: 1}
+- {key: duration, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/queries/{account_id}/{query_id}', owner_task: API-104, note: 'Query detail attributes (compute, timing breakdown, rows).'}
+- {key: queue, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/queries/{account_id}/{query_id}', owner_task: API-104, note: 'Query detail attributes (compute, timing breakdown, rows).'}
+- {key: rows, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/queries/{account_id}/{query_id}', owner_task: API-104, note: 'Query detail attributes (compute, timing breakdown, rows).'}
+- {key: classified, source: REGISTRY_METRIC, metric: workload_classification_coverage, version: 1}
+- {key: unknown, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized scope
+    and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- key: dbtruns
+  source: REGISTRY_METRIC
+  metric: execution_count
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_INVOCATION]
+- {key: dbtmodels, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized scope
+    and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- key: dbtfail
+  source: REGISTRY_METRIC
+  metric: failed_execution_count
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_INVOCATION]
+- key: runduration
+  source: REGISTRY_METRIC
+  metric: execution_wall_time_sum
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_INVOCATION]
+- {key: runmodels, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/entities/dbt_invocation/{entity_id}', owner_task: WRK-002, note: attributes.model_execution_count of the invocation (distinct
+    linked model executions).}
+- {key: runstatus, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/entities/{kind}/{entity_id}', owner_task: API-104, note: 'Execution entity status (dbt_invocation, pbi_activity, ai_request).'}
+- key: modelruns
+  source: REGISTRY_METRIC
+  metric: execution_count
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_MODEL_EXEC]
+- key: modelp95
+  source: REGISTRY_METRIC
+  metric: execution_duration_p95
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_MODEL_EXEC]
+- key: modelfailure
+  source: REGISTRY_METRIC
+  metric: execution_failure_rate
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [DBT_MODEL_EXEC]
+- key: pbiactivities
+  source: REGISTRY_METRIC
+  metric: execution_count
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [PBI_ACTIVITY]
+- key: pbiqueries
+  source: REGISTRY_METRIC
+  metric: query_count
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [POWER_BI]
+- key: pbiduration
+  source: REGISTRY_METRIC
+  metric: execution_wall_time_sum
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [PBI_ACTIVITY]
+- key: pbiquerycount
+  source: REGISTRY_METRIC
+  metric: query_count
+  version: 1
+  filters:
+  - dimension: workload_type
+    op: EQ
+    values: [POWER_BI]
+- {key: pipelines, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized scope
+    and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- key: pipelinefailure
+  source: REGISTRY_METRIC
+  metric: failed_execution_count
+  version: 1
+  filters:
+  - dimension: execution_kind
+    op: EQ
+    values: [TASK_GRAPH_RUN]
+- {key: lag, source: REGISTRY_METRIC, metric: dynamic_table_lag_p95, version: 1}
+- {key: bytes, source: REGISTRY_METRIC, metric: storage_bytes, version: 1}
+- key: retained
+  source: REGISTRY_METRIC
+  metric: storage_bytes
+  version: 1
+  filters:
+  - dimension: storage_class
+    op: IN
+    values: [TIME_TRAVEL, FAILSAFE, RETAINED_FOR_CLONE]
+- {key: databases, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized scope
+    and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- key: analyticsbytes
+  source: REGISTRY_METRIC
+  metric: storage_bytes
+  version: 1
+  filters:
+  - dimension: database
+    op: EQ
+    values: [<database_id>]
+- key: timeTravel
+  source: REGISTRY_METRIC
+  metric: storage_bytes
+  version: 1
+  filters:
+  - dimension: storage_class
+    op: EQ
+    values: [TIME_TRAVEL]
+- key: failsafe
+  source: REGISTRY_METRIC
+  metric: storage_bytes
+  version: 1
+  filters:
+  - dimension: storage_class
+    op: EQ
+    values: [FAILSAFE]
+- {key: files, source: REGISTRY_METRIC, metric: files_loaded, version: 1}
+- {key: ingested, source: REGISTRY_METRIC, metric: bytes_loaded, version: 1}
+- {key: loadfail, source: DOMAIN_API, endpoint: 'Snowpipe load-failure records (records dataset pipe_load_errors, R1 only once an AU COPY_HISTORY source contract exists — hand-off K3);
+    until then ''—'' NOT_ENABLED', owner_task: API-104}
+- {key: aitokens, source: REGISTRY_METRIC, metric: ai_tokens, version: 1}
+- {key: aiexecutions, source: REGISTRY_METRIC, metric: ai_request_count, version: 1}
+- key: aicoverage
+  source: REGISTRY_METRIC
+  metric: attribution_coverage
+  version: 1
+  filters:
+  - dimension: service_category
+    op: EQ
+    values: [AI]
+- {key: aifunctioncalls, source: REGISTRY_METRIC, metric: ai_request_count, version: 1}
+- {key: aicalltokens, source: REGISTRY_METRIC, metric: ai_tokens, version: 1}
+- {key: aiduration, source: ENTITY_ATTRIBUTE, endpoint: 'GET /v1/entities/ai_request/{entity_id}', owner_task: API-104, note: 'AI parent request: cost with child components and residual
+    (10 = 4 + 6).'}
+- {key: poolcount, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized scope
+    and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- {key: servicecount, source: DIMENSION_COUNT, endpoint: POST /v1/analytics/distinct-counts, owner_task: API-104, note: 'Distinct values of a dimension within the caller''s authorized
+    scope and period (non-additive; HLL beyond hot_days). dbtmodels=dbt_model, pipelines=root task graphs (execution_kind TASK_GRAPH_RUN), poolcount=compute_pool, servicecount=spcs_service,
+    databases=database, unknown=workload with workload_type UNKNOWN.'}
+- {key: poolhours, source: REGISTRY_METRIC, metric: spcs_node_hours, version: 1}
+- key: tagcoverage
+  source: REGISTRY_METRIC
+  metric: tag_coverage
+  version: 1
+  params: {tag_key: <tag_key>}
+- {key: tagrules, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: tagconflicts, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: unowned, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: tagmatches, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: tagbefore, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: tagafter, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- key: financeweight
+  source: REGISTRY_METRIC
+  metric: allocation_share
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<finance_group_id>]
+  params: {book_id: <teams_book_id>}
+- key: marketingweight
+  source: REGISTRY_METRIC
+  metric: allocation_share
+  version: 1
+  filters:
+  - dimension: group
+    op: EQ
+    values: [<marketing_group_id>]
+  params: {book_id: <teams_book_id>}
+- {key: conservation, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- {key: groupbooks, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: groupleaves, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: groupconflicts, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: groupmembers, source: DOMAIN_API, endpoint: ALC-001…ALC-004 APIs (tagbefore/tagafter = ALC-003 simulation job output), owner_task: ALC-003}
+- {key: statementcount, source: DOMAIN_API, endpoint: ALC-008 chargeback statements / FIN-010 periods and statements APIs, owner_task: ALC-008}
+- {key: statementdraft, source: DOMAIN_API, endpoint: ALC-008 chargeback statements / FIN-010 periods and statements APIs, owner_task: ALC-008}
+- {key: close, source: DOMAIN_API, endpoint: ALC-008 chargeback statements / FIN-010 periods and statements APIs, owner_task: ALC-008}
+- {key: reconfailed, source: DOMAIN_API, endpoint: 'FIN-009 reconciliation API (GET /v1/reconciliation/periods/{period})', owner_task: FIN-009}
+- {key: history, source: DOMAIN_API, endpoint: GOV-002 forecast metadata (meta.metric_context.history_complete_days of forecast_total), owner_task: GOV-002}
+- {key: monitors, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: incidents, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: insufficient, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: silenced, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: occurrences, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: incidentage, source: DOMAIN_API, endpoint: GOV-003 / GOV-004 / GOV-008 monitor and incident APIs, owner_task: GOV-003}
+- {key: reporttemplates, source: DOMAIN_API, endpoint: RPT-001…RPT-005 report APIs, owner_task: RPT-005}
+- {key: reportschedules, source: DOMAIN_API, endpoint: RPT-001…RPT-005 report APIs, owner_task: RPT-005}
+- {key: reportfail, source: DOMAIN_API, endpoint: RPT-001…RPT-005 report APIs, owner_task: RPT-005}
+- {key: reportready, source: DOMAIN_API, endpoint: RPT-001…RPT-005 report APIs, owner_task: RPT-005}
+- {key: nextdelivery, source: DOMAIN_API, endpoint: RPT-001…RPT-005 report APIs, owner_task: RPT-005}
+- {key: insightcount, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: highconfidence, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: actionopen, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: actiondone, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: confidence, source: DOMAIN_API, endpoint: 'INS-006 / INS-007 insight, action and savings-study APIs (contracts/openapi/paths/insights.yaml)', owner_task: INS-006}
+- {key: dashboardcount, source: DOMAIN_API, endpoint: CTL-007 saved views / dashboards API, owner_task: CTL-007}
+- {key: sharedviews, source: DOMAIN_API, endpoint: CTL-007 saved views / dashboards API, owner_task: CTL-007}
+- {key: privateviews, source: DOMAIN_API, endpoint: CTL-007 saved views / dashboards API, owner_task: CTL-007}
+- {key: widgets, source: DOMAIN_API, endpoint: CTL-007 saved views / dashboards API, owner_task: CTL-007}
+- {key: coverage, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: sources, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: sourcefailed, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: lastsync, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: batchcount, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: retrycount, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: watermark, source: DOMAIN_API, endpoint: ING-012 Data Health API (contracts/openapi/paths/sync.yaml), owner_task: ING-012}
+- {key: connections, source: DOMAIN_API, endpoint: CON-004 / CON-005 connection and capability APIs, owner_task: CON-005}
+- {key: capabilities, source: DOMAIN_API, endpoint: CON-004 / CON-005 connection and capability APIs, owner_task: CON-005}
+- {key: destinationcount, source: DOMAIN_API, endpoint: GOV-006 destinations API / UX-103 Integration Health summary, owner_task: GOV-006}
+- {key: integrationissues, source: DOMAIN_API, endpoint: GOV-006 destinations API / UX-103 Integration Health summary, owner_task: GOV-006}
+- {key: accounts, source: DOMAIN_API, endpoint: CON-004 / CON-005 connection and capability APIs, owner_task: CON-005}
+- {key: onboardingsteps, source: DOMAIN_API, endpoint: ONB-001 onboarding API, owner_task: ONB-001}
+- {key: members, source: DOMAIN_API, endpoint: CTL-003 tenancy API, owner_task: CTL-003}
+- {key: teams, source: DOMAIN_API, endpoint: CTL-003 tenancy API, owner_task: CTL-003}
+- {key: roles, source: DOMAIN_API, endpoint: CTL-003 tenancy API, owner_task: CTL-003}
+- {key: auditcount, source: DOMAIN_API, endpoint: SEC-008 audit API, owner_task: SEC-008}
+- {key: pendinginvites, source: DOMAIN_API, endpoint: CTL-003 tenancy API, owner_task: CTL-003}
+- {key: sso, source: DOMAIN_API, endpoint: SEC-002 / SEC-003 auth API, owner_task: SEC-002}
+- {key: mfa, source: DOMAIN_API, endpoint: SEC-002 / SEC-003 auth API, owner_task: SEC-002}
+- {key: sessions, source: DOMAIN_API, endpoint: SEC-002 / SEC-003 auth API, owner_task: SEC-002}
+- {key: securityevents, source: DOMAIN_API, endpoint: SEC-008 audit API, owner_task: SEC-008}
+- {key: auditactors, source: DOMAIN_API, endpoint: SEC-008 audit API, owner_task: SEC-008}
+- {key: auditfail, source: DOMAIN_API, endpoint: SEC-008 audit API, owner_task: SEC-008}
+- {key: auditretention, source: DOMAIN_API, endpoint: SEC-008 audit API, owner_task: SEC-008}
+- {key: sanitized, source: DOMAIN_API, endpoint: SEC-007 privacy-mode API / OPS-005 retention, owner_task: SEC-007}
+- {key: rawsql, source: DOMAIN_API, endpoint: SEC-007 privacy-mode API / OPS-005 retention, owner_task: SEC-007}
+- {key: retention, source: DOMAIN_API, endpoint: SEC-007 privacy-mode API / OPS-005 retention, owner_task: SEC-007}
+- {key: privacyexceptions, source: DOMAIN_API, endpoint: SEC-007 privacy-mode API / OPS-005 retention, owner_task: SEC-007}
+- {key: deliverysuccess, source: DOMAIN_API, endpoint: GOV-007 delivery API, owner_task: GOV-007}
+- {key: deliveryfailed, source: DOMAIN_API, endpoint: GOV-007 delivery API, owner_task: GOV-007}
+- {key: deliverypending, source: DOMAIN_API, endpoint: GOV-007 delivery API, owner_task: GOV-007}
+- {key: subscription, source: DOMAIN_API, endpoint: LCH-001 commercial API, owner_task: LCH-001}
+- {key: billingstatus, source: DOMAIN_API, endpoint: LCH-001 commercial API, owner_task: LCH-001}
+- {key: billingcontacts, source: DOMAIN_API, endpoint: LCH-001 commercial API, owner_task: LCH-001}
+- {key: renewal, source: DOMAIN_API, endpoint: LCH-001 commercial API, owner_task: LCH-001}
+- {key: supportopen, source: DOMAIN_API, endpoint: 'UX-102 support page (support API, OPS-106)', owner_task: UX-102}
+- {key: supportresolved, source: DOMAIN_API, endpoint: 'UX-102 support page (support API, OPS-106)', owner_task: UX-102}
+- key: appfees
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: service_family
+    op: EQ
+    values: [MARKETPLACE]
+- key: aisearchcost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: ai_family
+    op: EQ
+    values: [CORTEX_SEARCH]
+- key: aianalystcost
+  source: REGISTRY_METRIC
+  metric: spend
+  version: 1
+  filters:
+  - dimension: ai_family
+    op: EQ
+    values: [CORTEX_ANALYST]
+- key: spcsservicecost
+  source: REGISTRY_METRIC
+  metric: attributed_cost
+  version: 1
+  filters:
+  - dimension: spcs_service
+    op: EQ
+    values: [<spcs_service_id>]
+- {key: utilization, source: REGISTRY_METRIC, metric: warehouse_utilization, version: 1}
+- {key: unavailable, source: NULL_EXEMPLAR, endpoint: —, owner_task: API-003, note: 'Null-reason exemplar, not a metric: renders ''—'' + reason.'}

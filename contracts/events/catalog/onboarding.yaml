@@ -1,0 +1,128 @@
+# contract=event-catalog-onboarding version=1 status=DRAFT owner_task=ONB-001 decisions=D-08,D-17,D-35,D-38 last_changed=2026-09-28
+# Event catalog of the `onboarding` domain (event types bridge.onboarding.*). Envelope: contracts/common/event-envelope.schema.json.
+# privacy = envelope privacy class; ordering AGGREGATE = FIFO per (aggregate_type, aggregate_id) (CTL-101 outbox ordering column);
+# tenant_scoped false = platform event (envelope tenant_id null). Payloads carry IDs and versions only.
+domain: onboarding
+version: 1
+events:
+- type: bridge.onboarding.run.started
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.run.started.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - onboarding-projector
+  - saas-lifecycle (K10)
+  - ops-metrics
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: An onboarding run was created (POST /v1/onboarding/runs).
+- type: bridge.onboarding.run.paused
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.run.paused.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - onboarding-projector
+  - sync-scheduler (K3)
+  - saas-lifecycle (K10)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: The run was paused by a member or by subscription suspension; sync pause is delegated to CON-006/ING-010.
+- type: bridge.onboarding.run.resumed
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.run.resumed.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - onboarding-projector
+  - sync-scheduler (K3)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: A paused run was resumed.
+- type: bridge.onboarding.run.first_value_accepted
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.run.first_value_accepted.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - saas-lifecycle (K10)
+  - ops-metrics
+  - launch-review (LCH-004)
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-005
+  description: FV-1 was accepted (ONB-005-S07). No customer data; the signed record is private.
+- type: bridge.onboarding.run.abandoned
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.run.abandoned.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - saas-lifecycle (K10)
+  - ops-metrics
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: The run ended without FV-1.
+- type: bridge.onboarding.step.status_changed
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.step.status_changed.v1.schema.json
+  aggregate: onboarding_run
+  producer: onboarding-projector
+  consumers:
+  - web-notifications (K10)
+  - ops-metrics
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: A projected step status changed (emitted only on change, never on identical recomputation).
+- type: bridge.onboarding.acknowledgement.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.acknowledgement.recorded.v1.schema.json
+  aggregate: onboarding_run
+  producer: api
+  consumers:
+  - onboarding-projector
+  - audit-exporter
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: A bound acknowledgement was appended (consent, gap acceptance, limitation, skip, attestation, FV-1).
+- type: bridge.onboarding.intervention.recorded
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.intervention.recorded.v1.schema.json
+  aggregate: onboarding_run
+  producer: ops-api
+  consumers:
+  - product-backlog-bridge
+  - ops-metrics
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-001
+  description: An operator action during onboarding was recorded as a manual intervention (G-ONB-05).
+- type: bridge.onboarding.offboarding.requested
+  schema_version: 1
+  schema: ../schemas/bridge.onboarding.offboarding.requested.v1.schema.json
+  aggregate: tenant
+  producer: api
+  consumers:
+  - tenant-lifecycle (CTL-102, K2)
+  - connection-lifecycle (CON-006, K3)
+  - privacy-orchestrator
+  privacy: NONE
+  ordering: AGGREGATE
+  tenant_scoped: true
+  owner_task: ONB-102
+  description: The Organization Owner confirmed offboarding (ONB-102-S03); CTL-102 moves the tenant to OFFBOARDING and the TENANT_DELETION request waits for the export window.

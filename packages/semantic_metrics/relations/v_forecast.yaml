@@ -1,0 +1,71 @@
+# contract=semantic-relation:v_forecast version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_forecast
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_forecast
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: Python forecast outputs published two-phase (ADR-014 §8, input_pub_seq). Method, interval and history are returned in meta.metric_context.
+serving_view: bridge.serving.serving_forecast
+dataset_id: forecast
+dbt_model: serving_forecast
+upstream_owner_tasks: [GOV-002, ORC-103]
+grain_keys: [tenant_id, forecast_row_key]
+tenant_column: tenant_id
+time: {column: as_of_date, type: DATE, grain: DAY, period_semantics: AS_OF_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_GROUP_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id, book_id, group_id]
+  readable_by: GROUP_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account, group_set, group]
+currency_column: currency
+data_status_column: data_status
+required_sources: []
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: forecast_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL}
+- {name: budget_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: scope_hash, type: VARCHAR(64), nullable: false, role: DIMENSION, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: account_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: book_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: group_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: as_of_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL, description: Last complete UTC day of actuals used.}
+- {name: period_start, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: period_end, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: actual_to_date, type: 'NUMBER(38,12)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: modeled_remaining, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: forecast_total, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: actual_to_date + modeled_remaining; NULL with INSUFFICIENT_DATA when history
+    < 3 complete days.}
+- {name: interval_low, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: interval_high, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- name: method
+  type: VARCHAR(16)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [RUN_RATE, SEASONAL_NAIVE, ETS, LINEAR_TREND]
+- {name: model_version, type: VARCHAR, nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- {name: history_complete_days, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: input_pub_seq, type: 'NUMBER(38,0)', nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- name: forecast_status
+  type: VARCHAR(24)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [OK, INSUFFICIENT_HISTORY, FAILED]
+- {name: currency, type: VARCHAR(3), nullable: false, role: DIMENSION, privacy: INTERNAL, description: ISO 4217 currency of the money columns of the row.}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

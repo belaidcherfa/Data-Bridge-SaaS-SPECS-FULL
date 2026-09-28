@@ -1,0 +1,41 @@
+# contract=semantic-dimension:account version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: account
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.account.label
+description_key: dimension.account.description
+group: BILLING
+kind: ENTITY
+value_type: UUID
+cardinality_class: MEDIUM
+entitlement: {is_entitlement_dimension: true, scope_grammar_dimension: account}
+privacy: {class: CUSTOMER_METADATA}
+hierarchy: {parent: organization, level: 1}
+filter_ops: [EQ, IN, NOT_IN, IS_NULL]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 0, max_results: 20, source_relation: v_dim_account, match_column: account_name}
+label: {source: DICTIONARY_RELATION, relation: v_dim_account, key_column: account_id, label_column: account_name}
+bindings:
+- {relation: v_charge_daily, column_ref: account_id}
+- {relation: v_attribution_daily, column_ref: account_id}
+- {relation: v_allocation_daily, column_ref: account_id}
+- {relation: v_allocation_coverage_daily, column_ref: account_id}
+- {relation: v_query_exec, column_ref: account_id}
+- {relation: v_query_family_daily, column_ref: account_id}
+- {relation: v_storage_daily, column_ref: account_id}
+- {relation: v_budget_daily, column_ref: account_id}
+- {relation: v_insight_summary, column_ref: account_id}
+- {relation: v_workload_exec, column_ref: account_id}
+- {relation: v_ai_usage, column_ref: account_id}
+- {relation: v_dim_account, column_ref: account_id}
+- {relation: v_dim_resource, column_ref: account_id}
+- {relation: v_dim_workload, column_ref: account_id}
+- {relation: v_dim_dbt_model, column_ref: account_id}
+- {relation: v_charge_source_set, column_ref: account_id}
+- {relation: v_tag_assignment, column_ref: account_id}
+- {relation: v_forecast, column_ref: account_id}
+sortable: true
+owner_task: API-001
+notes: NULL account = organization-scope charge (D-12), rendered with the __ORGANIZATION__ sentinel label; readable only with an organization-level grant (G-FIN-25).

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.release.status_changed:v1",
+  "$comment": "contract=event-bridge.ops.release.status_changed version=1 status=DRAFT owner_task=REL-001 decisions=D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.release.status_changed v1 payload",
+  "description": "A release changed status (release.yaml). Platform event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "release_id",
+    "version",
+    "from_status",
+    "to_status",
+    "event",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "release_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "version": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(rc|build)\\.[1-9][0-9]*)?$"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "BUILT",
+        "STAGING",
+        "VERIFIED",
+        "REJECTED",
+        "CANDIDATE",
+        "NO_GO",
+        "APPROVED_FOR_PRODUCTION",
+        "PRODUCTION",
+        "ROLLED_BACK",
+        "SUPERSEDED",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "BUILT",
+        "STAGING",
+        "VERIFIED",
+        "REJECTED",
+        "CANDIDATE",
+        "NO_GO",
+        "APPROVED_FOR_PRODUCTION",
+        "PRODUCTION",
+        "ROLLED_BACK",
+        "SUPERSEDED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "event": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[a-z_]+$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "examples": [
+    {
+      "release_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e37",
+      "version": "v1.0.0-rc.3",
+      "from_status": "CANDIDATE",
+      "to_status": "APPROVED_FOR_PRODUCTION",
+      "event": "go_decided",
+      "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

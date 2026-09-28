@@ -1,0 +1,431 @@
+# contract=source-contract:AU_TAG_REFERENCES version=1.0.0 status=DRAFT owner_task=ING-103 decisions=D-10,D-15,D-16,D-20,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_TAG_REFERENCES
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-103
+decisions:
+- D-10
+- D-15
+- D-16
+- D-20
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage TAG_REFERENCES (daily snapshot, Enterprise)
+description: 'Native object tags for allocation rules (ALC-001, G-ALC-11); Enterprise-gated (Standard edition has no native tags: NOT_SUPPORTED).'
+family: GOVERNANCE
+module: TAGS
+module_requirement: OPTIONAL
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/tag_references
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.GOVERNANCE_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: VERIFIED_SNIPPET
+edition_gate:
+  minimum_edition: ENTERPRISE
+  verification: VERIFIED_SNIPPET
+feature_gate: null
+projection:
+- name: TAG_DATABASE
+  transport_name: tag_database
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: TAG_SCHEMA
+  transport_name: tag_schema
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: TAG_ID
+  transport_name: tag_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: TAG_NAME
+  transport_name: tag_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: TAG_VALUE
+  transport_name: tag_value_sanitized
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: SANITIZE_TAG
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - ALC-001
+  description: E-mail-like values replaced by e1_ pseudonyms (D-10); other values kept (allocation dimension).
+- name: OBJECT_DATABASE
+  transport_name: object_database
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: OBJECT_SCHEMA
+  transport_name: object_schema
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: OBJECT_ID
+  transport_name: object_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: OBJECT_NAME
+  transport_name: object_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: OBJECT_DELETED
+  transport_name: object_deleted
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: DOMAIN
+  transport_name: domain
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: COLUMN_ID
+  transport_name: column_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: COLUMN_NAME
+  transport_name: column_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: COLUMN_ID_KEY
+  transport_name: column_id_key
+  expression: COALESCE(COLUMN_ID, -1)
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Non-null key component (-1 = object-level tag).
+- name: APPLY_METHOD
+  transport_name: apply_method
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+extractor_columns: []
+extension_schemas: []
+watermark_mode: SNAPSHOT
+watermark_column: null
+pruning_column: null
+pruning_horizon_days: null
+predicate_template: null
+pending_refresh: null
+horizon_alarm_days: null
+cycle: DAILY_0300
+window_steady_seconds: 86400
+first_delay_seconds: 0
+settle_seconds: 0
+extraction_order_rank: 90
+semantics: SNAPSHOT
+key: []
+partition_key: null
+snapshot_key:
+- tag_id
+- object_id
+- domain
+- column_id_key
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: true
+  zero_rows: true
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy: []
+backfill_supported: false
+backfill_chunk_seconds: null
+min_chunk_seconds: null
+max_chunk_seconds: null
+backfill_split_rows_threshold: null
+sizing_query: null
+retention_days: null
+retention_basis: SNAPSHOT_FROM_ENROLLMENT
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: FINANCIAL
+journal_retention_days: 400
+raw_retention_days: 400
+query_detail_tiering: null
+documented_latency_seconds: 7200
+latency_verification: TO_VERIFY_LIVE
+maturity:
+  data_final_horizon_seconds: null
+  attribution_final_horizon_seconds: null
+  attribution_horizon_rule: null
+  month_stability_days: null
+  horizon_basis: CAPTURE_TIME
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_TAG_REFERENCES version=0
+health:
+  expected_lag_seconds: 86400
+  grace_seconds: 21600
+  delayed_after_seconds: 108000
+  stale_after_seconds: 216000
+authority:
+  measure_roles:
+  - INVENTORY
+  service_families: []
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: null
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: SNAPSHOT_COUNT
+  may_be_empty: false
+  canary: false
+  timeout_seconds: 30
+  predicate_template: null
+transport_schema:
+  version: '1.0'
+  fingerprint: 0d3a61bbee0cd7b4033e1c91f50669ca309e419fa34e8c461e65420c14279630
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: GOVERNANCE_VIEWER covers TAG_REFERENCES.
+  status: VERIFIED_SNIPPET
+  evidence: G-CON-02
+- fact: Standard edition returns NOT_SUPPORTED/denied for native tags.
+  status: TO_VERIFY_LIVE
+  verify_in: ING-103-S05
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- PRE_ENROLLMENT_UNAVAILABLE
+- SILENT_EMPTY_SUSPECT
+- PRIVACY_SENTINEL
+- EDITION_GATED_NOT_SUPPORTED
+adapter_override: null
+notes:
+- 'Snapshot source: each capture is one batch (capture id = source_batch_id); history exists only after the first capture (pre-enrollment intervals are UNAVAILABLE
+  with reason PRE_ENROLLMENT, never inferred). A 0-row capture while the previous capture had rows is SUSPECT (suspect guard, zero_rows).'

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.entitlement.changed:v1",
+  "$comment": "contract=event-bridge.commercial.entitlement.changed version=1 status=DRAFT owner_task=LCH-101 decisions=D-17,D-35 last_changed=2026-09-28",
+  "title": "bridge.commercial.entitlement.changed v1 payload",
+  "description": "A new entitlement version became ACTIVE; caches are invalidated by epoch (<= 30 s, LCH-101-S05).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entitlement_id",
+    "entitlement_version",
+    "previous_entitlement_id",
+    "plan_id",
+    "plan_version",
+    "overrides",
+    "effective_from"
+  ],
+  "properties": {
+    "entitlement_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "entitlement_version": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "previous_entitlement_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "plan_version": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "overrides": {
+      "type": "array",
+      "x-privacy": "INTERNAL",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "quota_key",
+          "limit_value"
+        ],
+        "properties": {
+          "quota_key": {
+            "type": "string",
+            "enum": [
+              "connected_accounts",
+              "demo_trial_accounts",
+              "users",
+              "history_days",
+              "query_detail_days",
+              "report_schedules",
+              "api_clients",
+              "heavy_jobs_concurrent",
+              "backfills_concurrent"
+            ],
+            "x-privacy": "INTERNAL"
+          },
+          "limit_value": {
+            "type": "integer",
+            "x-privacy": "INTERNAL",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "entitlement_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e22",
+      "entitlement_version": 2,
+      "previous_entitlement_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e23",
+      "plan_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e21",
+      "plan_version": 2,
+      "overrides": [
+        {
+          "quota_key": "connected_accounts",
+          "limit_value": 6
+        }
+      ],
+      "effective_from": "2026-11-01T00:00:00.000Z"
+    }
+  ]
+}

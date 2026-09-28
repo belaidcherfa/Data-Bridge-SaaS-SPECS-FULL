@@ -1,0 +1,76 @@
+# contract=semantic-records:storage_objects version=1 status=DRAFT owner_task=UX-006 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: storage_objects
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.storage_objects.label
+relation: v_storage_daily
+tier: FULL
+row_key: [storage_row_key]
+default_sort:
+- {column: average_bytes, direction: DESC}
+page_max: 200
+sync_max_range_days: 92
+privacy: {capability: analytics.read}
+columns:
+- id: usage_date
+  column_ref: usage_date
+  type: DATE
+  label_key: records.storage_objects.column.usage_date
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.storage_objects.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: database
+  column_ref: database_id
+  type: UUID
+  label_key: records.storage_objects.column.database
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: database
+- id: schema
+  column_ref: schema_id
+  type: UUID
+  label_key: records.storage_objects.column.schema
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: schema
+- id: storage_object_kind
+  column_ref: storage_object_kind
+  type: ENUM
+  label_key: records.storage_objects.column.storage_object_kind
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: storage_class
+  column_ref: storage_class
+  type: ENUM
+  label_key: records.storage_objects.column.storage_class
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: storage_class
+- id: average_bytes
+  column_ref: average_bytes
+  type: BYTES
+  label_key: records.storage_objects.column.average_bytes
+  sortable: true
+  filter_ops: []
+- id: is_dropped
+  column_ref: is_dropped
+  type: BOOLEAN
+  label_key: records.storage_objects.column.is_dropped
+  sortable: false
+  filter_ops: [EQ]
+- id: first_observed_date
+  column_ref: first_observed_date
+  type: DATE
+  label_key: records.storage_objects.column.first_observed_date
+  sortable: false
+  filter_ops: []
+owner_task: UX-006
+notes: Byte gauges per object and class (UX-006); never multiplied into money in the UI.

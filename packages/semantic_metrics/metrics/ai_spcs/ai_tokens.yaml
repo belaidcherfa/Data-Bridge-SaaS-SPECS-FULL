@@ -1,0 +1,33 @@
+# contract=semantic-metric:ai_tokens version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: ai_tokens
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.ai_tokens.label
+description_key: metric.ai_tokens.description
+population_key: metric.ai_tokens.population
+category: AI_SPCS
+unit: {kind: TOKENS, currency_policy: NOT_APPLICABLE, quantity_unit: TOKEN, display_hint: INTEGER}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: ai_tokens
+  population:
+  - {column: service_family, op: EQ, value: AI_SERVICES}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, ai_family, ai_model, warehouse, user, data_status, currency]
+required_sources: [au.cortex_ai_functions_usage_history]
+capability_flags: [ai.token_units]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {empty_population: ZERO, capability_missing_reason: NOT_SUPPORTED}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#ai_tokens
+  child_resolvers: [attribution_by_target]
+screen_keys: [aitokens, aicalltokens]
+owner_task: API-001
+notes: Native token units by family; families that do not emit tokens (e.g. Cortex Search) return null NOT_SUPPORTED, never 0.

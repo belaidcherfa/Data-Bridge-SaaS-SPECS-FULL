@@ -1,0 +1,80 @@
+# contract=semantic-relation:v_insight_summary version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_insight_summary
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_insight_summary
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: Deduplicated opportunities (estimates) and verified realized savings. Potential and realized are separate metrics and are never added (FOUNDATIONS financial vocabulary).
+serving_view: bridge.serving.serving_insight_summary
+dataset_id: insight_summary
+dbt_model: serving_insight_summary
+upstream_owner_tasks: [INS-001, INS-006, INS-007]
+grain_keys: [tenant_id, insight_row_key]
+tenant_column: tenant_id
+time: {column: period_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: []
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: insight_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL}
+- name: row_kind
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [OPPORTUNITY, REALIZED]
+- {name: period_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL, description: 'OPPORTUNITY rows: snapshot date; REALIZED rows: measurement window end date.'}
+- {name: insight_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: opportunity_group, type: VARCHAR(64), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Dedup group of mutually incompatible opportunities.}
+- {name: detector_id, type: VARCHAR, nullable: false, role: DIMENSION, privacy: INTERNAL}
+- {name: detector_version, type: 'NUMBER(38,0)', nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: Internal account id; NULL iff scope_kind = ORGANIZATION (D-12).}
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: workload_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: confidence
+  type: VARCHAR(8)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [HIGH, MEDIUM, LOW]
+- {name: insight_status, type: VARCHAR, nullable: false, role: STATUS, privacy: INTERNAL}
+- {name: is_current_snapshot, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: is_dedup_representative, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: potential_point, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: potential_low, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: potential_high, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: action_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: study_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: realized_amount, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Verified normalized savings; negative allowed (adverse).}
+- name: realized_status
+  type: VARCHAR(24)
+  nullable: true
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [VERIFIED, PENDING, INSUFFICIENT_DATA]
+- {name: is_counted_realized, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: TRUE for non-overlapping action scopes/windows (INS-007).}
+- {name: measurement_window_start, type: DATE, nullable: true, role: TIME, privacy: INTERNAL}
+- {name: measurement_window_end, type: DATE, nullable: true, role: TIME, privacy: INTERNAL}
+- {name: currency, type: VARCHAR(3), nullable: false, role: DIMENSION, privacy: INTERNAL, description: ISO 4217 currency of the money columns of the row.}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

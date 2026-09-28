@@ -1,0 +1,180 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OnlyProvisionerMutatesRuntimeRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:UpdateRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateRoleDescription"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*",
+        "arn:aws:iam::*:role/bridge-*-srv-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-*-identity-provisioner",
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ConnRolesRequireConnBoundary",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*"
+      ],
+      "Condition": {
+        "StringNotLike": {
+          "iam:PermissionsBoundary": [
+            "arn:aws:iam::*:policy/bridge-*-conn-boundary"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "SrvRolesRequireSrvBoundary",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-srv-*"
+      ],
+      "Condition": {
+        "StringNotLike": {
+          "iam:PermissionsBoundary": [
+            "arn:aws:iam::*:policy/bridge-*-srv-boundary"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NoBoundaryRemoval",
+      "Effect": "Deny",
+      "Action": [
+        "iam:DeleteRolePermissionsBoundary"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*",
+        "arn:aws:iam::*:role/bridge-*-srv-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "OnlyOwnSplitPoliciesAttach",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*",
+        "arn:aws:iam::*:role/bridge-*-srv-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::*:policy/bridge-*-conn-*-s3-part-*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "BoundaryPoliciesImmutable",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:policy/bridge-*-conn-boundary",
+        "arn:aws:iam::*:policy/bridge-*-srv-boundary",
+        "arn:aws:iam::*:policy/bridge-*-revoked-deny"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_BridgeAdmin_*",
+            "arn:aws:iam::*:role/bridge-break-glass"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "NoHumanOrServiceAssumesConnRoles",
+      "Effect": "Deny",
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession",
+        "sts:SetSourceIdentity"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*"
+      ]
+    },
+    {
+      "Sid": "OnlyBrokerAssumesSrvRoles",
+      "Effect": "Deny",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-srv-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-*-query-broker"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "OnlyLauncherPassesConnRoles",
+      "Effect": "Deny",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/bridge-*-conn-*"
+      ],
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/bridge-*-extraction-launcher"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+# contract=semantic-metric:query_failure_rate version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: query_failure_rate
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.query_failure_rate.label
+description_key: metric.query_failure_rate.description
+population_key: metric.query_failure_rate.population
+category: PERFORMANCE
+unit: {kind: RATIO, currency_policy: NOT_APPLICABLE, display_hint: PERCENT}
+relation: v_query_exec
+measure:
+  type: RATIO
+  numerator:
+    aggregate: COUNT
+    column_ref: '*'
+    population:
+    - {column: status_class, op: EQ, value: FAILED}
+  denominator:
+    aggregate: COUNT
+    column_ref: '*'
+    population:
+    - column: status_class
+      op: IN
+      values: [SUCCEEDED, FAILED]
+aggregate_binding:
+  relation: v_query_family_daily
+  measure:
+    type: RATIO
+    numerator: {aggregate: SUM, column_ref: failed_count}
+    denominator: {aggregate: SUM, column_ref: succeeded_failed_count}
+  unsupported_dimensions: [database, user, role, client_application, dbt_model, dbt_resource_type, pbi_mode, evidence_class, query_status, execution_kind]
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, warehouse, warehouse_type, warehouse_size, database, user, role, client_application, workload_type, workload, environment, dbt_project,
+  dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class, execution_kind]
+required_sources: [au.query_history, au.query_attribution_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_query_exec, requires: SAME_AS_NUMERATOR, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#query_failure_rate
+  child_resolvers: [formula_operands]
+owner_task: API-001
+notes: failed / (succeeded + failed); cancelled excluded; taxonomy versioned.

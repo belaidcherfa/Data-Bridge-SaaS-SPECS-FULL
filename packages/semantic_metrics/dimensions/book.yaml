@@ -1,0 +1,25 @@
+# contract=semantic-dimension:book version=1 status=DRAFT owner_task=ALC-102 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: book
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.book.label
+description_key: dimension.book.description
+group: OWNERSHIP
+kind: ENTITY
+value_type: UUID
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: DICTIONARY_RELATION, relation: v_dim_group, key_column: book_id, label_column: book_name}
+bindings:
+- {relation: v_allocation_daily, column_ref: book_id}
+- {relation: v_allocation_coverage_daily, column_ref: book_id}
+- {relation: v_budget_daily, column_ref: book_id}
+sortable: true
+owner_task: ALC-102
+notes: Allocation book; allocation metrics take it as the required parameter book_id and are additive within one book only.

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:infra:service-catalog:v1",
+  "$comment": "contract=service-catalog-schema version=1 status=DRAFT owner_task=INF-005 decisions=D-07,D-22,D-28,D-33 last_changed=2026-09-28. Validates infra/services.yaml. Terraform (stack 50-compute) renders ECS task definitions and services with for_each over `services`; INF-007-S05 renders task definitions with image digests from the release manifest. CI rule: every ECS family in Terraform maps to exactly one entry; every entry's roles, security groups and secrets exist in infra/iam/ and infra/network/sg-matrix.yaml.",
+  "title": "ECS service catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "defaults", "services"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_architecture", "user", "readonly_root_filesystem", "init_process_enabled", "stop_timeout_s", "log_retention_days", "deployment"],
+      "properties": {
+        "cpu_architecture": {"const": "ARM64"},
+        "user": {"const": "10001"},
+        "readonly_root_filesystem": {"const": true},
+        "init_process_enabled": {"const": true},
+        "tmpfs": {"type": "array", "items": {"type": "object", "required": ["path", "size_mib"], "properties": {"path": {"type": "string"}, "size_mib": {"type": "integer", "minimum": 16}}}},
+        "stop_timeout_s": {"type": "integer", "minimum": 2, "maximum": 120},
+        "log_retention_days": {"type": "object", "required": ["dev", "staging", "prod"], "properties": {"dev": {"const": 7}, "staging": {"const": 30}, "prod": {"const": 90}}},
+        "deployment": {"$ref": "#/$defs/deployment"},
+        "image_repo_prefix": {"type": "string"},
+        "role_name_pattern": {"type": "string"},
+        "exec_role_name_pattern": {"type": "string"}
+      }
+    },
+    "services": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/service"}
+    }
+  },
+  "$defs": {
+    "env_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["desired", "min", "max"],
+      "properties": {
+        "desired": {"type": "integer", "minimum": 0},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": "integer", "minimum": 0}
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_healthy_percent", "maximum_percent", "circuit_breaker_rollback"],
+      "properties": {
+        "minimum_healthy_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "maximum_percent": {"type": "integer", "minimum": 100, "maximum": 200},
+        "circuit_breaker_rollback": {"type": "boolean"}
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "owner_task", "package", "image_repo", "cpu", "memory_mib", "counts", "task_role", "execution_role", "security_groups", "health_check", "spot_eligible", "ephemeral_storage_gib", "description"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,40}$"},
+        "kind": {"type": "string", "enum": ["SERVICE", "TASK_FAMILY", "ONE_OFF", "SCHEDULED_TASK"], "description": "SERVICE = long-running ECS service; TASK_FAMILY = task definition started by another component (launcher, Dagster EcsRunLauncher, operator); ONE_OFF = pipeline-started single task (migrations); SCHEDULED_TASK = EventBridge Scheduler RunTask."},
+        "description": {"type": "string", "maxLength": 400},
+        "owner_task": {"type": "string", "pattern": "^[A-Z]{2,4}-[0-9]{3}(-S[0-9]{2})?(, [A-Z]{2,4}-[0-9]{3}(-S[0-9]{2})?)*$"},
+        "package": {"type": "string", "pattern": "^(apps|services|tools)/[a-z0-9_]+$", "description": "Workspace package from docs/development/packages.yaml built into the image."},
+        "image_repo": {"type": "string", "pattern": "^bridge/[a-z][a-z0-9-]+$"},
+        "command": {"type": "array", "items": {"type": "string"}},
+        "cpu": {"type": "integer", "enum": [256, 512, 1024, 2048, 4096]},
+        "memory_mib": {"type": "integer", "minimum": 512, "maximum": 30720},
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dev", "staging", "prod"],
+          "properties": {"dev": {"$ref": "#/$defs/env_counts"}, "staging": {"$ref": "#/$defs/env_counts"}, "prod": {"$ref": "#/$defs/env_counts"}},
+          "description": "For SERVICE: ECS desired/min/max tasks. For TASK_FAMILY/ONE_OFF/SCHEDULED_TASK: max = maximum concurrently running tasks enforced by the launching component; desired/min = 0."
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "port", "protocol", "exposed_via"],
+            "properties": {
+              "name": {"type": "string"},
+              "port": {"type": "integer", "minimum": 1024, "maximum": 65535},
+              "protocol": {"type": "string", "enum": ["HTTP", "HTTPS", "GRPC", "TCP"]},
+              "exposed_via": {"type": "string", "enum": ["INTERNAL_ALB", "INTERNAL_ALB_PRIVATE_LISTENER", "VPC_LATTICE_IAM", "SERVICE_CONNECT", "SSM_PORT_FORWARD"]}
+            }
+          }
+        },
+        "health_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {"type": "string", "enum": ["HTTP", "COMMAND", "NONE"]},
+            "path": {"type": "string", "pattern": "^/[a-z/_-]*$"},
+            "command": {"type": "array", "items": {"type": "string"}},
+            "interval_s": {"type": "integer", "minimum": 5, "maximum": 300},
+            "timeout_s": {"type": "integer", "minimum": 2, "maximum": 60},
+            "retries": {"type": "integer", "minimum": 1, "maximum": 10},
+            "start_period_s": {"type": "integer", "minimum": 0, "maximum": 300}
+          }
+        },
+        "task_role": {"type": "string", "pattern": "^bridge-\\{env\\}-[a-z0-9-]+$"},
+        "task_role_override": {"type": "string", "description": "Only for the extractor family: role supplied per RunTask by the extraction launcher.", "pattern": "^bridge-\\{env\\}-conn-\\{uuid32\\}$"},
+        "execution_role": {"type": "string", "pattern": "^bridge-\\{env\\}-[a-z0-9-]+-exec$"},
+        "policy_file": {"type": "string", "pattern": "^infra/iam/policies/task-[a-z0-9-]+\\.json$"},
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["env_var", "secret_name", "injected_by"],
+            "properties": {
+              "env_var": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+              "secret_name": {"type": "string", "pattern": "^bridge/\\{env\\}/[a-z0-9/_-]+$"},
+              "injected_by": {"type": "string", "enum": ["EXECUTION_ROLE", "TASK_ROLE_RUNTIME"]}
+            }
+          }
+        },
+        "security_groups": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sg-[a-z0-9-]+$"}},
+        "autoscaling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metric", "target"],
+          "properties": {
+            "metric": {"type": "string", "enum": ["CPU", "MEMORY", "ALB_REQUESTS_PER_TARGET", "SQS_BACKLOG_PER_TASK", "PG_JOB_BACKLOG_PER_TASK", "NONE"]},
+            "target": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+            "queue": {"type": "string"}
+          }
+        },
+        "deployment": {"$ref": "#/$defs/deployment"},
+        "stop_timeout_s": {"type": "integer", "minimum": 2, "maximum": 120},
+        "ephemeral_storage_gib": {"type": "integer", "minimum": 20, "maximum": 200},
+        "spot_eligible": {"type": "string", "enum": ["NO", "YES", "BACKFILL_ONLY"]},
+        "exec_enabled": {"type": "boolean", "default": false},
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["db_user", "auth"],
+          "properties": {
+            "db_user": {"type": "string", "pattern": "^[a-z_]+$"},
+            "database": {"type": "string", "enum": ["bridge_control", "dagster_meta"]},
+            "auth": {"type": "string", "enum": ["IAM_TOKEN", "SECRETS_MANAGER_ROTATED"]}
+          },
+          "description": "Pool sizes live in infra/capacity/pg-pool-budget.yaml."
+        },
+        "snowflake_user": {"type": "string", "pattern": "^SVC_[A-Z_]+$|^TENANT_USERS_VIA_IMPERSONATION$"},
+        "queues": {"type": "array", "items": {"type": "string", "pattern": "^[a-z-]+$"}},
+        "schedule": {"type": "string", "description": "EventBridge Scheduler expression for SCHEDULED_TASK."},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}

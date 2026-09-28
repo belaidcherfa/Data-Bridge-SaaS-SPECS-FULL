@@ -1,0 +1,35 @@
+# contract=semantic-metric:budget_amount version=1 status=DRAFT owner_task=GOV-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: budget_amount
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.budget_amount.label
+description_key: metric.budget_amount.description
+population_key: metric.budget_amount.population
+category: GOVERNANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_budget_daily
+measure: {type: SUM, column_ref: plan_amount_daily}
+params:
+- {name: budget_id, type: UUID, required: true, binds_column: budget_id, floating_default: NONE}
+additivity:
+  across_dimensions: LISTED
+  listed_dimensions: [day, week, month]
+  across_time: SUM
+  within_param: budget_id
+  top_n_other: NOT_ALLOWED
+dimensions: [day, week, month]
+required_sources: []
+maturity_policy: {data_status_column: null, composition: false, maturity_filter: false}
+null_policy: {empty_population: NULL_NOT_APPLICABLE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#budget_amount
+  child_resolvers: [budget_plan]
+screen_keys: [budget]
+owner_task: GOV-001
+notes: Plan amount prorated by the declared calendar policy over the requested period (GOV-001 formula sheet). One budget per request; budgets are never summed.

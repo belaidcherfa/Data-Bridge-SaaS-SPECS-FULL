@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.payment_event.verified:v1",
+  "$comment": "contract=event-bridge.commercial.payment_event.verified version=1 status=DRAFT owner_task=LCH-001 decisions=D-30 last_changed=2026-09-28",
+  "title": "bridge.commercial.payment_event.verified v1 payload",
+  "description": "A second finance operator verified a payment or reversal; the subscription state is recomputed in the same transaction.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payment_event_id",
+    "event_kind",
+    "reversal_of",
+    "allocations"
+  ],
+  "properties": {
+    "payment_event_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "event_kind": {
+      "type": "string",
+      "enum": [
+        "PAYMENT",
+        "REVERSAL"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "reversal_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "allocations": {
+      "type": "array",
+      "x-privacy": "INTERNAL",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invoice_ref_id",
+          "amount"
+        ],
+        "properties": {
+          "invoice_ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "x-privacy": "INTERNAL"
+          },
+          "amount": {
+            "allOf": [
+              {
+                "$ref": "../../common/money.schema.json"
+              }
+            ],
+            "x-privacy": "INTERNAL"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "payment_event_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e25",
+      "event_kind": "PAYMENT",
+      "reversal_of": null,
+      "allocations": [
+        {
+          "invoice_ref_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e24",
+          "amount": {
+            "amount": "12000.00",
+            "currency": "USD"
+          }
+        }
+      ]
+    }
+  ]
+}

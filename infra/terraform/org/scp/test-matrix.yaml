@@ -1,0 +1,44 @@
+# contract=aws-scp-test-matrix version=1 status=DRAFT owner_task=INF-001 decisions=D-02,D-07,D-23,D-25 last_changed=2026-09-28
+# Denied/allowed calls proving each SCP (INF-001-S04 oracle, INF-103-S10, INF-005-S13). Executed from the named
+# principal in the named account (DEV unless stated; PROD cases use a PROD test role created for the drill and
+# deleted afterwards). `expect: DENY_SCP` means an explicit deny whose message names an SCP
+# ("with an explicit deny in a service control policy"); ALLOW means the SCP layer does not block (identity policy
+# permitting). Cases tagged verify_live check vendor condition-key behaviour marked TO VERIFY LIVE.
+schema_version: 1
+cases:
+  - {id: SCP-01, scp: bridge-scp-deny-leave-org, principal: "role/bridge-dev-tf-apply", call: "organizations:LeaveOrganization", expect: DENY_SCP}
+  - {id: SCP-02, scp: bridge-scp-protect-security-services, principal: "role/bridge-dev-tf-apply", call: "config:StopConfigurationRecorder --configuration-recorder-name default", expect: DENY_SCP}
+  - {id: SCP-03, scp: bridge-scp-protect-security-services, principal: "role/bridge-dev-tf-apply", call: "guardduty:UpdateDetector --enable false", expect: DENY_SCP}
+  - {id: SCP-04, scp: bridge-scp-protect-security-services, principal: "role/bridge-dev-tf-apply", call: "securityhub:DisableSecurityHub", expect: DENY_SCP}
+  - {id: SCP-05, scp: bridge-scp-protect-security-services, principal: "role/bridge-dev-tf-apply", call: "ec2:DeleteFlowLogs (test flow log)", expect: ALLOW}
+  - {id: SCP-06, scp: bridge-scp-protect-security-services, principal: "role/bridge-dev-tf-plan", call: "ec2:DeleteFlowLogs --dry-run", expect: DENY_SCP}
+  - {id: SCP-07, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "ec2:RunInstances --dry-run --region us-west-2", expect: DENY_SCP}
+  - {id: SCP-08, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "ec2:RunInstances --dry-run --region us-east-1", expect: DENY_SCP}
+  - {id: SCP-09, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "acm:RequestCertificate --region us-east-1 (test name)", expect: ALLOW}
+  - {id: SCP-10, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "wafv2:ListWebACLs --scope CLOUDFRONT --region us-east-1", expect: ALLOW}
+  - {id: SCP-11, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "iam:ListRoles (global)", expect: ALLOW}
+  - {id: SCP-12, scp: bridge-scp-region-guard, principal: "role/bridge-dev-tf-apply", call: "s3:CreateBucket --region eu-central-1", expect: DENY_SCP}
+  - {id: SCP-13, scp: bridge-scp-deny-root, principal: "root user of bridge-dev (drill with approval)", call: "s3:ListAllMyBuckets", expect: DENY_SCP}
+  - {id: SCP-14, scp: bridge-scp-deny-iam-users, principal: "role/bridge-dev-tf-apply", call: "iam:CreateUser --user-name scp-test", expect: DENY_SCP}
+  - {id: SCP-15, scp: bridge-scp-deny-iam-users, principal: "role/bridge-dev-tf-apply", call: "iam:CreateAccessKey --user-name any", expect: DENY_SCP}
+  - {id: SCP-16, scp: bridge-scp-deny-iam-users, principal: "role/bridge-break-glass", call: "iam:CreateUser --user-name scp-test (then delete)", expect: ALLOW}
+  - {id: SCP-17, scp: bridge-scp-deny-kms-deletion, principal: "role/bridge-dev-tf-apply", call: "kms:ScheduleKeyDeletion (test key)", expect: DENY_SCP}
+  - {id: SCP-18, scp: bridge-scp-deny-kms-deletion, principal: "role/bridge-dev-tf-apply", call: "kms:PutKeyPolicy (test key)", expect: ALLOW}
+  - {id: SCP-19, scp: bridge-scp-deny-kms-deletion, principal: "role/bridge-dev-tf-plan", call: "kms:PutKeyPolicy (test key)", expect: DENY_SCP}
+  - {id: SCP-20, scp: bridge-scp-prod-ecs-exec, account: prod, principal: "BridgeOperator session", call: "ecs:ExecuteCommand --container api", expect: DENY_SCP, verify_live: true}
+  - {id: SCP-21, scp: bridge-scp-prod-ecs-exec, account: prod, principal: "BridgeOperator session", call: "ecs:ExecuteCommand --container ops-bastion", expect: ALLOW, verify_live: true}
+  - {id: SCP-22, scp: bridge-scp-prod-ecs-exec, account: prod, principal: "role/bridge-prod-deploy", call: "ecs:UpdateService --enable-execute-command (service api)", expect: DENY_SCP, verify_live: true}
+  - {id: SCP-23, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-identity-provisioner", call: "iam:CreateRole bridge-dev-conn-<uuid32> without boundary", expect: DENY_SCP}
+  - {id: SCP-24, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-identity-provisioner", call: "iam:CreateRole bridge-dev-conn-<uuid32> with boundary bridge-dev-srv-boundary", expect: DENY_SCP}
+  - {id: SCP-25, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-identity-provisioner", call: "iam:CreateRole bridge-dev-conn-<uuid32> with boundary bridge-dev-conn-boundary", expect: ALLOW}
+  - {id: SCP-26, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-tf-apply", call: "iam:CreateRole bridge-dev-srv-<uuid32> with boundary bridge-dev-srv-boundary", expect: DENY_SCP}
+  - {id: SCP-27, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-identity-provisioner", call: "iam:DeleteRolePermissionsBoundary on bridge-dev-conn-<uuid32>", expect: DENY_SCP}
+  - {id: SCP-28, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-identity-provisioner", call: "iam:AttachRolePolicy arn:aws:iam::aws:policy/AdministratorAccess to bridge-dev-conn-<uuid32>", expect: DENY_SCP}
+  - {id: SCP-29, scp: bridge-scp-runtime-role-guard, principal: "BridgeDeveloper session (dev)", call: "sts:AssumeRole bridge-dev-conn-<uuid32>", expect: DENY_SCP}
+  - {id: SCP-30, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-analysis-worker", call: "sts:AssumeRole bridge-dev-srv-<uuid32>", expect: DENY_SCP}
+  - {id: SCP-31, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-query-broker", call: "sts:AssumeRole bridge-dev-srv-<uuid32>", expect: ALLOW}
+  - {id: SCP-32, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-dagster-daemon", call: "iam:PassRole bridge-dev-conn-<uuid32> to ecs-tasks.amazonaws.com (via ecs:RunTask override)", expect: DENY_SCP}
+  - {id: SCP-33, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-extraction-launcher", call: "iam:PassRole bridge-dev-conn-<uuid32> (via ecs:RunTask override of bridge-dev-extractor)", expect: ALLOW}
+  - {id: SCP-34, scp: bridge-scp-runtime-role-guard, principal: "BridgeAdmin session (dev, human-only gate)", call: "iam:CreatePolicyVersion on bridge-dev-conn-boundary", expect: ALLOW}
+  - {id: SCP-35, scp: bridge-scp-runtime-role-guard, principal: "role/bridge-dev-tf-apply", call: "iam:CreatePolicyVersion on bridge-dev-conn-boundary (INF-102-S02: apply role never edits boundaries)", expect: DENY_SCP}
+  - {id: SCP-36, scp: bridge-scp-deny-all-suspended, principal: "any role in an account moved to suspended", call: "s3:ListAllMyBuckets", expect: DENY_SCP}

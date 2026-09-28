@@ -1,0 +1,296 @@
+# contract=problems-commercial version=1 status=DRAFT owner_task=LCH-101 decisions=D-17,D-30,D-35,D-36 last_changed=2026-09-28
+# Problem codes of the commercial domain (prefix COMM_). Schema: contracts/errors/problems.schema.json.
+# entitlements.check() mapping (LCH-101-S03, packages/entitlements/contract.py): ENTITLEMENT_LIMIT -> COMM_ENTITLEMENT_LIMIT (403),
+# STATE_SUSPENDED -> COMM_SUBSCRIPTION_SUSPENDED (403), STATE_CANCELLED -> COMM_SUBSCRIPTION_CANCELLED (403),
+# TRIAL_ACCOUNT_DEMO_ONLY -> COMM_TRIAL_ACCOUNT_DEMO_ONLY (403), PLATFORM_CAPACITY -> COMM_PLATFORM_CAPACITY (429, Retry-After).
+# Problem extension members for entitlement denials: quota_key, limit, used, requested, plan_id, plan_version (Problem allows extensions).
+version: 1
+problems:
+  - code: COMM_ENTITLEMENT_LIMIT
+    http_status: 403
+    title: Your plan limit is reached
+    detail_template: "{quota_key}: limit {limit}, used {used}, requested {requested} (plan {plan_key} v{plan_version})."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Remove unused items or ask your Bridge account owner to change the plan. Existing history is never deleted.
+    log_level: INFO
+  - code: COMM_PLATFORM_CAPACITY
+    http_status: 429
+    title: Bridge is at its qualified capacity
+    detail_template: "The platform capacity cap ({cap_key}={cap}) is reached; retry after {retry_after_ms} ms or contact support."
+    retryable: true
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Retry later; if it persists, contact Bridge support.
+    log_level: WARNING
+  - code: COMM_SUBSCRIPTION_SUSPENDED
+    http_status: 403
+    title: The subscription is suspended
+    detail_template: "New {action} is not allowed while the subscription is SUSPENDED (reads and exports remain available)."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Contact your Bridge account owner to settle the subscription.
+    log_level: INFO
+  - code: COMM_SUBSCRIPTION_CANCELLED
+    http_status: 403
+    title: The subscription is cancelled
+    detail_template: "Only the Organization Owner export is available until {export_window_until}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: The Organization Owner can export data until the export window ends.
+    log_level: INFO
+  - code: COMM_TRIAL_ACCOUNT_DEMO_ONLY
+    http_status: 403
+    title: This action is not available on a Snowflake trial account
+    detail_template: "Account {account_id} is a demonstration-only Snowflake trial account; {capability} is denied."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Use a paid Snowflake account for close, chargeback and reconciliation sign-off.
+    log_level: INFO
+  - code: COMM_SUBSCRIPTION_TRANSITION_INVALID
+    http_status: 409
+    title: This subscription change is not allowed
+    detail_template: "{event} is not allowed from state {state}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Reload the subscription and check its current state.
+    log_level: WARNING
+  - code: COMM_SUBSCRIPTION_EXISTS
+    http_status: 409
+    title: The tenant already has a current subscription
+    detail_template: "Subscription {subscription_id} is {state}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Change the existing subscription instead of creating a new one.
+    log_level: INFO
+  - code: COMM_CONTRACT_REF_REQUIRED
+    http_status: 422
+    title: A signed order reference is required
+    detail_template: "{contract_kind} requires contract_ref (a PILOT needs a signed pilot order)."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Record the signed order reference.
+    log_level: INFO
+  - code: COMM_PLAN_NOT_PUBLISHED
+    http_status: 409
+    title: The plan version is not published
+    detail_template: "Plan {plan_key} v{plan_version} is {status}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Publish the plan version (owner approval) before assigning it.
+    log_level: INFO
+  - code: COMM_PLAN_KIND_MISMATCH
+    http_status: 422
+    title: The plan kind does not match the order
+    detail_template: "A {contract_kind} needs a {expected_kind} plan; plan {plan_key} is {kind}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Choose a plan of the matching kind.
+    log_level: INFO
+  - code: COMM_PLAN_IMMUTABLE
+    http_status: 409
+    title: A published plan version cannot be changed
+    detail_template: "Create version {next_version} of plan {plan_key} instead."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-101
+    customer_action: Create a new plan version.
+    log_level: INFO
+  - code: COMM_PLAN_BANDS_INVALID
+    http_status: 422
+    title: The spend bands are not contiguous
+    detail_template: "Currency {spend_currency}: {reason}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-105
+    customer_action: Define every band for every spend currency, starting at 0, contiguous, with only the top band open-ended.
+    log_level: INFO
+  - code: COMM_SELF_APPROVAL_FORBIDDEN
+    http_status: 403
+    title: A second person must approve this action
+    detail_template: "{action} was requested or recorded by the same operator."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Ask another finance operator to approve or verify.
+    log_level: WARNING
+  - code: COMM_SECOND_APPROVER_REQUIRED
+    http_status: 409
+    title: The action needs an approved change request
+    detail_template: "{action} requires an APPROVED change request bound to revision {target_revision}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Create a change request and have a second finance operator approve it.
+    log_level: INFO
+  - code: COMM_CHANGE_REQUEST_EXPIRED
+    http_status: 409
+    title: The change request has expired
+    detail_template: "Change request {change_request_id} expired at {expires_at}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Create a new change request.
+    log_level: INFO
+  - code: COMM_GRACE_PERIOD_NOT_ELAPSED
+    http_status: 409
+    title: The grace period has not elapsed
+    detail_template: "Suspension is possible from {grace_until}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Wait until the end of the grace period.
+    log_level: INFO
+  - code: COMM_INVOICE_NUMBER_DUPLICATE
+    http_status: 409
+    title: This invoice number is already recorded
+    detail_template: "Invoice number {invoice_number} of issuer {issuer_entity} already exists."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Check the invoice number in the invoicing tool.
+    log_level: INFO
+  - code: COMM_VAT_ID_REQUIRED
+    http_status: 422
+    title: A customer VAT ID is required for reverse charge
+    detail_template: "EU_B2B_REVERSE_CHARGE needs customer_vat_id (VIES-checked) and tax_amount 0."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Record the customer VAT ID or change the VAT treatment.
+    log_level: INFO
+  - code: COMM_VAT_TREATMENT_INVALID
+    http_status: 422
+    title: The VAT amounts do not match the VAT treatment
+    detail_template: "{vat_treatment}: {reason}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-103
+    customer_action: Copy the amounts exactly from the issued invoice.
+    log_level: INFO
+  - code: COMM_CURRENCY_UNSUPPORTED
+    http_status: 422
+    title: The currency is not supported for invoices
+    detail_template: "Currency {currency} is not supported (R1: USD, EUR, GBP, CHF)."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Use a supported invoice currency.
+    log_level: INFO
+  - code: COMM_AMOUNTS_INCONSISTENT
+    http_status: 422
+    title: The invoice amounts do not add up
+    detail_template: "amount_incl_tax {amount_incl_tax} != amount_excl_tax {amount_excl_tax} + tax_amount {tax_amount}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Copy the amounts exactly from the issued invoice.
+    log_level: INFO
+  - code: COMM_CREDIT_NOTE_EXCEEDS_INVOICE
+    http_status: 422
+    title: The credit note exceeds the remaining invoice amount
+    detail_template: "Credit {credit_amount} > remaining {remaining_amount} on invoice {invoice_number}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Check the credit note amount.
+    log_level: INFO
+  - code: COMM_INVOICE_IMMUTABLE
+    http_status: 409
+    title: An issued invoice cannot be edited
+    detail_template: "Record a credit note to correct invoice {invoice_number}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Issue a credit note in the invoicing tool and record it.
+    log_level: INFO
+  - code: COMM_CSV_IMPORT_INVALID
+    http_status: 422
+    title: The invoice import file is invalid
+    detail_template: "{error_count} row(s) rejected; nothing was imported."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-103
+    customer_action: Fix the rows listed in errors[] (field = line:<n>.<column>) and import again.
+    log_level: INFO
+  - code: COMM_PAYMENT_REF_CONFLICT
+    http_status: 409
+    title: This payment reference is already recorded with different details
+    detail_template: "{channel} reference {external_ref} exists with a different amount, currency or value date."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Check the reference; the same payment entered twice is recorded once.
+    log_level: WARNING
+  - code: COMM_PAYMENT_ALLOCATION_EXCEEDS
+    http_status: 422
+    title: The allocation exceeds the payment or the invoice amount due
+    detail_template: "{reason}"
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Allocate at most the payment amount and at most each invoice's amount due.
+    log_level: INFO
+  - code: COMM_PAYMENT_CURRENCY_MISMATCH
+    http_status: 422
+    title: The payment currency differs from the invoice currency
+    detail_template: "Payment {currency} cannot settle invoice in {invoice_currency}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Record the payment in the invoice currency.
+    log_level: INFO
+  - code: COMM_PAYMENT_ALREADY_VERIFIED
+    http_status: 409
+    title: The payment is already verified
+    detail_template: "Payment {payment_event_id} is {status}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: No action needed.
+    log_level: INFO
+  - code: COMM_PAYMENT_ALREADY_REVERSED
+    http_status: 409
+    title: The payment is already reversed
+    detail_template: "Payment {payment_event_id} already has reversal {reversal_id}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: No action needed.
+    log_level: INFO
+  - code: COMM_CARD_DATA_REJECTED
+    http_status: 422
+    title: Card data must never be entered
+    detail_template: "The reference looks like a card number; Bridge stores only bank or Stripe object references."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-001
+    customer_action: Enter the bank transfer reference or the Stripe charge/payment-link id instead.
+    log_level: WARNING
+  - code: COMM_SPEND_PERIOD_NOT_STABLE
+    http_status: 409
+    title: The month is not stable yet
+    detail_template: "Period {period} is {period_stability}; bands are assigned only from MONTH_STABLE or closed totals."
+    retryable: true
+    domain: commercial
+    owner_task: LCH-105
+    customer_action: The band appears after month end + 5 days.
+    log_level: INFO
+  - code: COMM_BILLING_PROFILE_INCOMPLETE
+    http_status: 422
+    title: The billing profile is incomplete
+    detail_template: "{field} is required for {reason}."
+    retryable: false
+    domain: commercial
+    owner_task: LCH-103
+    customer_action: Complete the billing profile (legal name, address, VAT ID, SIREN for French companies).
+    log_level: INFO

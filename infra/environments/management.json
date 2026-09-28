@@ -1,0 +1,28 @@
+{
+  "$comment": "contract=infra-environment-manifest-instance version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-23,D-25 last_changed=2026-09-28. REQUIRED_INPUT values come from config/environments/<env>.yaml (see schema x-bridge-config-path); GENERATED values are written by the pipeline after apply. Never replace REQUIRED_INPUT with real identifiers in this public file.",
+  "schema_version": 1,
+  "name": "management",
+  "kind": "MANAGEMENT",
+  "account_name": "bridge-management",
+  "organizational_unit": "root",
+  "aws_account_id": "REQUIRED_INPUT",
+  "region": "eu-west-1",
+  "global_region": "us-east-1",
+  "state": {
+    "bucket": "bridge-tfstate-management-${aws_account_id}-euw1",
+    "kms_key_alias": "alias/bridge-tfstate-management",
+    "kms_key_arn": "GENERATED",
+    "use_lockfile": true
+  },
+  "stacks": [
+    "00-bootstrap",
+    "org"
+  ],
+  "budget_usd": "REQUIRED_INPUT",
+  "ci_oidc_subjects": {},
+  "tags": {
+    "environment": "org",
+    "managed_by": "terraform",
+    "cost_owner": "finance"
+  }
+}

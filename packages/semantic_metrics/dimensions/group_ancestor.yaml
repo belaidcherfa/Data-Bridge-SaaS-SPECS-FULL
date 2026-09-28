@@ -1,0 +1,23 @@
+# contract=semantic-dimension:group_ancestor version=1 status=DRAFT owner_task=ALC-102 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: group_ancestor
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.group_ancestor.label
+description_key: dimension.group_ancestor.description
+group: OWNERSHIP
+kind: ENTITY
+value_type: UUID
+cardinality_class: MEDIUM
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ, IN]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 1, max_results: 20, source_relation: v_dim_group, match_column: group_name}
+label: {source: DICTIONARY_RELATION, relation: v_dim_group, key_column: group_id, label_column: group_name}
+bindings:
+- {relation: v_allocation_daily, column_ref: ancestor_group_id, join_path: jp_allocation_group_ancestor}
+sortable: true
+owner_task: ALC-102
+notes: Rollup to ancestors at one depth (request param ancestor_depth, default 1).

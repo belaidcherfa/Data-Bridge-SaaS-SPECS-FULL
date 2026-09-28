@@ -1,0 +1,1140 @@
+# contract=authz-capabilities version=1 status=DRAFT owner_task=SEC-004 decisions=D-02,D-10,D-17,D-20,D-22,D-25 last_changed=2026-09-28
+# =====================================================================================================
+# Capability catalog (SEC-004-S02, SEC-102-S02; SEC backlog Appendix C, G-SEC-04/05). ONE source for:
+#   - packages/authz/generated.py (Capability enum), FastAPI `require(cap, scope_of=...)`, x-bridge-capability in OpenAPI
+#   - the role x capability matrix (contracts/authz/roles.yaml references ids defined here)
+#   - the approval (maker-checker) policy per action (section approval_policies; state machine approval.yaml)
+#   - the profile hash inputs (kind VISIBILITY only; contracts/authz/scope-compilation.md)
+# Rules:
+#   * Every route declares exactly one required capability (CI: tools/ci/check_route_caps.py).
+#   * Code uses `id` only. `aliases` are names used in backlogs/other contracts; they resolve to `id` in the
+#     generator and are rejected in new code by lint (see contracts/_handoffs/K2.md for the mapping table).
+#   * R1 has no custom roles: a grant = one of 8 roles + optional extra capabilities that the role marks GRANTABLE
+#     (roles.yaml) + scope clauses (scope.schema.json).
+#   * scope_binding SCOPED: the object's scope must be covered by the union of clauses of the actor's grants that
+#     carry the capability (SEC-101 subsumes / uncovered_atoms). TENANT: tenant-level, no object scope.
+#     OWN: additionally restricted to objects whose owner is the acting membership.
+#   * Non-enumeration: a missing READ/VISIBILITY capability or an object outside read scope -> 404 NOT_FOUND;
+#     a readable object with a missing MUTATION capability -> 403 FORBIDDEN (SEC-004-S06).
+# =====================================================================================================
+version: 1
+catalog_version: "1.0.0"
+
+kinds:
+  VISIBILITY: "Data-visibility capability. Changes the normalized permission profile (profile hash) and is enforced in Snowflake by row-access/masking policies (ADR-005 amendment)."
+  READ: "Read of control-plane objects or API-gated analytical features. Checked in the API against PostgreSQL predicates or the semantic registry; not part of the profile hash."
+  MUTATION: "State change. Checked in the API (PostgreSQL) against the object scope; never part of the profile hash."
+
+scope_bindings:
+  SCOPED: "Object scope must be covered by the union of clauses of grants carrying the capability."
+  TENANT: "Tenant-level capability; holding it in any grant is sufficient."
+  OWN: "Only objects owned by the acting membership (owner_membership_id = actor), within SCOPED coverage."
+
+enforcement_points:
+  SNOWFLAKE_POLICY: "Row access / masking policy via PROFILE_ENTITLEMENT and PROFILE.SQL_TEXT_ACCESS (SEC-005)."
+  API: "FastAPI dependency require() + repository scope predicate (SEC-004-S04/S05)."
+  API_REGISTRY: "Semantic registry privacy.capability gating of metrics/columns (API-001, API-104)."
+  OPERATOR_PLANE: "Internal ops API / console (CTL-102); operator identities only, never tenant roles."
+
+capabilities:
+  # ---------------------------------------------------------------- analytics visibility -------------------
+  - id: analytics.read
+    kind: VISIBILITY
+    scope_binding: SCOPED
+    enforced_by: [SNOWFLAKE_POLICY, API]
+    description: "Read analytical data (serving datasets, metrics, dimension dictionaries) within the grant scope. The clauses of grants carrying this capability ARE the profile atoms."
+    profile_input: atoms
+    step_up: false
+    machine_client: true
+    aliases: []
+    consumers: [API-002, API-003, API-104, RPT-002, GOV-001, GOV-003, INS-101, ALC-007, UX-003]
+    release: R1
+  - id: sql_text.read_sanitized
+    kind: VISIBILITY
+    scope_binding: SCOPED
+    enforced_by: [SNOWFLAKE_POLICY]
+    description: "Read sanitized query text (SANITIZED privacy mode). Sets profile sql_text >= SANITIZED; masked by MP_SQL_TEXT_SANITIZED otherwise."
+    profile_input: sql_text
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [API-104, UX-005, WRK-102]
+    release: R1
+  - id: sql_text.read_full
+    kind: VISIBILITY
+    scope_binding: SCOPED
+    enforced_by: [SNOWFLAKE_POLICY]
+    description: "Read full (unsanitized) SQL text. Effective only when the tenant privacy_mode is FULL (approval privacy.mode.full.enable). Sets profile sql_text = FULL (MP_SQL_TEXT_FULL). Granting it requires step-up of the granting admin."
+    profile_input: sql_text
+    requires_tenant_setting: {privacy_mode: FULL}
+    step_up: {on_grant: true}
+    machine_client: false
+    aliases: [query.sql.read]
+    consumers: [SEC-007, API-104]
+    release: R1
+  - id: finance.org_scope.read
+    kind: VISIBILITY
+    scope_binding: SCOPED
+    enforced_by: [SNOWFLAKE_POLICY]
+    derived_from_scope: true
+    description: "DERIVED, not grantable: held iff the analytics.read scope contains an atom with account='*' (organization-level atom). Organization-level rows (account NULL, scope_kind ORGANIZATION: support fees, rebates) are visible only then (RAP_ACCOUNT_SCOPED). Listed so FIN-005-S08 can assert it."
+    profile_input: atoms
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [FIN-005, FIN-001]
+    release: R1
+
+  # ---------------------------------------------------------------- analytics reads (API-gated) ------------
+  - id: query.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API_REGISTRY]
+    description: "Query-grain metrics and execution records (query counts, durations, per-query cost) without SQL text; registry privacy.capability of query metrics/records."
+    step_up: false
+    machine_client: true
+    aliases: []
+    consumers: [API-001, API-005, API-104, UX-005, WRK-102]
+    release: R1
+  - id: identity.resolve
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Resolve Snowflake user pseudonyms (u1_/e1_) to display names from privacy.identity_dictionary after the Snowflake query (D-10, SEC-103-S06). Without it the API returns resolution HIDDEN."
+    step_up: false
+    machine_client: false
+    aliases: [people.read]
+    consumers: [SEC-103, API-104, UX-102, WRK-102]
+    release: R1
+  - id: query.evidence.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Request/read operator-level query evidence (query profile operator statistics fetched from the customer account, WRK-103)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [WRK-103]
+    release: R1
+  - id: explain.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Explain trees for metrics/statement lines, permission-trimmed under the caller's profile (API-005)."
+    step_up: false
+    machine_client: true
+    aliases: []
+    consumers: [API-005, UX-104]
+    release: R1
+  - id: export.data
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Synchronous/limited exports of visible data (CSV of a table view, report CSV) and reading own export results."
+    step_up: false
+    machine_client: true
+    aliases: [exports.read]
+    consumers: [API-102, RPT-002]
+    release: R1
+  - id: export.bulk
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Asynchronous large exports (API-102 export jobs beyond the synchronous limits)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [API-102, ONB-102]
+    release: R1
+  - id: analysis_job.read
+    kind: READ
+    scope_binding: OWN
+    enforced_by: [API]
+    description: "Read status/results of own analysis and export jobs; results re-authorized at read (SEC-006-S07)."
+    step_up: false
+    machine_client: true
+    aliases: [jobs.read]
+    consumers: [API-004]
+    release: R1
+  - id: data_health.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Data Health: coverage, freshness, source status, Bridge overhead (ING-012), per visible account."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ING-012, UX-103]
+    release: R1
+
+  # ---------------------------------------------------------------- tenant / people -------------------------
+  - id: tenant.read
+    kind: READ
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Read tenant profile (name, slug, status, non-security settings)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003]
+    release: R1
+  - id: tenant.settings.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Change tenant display name, presentation defaults, invitation TTL."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003]
+    release: R1
+  - id: tenant.ownership.transfer
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    owner_only: true
+    description: "Transfer Organization Owner role to another ACTIVE member; target must accept (approval tenant.ownership.transfer)."
+    step_up: {always: true}
+    approval: {action: tenant.ownership.transfer, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003, SEC-102]
+    release: R1
+  - id: tenant.offboarding.request
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Request tenant offboarding/deletion (ONB-102, OPS-005 TENANT_DELETION); four-eyes action tenant.deletion; operator second approval follows in OPS-005."
+    step_up: {always: true}
+    approval: {action: tenant.deletion, role: MAKER_OR_CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [ONB-102, OPS-005, CTL-102]
+    release: R1
+  - id: security.policy.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Session timeouts, step-up window, support auto-approve policy, approval policy overrides (within allowed values)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-002, SEC-102, SEC-104]
+    release: R1
+  - id: sso.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Create/update SSO identity providers (DRAFT), run test mode, manage domain verification, JIT and MFA assertion policy."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-003]
+    release: R1
+  - id: sso.enforce
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Request SSO enforcement of a TESTED IdP (approval sso.enforce) and designate break-glass owners."
+    step_up: {always: true}
+    approval: {action: sso.enforce, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-003]
+    release: R1
+  - id: sso.disable
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Request disabling an enforced IdP (approval sso.disable)."
+    step_up: {always: true}
+    approval: {action: sso.disable, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-003]
+    release: R1
+  - id: sso.approve
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    owner_only: true
+    description: "Checker for sso.enforce / sso.disable (Organization Owner only; owner may self-approve with step-up when no other owner exists)."
+    step_up: {always: true}
+    approval: {action: [sso.enforce, sso.disable], role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-003, SEC-102]
+    release: R1
+  - id: member.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "List members, their roles and scopes (names/e-mails are PERSONAL). Team Admin: members of teams they administer."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003, UX-102]
+    release: R1
+  - id: member.invite
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/resend/revoke invitations within the delegation rule (roles.yaml#delegation); users quota via LCH-101 entitlements.check()."
+    step_up: {when_target_role_in: [ORGANIZATION_OWNER, ORGANIZATION_ADMIN, FINOPS_ADMIN]}
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003]
+    release: R1
+  - id: member.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Replace grants (PUT /v1/members/{id}/grants), suspend, reinstate, remove members within the delegation rule; last-owner protection."
+    step_up: {when_target_role_in: [ORGANIZATION_OWNER, ORGANIZATION_ADMIN, FINOPS_ADMIN], when_extra_capability_in: [sql_text.read_full]}
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003, SEC-004]
+    release: R1
+  - id: member.mfa.reset
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Approve a lost-MFA recovery reset of a local member (SEC-002-S13): revokes all sessions, 24 h cool-down, audit auth.mfa.reset."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-002]
+    release: R1
+  - id: membership.leave
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Leave the tenant (self). Refused for the last ACTIVE owner (TENANT_LAST_OWNER)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003]
+    release: R1
+  - id: team.read
+    kind: READ
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "List people teams and their members (sharing and notification audiences)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003, CTL-007, RPT-004]
+    release: R1
+  - id: team.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Create/update/delete people teams and team membership; Team Admin: own teams only (OWN)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-003]
+    release: R1
+  - id: api_client.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/rotate/revoke machine API clients (API-006, R2 feature) with capabilities from roles.yaml#machine_client_allowlist and scope <= creator scope."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [API-006]
+    release: R2
+  - id: support.grant
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Approve/reject/revoke operator support-access requests (SEC-104); data scope of analytics_read grants <= approver scope."
+    step_up: {always: true}
+    approval: {action: support.grant, role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-104]
+    release: R1
+  - id: subscription.read
+    kind: READ
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Read plan, entitlements, subscription state, usage and spend band (LCH-101, LCH-105)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [LCH-101, LCH-105]
+    release: R1
+  - id: subscription.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    owner_only: true
+    description: "Request plan changes (commercial transitions are executed by finance operators on the ops plane, LCH-001)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [LCH-001]
+    release: R1
+  - id: audit.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Read audit events: tenant-level events for OO/OA/AU; object events when object scope is covered (Appendix H.3); support/operator actions always visible."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [SEC-008, UX-102]
+    release: R1
+  - id: audit.export
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Request bounded audit exports (POST /v1/audit/exports)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [SEC-008]
+    release: R1
+  - id: access.review
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker for access-relevant publications (group sets, hierarchies, rule changes that move access; ALC-003-S05, ALC-004-S08)."
+    step_up: {always: true}
+    approval: {action: access.review, role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-003, ALC-004, ALC-101]
+    release: R1
+
+  # ---------------------------------------------------------------- connections / sync / onboarding -------
+  - id: connection.read
+    kind: READ
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Read connections, capability matrices, install/revoke script metadata, egress IPs (no secrets)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CON-001, CON-005, CON-006, UX-103]
+    release: R1
+  - id: connection.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/validate/pause/resume/revoke/delete connections, generate install scripts, rotate identity (Q9: not Organization Admin)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [CON-001, CON-003, CON-006]
+    release: R1
+  - id: source.configure
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Enable/disable sources and modules, cadence, backfill horizon per connection."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ING-010, CON-006]
+    release: R1
+  - id: sync.replay
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Request replay/repair of windows (ING-011)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ING-011]
+    release: R1
+  - id: backfill.request
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Request/approve customer-credit-consuming backfill plans (ING-010, ONB-101 consent)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ING-010, ONB-101]
+    release: R1
+  - id: onboarding.read
+    kind: READ
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Read onboarding run and step states."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ONB-001]
+    release: R1
+  - id: onboarding.acknowledge
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Acknowledge technical onboarding steps and capability gaps (ONB-001-S10, ONB-003-S07)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ONB-001, ONB-003]
+    release: R1
+  - id: onboarding.acknowledge_financial
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Acknowledge financial limitations (ONB-001-S15: FinOps Admin only among non-owners)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ONB-001, ONB-005]
+    release: R1
+
+  # ---------------------------------------------------------------- privacy ---------------------------------
+  - id: privacy.mode.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Switch SANITIZED <-> METADATA_ONLY, toggle the lexical sanitizer tier; bumps tenant authz_epoch."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-007]
+    release: R1
+  - id: privacy.mode.full.enable
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Maker or checker of enabling FULL privacy mode (four-eyes, never self-approved)."
+    step_up: {always: true}
+    approval: {action: privacy.mode.full.enable, role: MAKER_OR_CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [SEC-007]
+    release: R1
+  - id: privacy.erasure.request
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Maker or checker of SUBJECT_ERASURE requests (POST /v1/privacy/requests, OPS-005; SEC-103 erase_subject)."
+    step_up: {always: true}
+    approval: {action: privacy.erasure, role: MAKER_OR_CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [OPS-005, SEC-103]
+    release: R1
+  - id: privacy.access.request
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Create SUBJECT_ACCESS requests (OPS-005)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [OPS-005]
+    release: R1
+
+  # ---------------------------------------------------------------- finance ---------------------------------
+  - id: finance.pricing.import
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: create/import rate tables, customer-approved rates and price overrides (FIN-105); submit for approval."
+    step_up: false
+    approval: {action: finance.pricing.publish, role: MAKER}
+    machine_client: false
+    aliases: [price.manage]
+    consumers: [FIN-105, FIN-109]
+    release: R1
+  - id: finance.pricing.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve rate tables/overrides (approver != submitter)."
+    step_up: {always: true}
+    approval: {action: finance.pricing.publish, role: CHECKER}
+    machine_client: false
+    aliases: [price.override]
+    consumers: [FIN-105, FIN-109]
+    release: R1
+  - id: finance.reference.enter
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: upload/enter billing references (Snowflake statements/invoices, reseller invoices) (FIN-101)."
+    step_up: false
+    approval: {action: finance.reference.activate, role: MAKER}
+    machine_client: false
+    aliases: [reconciliation.reference.upload]
+    consumers: [FIN-101]
+    release: R1
+  - id: finance.reference.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve billing references (approver != submitter)."
+    step_up: false
+    approval: {action: finance.reference.activate, role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [FIN-101]
+    release: R1
+  - id: finance.reconciliation.explain
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: classify reconciliation differences with evidence (FIN-009-S11)."
+    step_up: false
+    approval: {action: finance.reconciliation.explanation, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [FIN-009]
+    release: R1
+  - id: finance.reconciliation.approve_explanation
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve reconciliation explanations (approver != author)."
+    step_up: false
+    approval: {action: finance.reconciliation.explanation, role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [FIN-009]
+    release: R1
+  - id: finance.period.close.request
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: preview and request period close (FIN-010)."
+    step_up: {always: true}
+    approval: {action: finance.period.close, role: MAKER}
+    machine_client: false
+    aliases: [period.close.request, period.close]
+    consumers: [FIN-010]
+    release: R1
+  - id: finance.period.close.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve and execute period close with a fresh durable authz check (FIN-010-S09)."
+    step_up: {always: true}
+    approval: {action: finance.period.close, role: CHECKER}
+    machine_client: false
+    aliases: [period.close.approve]
+    consumers: [FIN-010]
+    release: R1
+  - id: finance.period.restate.request
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: propose restatement or carry-forward of a closed period (FIN-107)."
+    step_up: {always: true}
+    approval: {action: finance.period.restate, role: MAKER}
+    machine_client: false
+    aliases: [restatement.request]
+    consumers: [FIN-107, FIN-010]
+    release: R1
+  - id: finance.period.restate.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve restatement decisions (approver != proposer)."
+    step_up: {always: true}
+    approval: {action: finance.period.restate, role: CHECKER}
+    machine_client: false
+    aliases: [restatement.approve]
+    consumers: [FIN-107]
+    release: R1
+  - id: statement.issue
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Maker: prepare and issue chargeback statements (ALC-008) once preconditions pass."
+    step_up: {always: true}
+    approval: {action: statement.issue, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-008]
+    release: R1
+  - id: statement.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker: approve statement issue and statement precondition exceptions (approver != preparer)."
+    step_up: {always: true}
+    approval: {action: [statement.issue, statement.precondition_exception], role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-008]
+    release: R1
+
+  # ---------------------------------------------------------------- allocation / governance -----------------
+  - id: tag_rule.edit
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Draft and simulate tag rules (ALC-001/002)."
+    step_up: false
+    approval: {action: rule.publish, role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-001, ALC-002]
+    release: R1
+  - id: allocation_rule.edit
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Draft and simulate allocation rulesets, policies, pools and transfers (ALC-002..ALC-005)."
+    step_up: false
+    approval: {action: [rule.publish, allocation.transfer], role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-002, ALC-003, ALC-005]
+    release: R1
+  - id: group_set.edit
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Draft usage group sets, groups, hierarchies and value mappings (ALC-004)."
+    step_up: false
+    approval: {action: [rule.publish, access.review], role: MAKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-004]
+    release: R1
+  - id: rule.approve
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker for FINANCIAL approval of rulesets, group sets and transfers (approver != author)."
+    step_up: false
+    approval: {action: [rule.publish, allocation.transfer], role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-003]
+    release: R1
+  - id: rule.publish
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Publish an APPROVED ruleset/group set revision (enqueues config publication; recheck of approval at publish)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [ALC-003, CTL-005]
+    release: R1
+  - id: allocation.pool_disclosure.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Checker/acknowledger for switching a shared pool to DISCLOSED (ALC-101-S05)."
+    step_up: {always: true}
+    approval: {action: allocation.pool_disclosure, role: CHECKER}
+    machine_client: false
+    aliases: []
+    consumers: [ALC-101]
+    release: R1
+  - id: budget.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/update budgets and forecasts settings (scope <= own grants, GOV-001-S03)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [GOV-001, GOV-002]
+    release: R1
+  - id: monitor.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/update/silence monitors (scope <= creator grants, GOV-003-S04)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [GOV-003]
+    release: R1
+  - id: incident.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Acknowledge, assign, resolve monitor incidents within scope (GOV-004/GOV-008)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [GOV-004, GOV-008]
+    release: R1
+  - id: notification.destination.manage
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Create/verify/disable notification destinations (e-mail lists, Slack, Teams, webhooks; GOV-006)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: [integration.manage]
+    consumers: [GOV-006]
+    release: R1
+  - id: report.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/update report definitions and schedules to tenant members; Analyst: own reports only (RPT-001-S11)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [RPT-001, RPT-004]
+    release: R1
+  - id: report.recipients.external
+    kind: MUTATION
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Add recipients outside the tenant membership (R2 feature; also requires tenant setting report_external_recipients_allowed)."
+    step_up: {always: true}
+    machine_client: false
+    aliases: []
+    consumers: [RPT-102]
+    release: R2
+  - id: report.artifact.delete
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Delete EPHEMERAL report artifacts (RECORD artifacts require break-glass, RPT-005-S10)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [RPT-005]
+    release: R1
+  - id: insight.triage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Triage insights (assign, dismiss with reason, reopen) within scope; Analyst: insights assigned to them (INS-006)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [INS-006]
+    release: R1
+  - id: action.manage
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Create/transition actions (PLANNED, IMPLEMENTED, CANCELLED, REVERTED) within scope; Analyst: own actions."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [INS-006, INS-007]
+    release: R1
+
+  # ---------------------------------------------------------------- personal workspace -----------------------
+  - id: saved_view.manage_own
+    kind: MUTATION
+    scope_binding: OWN
+    enforced_by: [API]
+    description: "Create/update/delete own saved views and personal dashboards (CTL-007)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-007]
+    release: R1
+  - id: saved_view.share
+    kind: MUTATION
+    scope_binding: OWN
+    enforced_by: [API]
+    description: "Share own saved views/dashboards with members or teams (sharing never grants data access)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-007]
+    release: R1
+  - id: saved_view.share_tenant
+    kind: MUTATION
+    scope_binding: OWN
+    enforced_by: [API]
+    description: "Share with the whole tenant (CTL Q3: FinOps/Org Admin by default)."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-007]
+    release: R1
+  - id: dashboard.manage_shared
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Edit shared dashboards owned by others / tenant-owned dashboards after owner removal."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-007, UX-101]
+    release: R1
+  - id: analysis_job.run
+    kind: MUTATION
+    scope_binding: SCOPED
+    enforced_by: [API]
+    description: "Submit async analysis/export jobs (API-004; quotas 2 per tenant, 1 per principal)."
+    step_up: false
+    machine_client: true
+    aliases: [jobs.write]
+    consumers: [API-004, API-102]
+    release: R1
+  - id: config_publication.read
+    kind: READ
+    scope_binding: TENANT
+    enforced_by: [API]
+    description: "Read configuration publication status (PENDING_PUBLICATION/PUBLISHED/FAILED) of rules, rates, budgets."
+    step_up: false
+    machine_client: false
+    aliases: []
+    consumers: [CTL-005, UX-102]
+    release: R1
+
+# =====================================================================================================
+# Operator-plane capabilities (CTL-102 single ops plane; RECONCILIATION U-05). Never grantable to tenant roles.
+# Operator roles map to them in roles.yaml#operator_roles. Used as state-machine actors (tenant.yaml, etc.).
+# =====================================================================================================
+operator_capabilities:
+  - {id: ops.tenant.read, description: "Read tenant status, principal state and health (no customer data).", owner_task: CTL-102}
+  - {id: ops.tenant.provision, description: "POST /internal/v1/tenants (step-up, reason, case).", owner_task: CTL-102}
+  - {id: ops.tenant.suspend, description: "Suspend/resume a tenant (security kill switch RB-09 or commercial suspension).", owner_task: CTL-102}
+  - {id: ops.tenant.offboard, description: "Start OFFBOARDING (second operator approves the OPS-005 deletion request).", owner_task: CTL-102}
+  - {id: ops.support.request, description: "Request customer-approved support access for a case (SEC-104).", owner_task: SEC-104}
+  - {id: ops.finance.payment.record, description: "Record payment evidence (LCH-001).", owner_task: LCH-001}
+  - {id: ops.finance.payment.correct, description: "Correct payment evidence; requires a second finance operator.", owner_task: LCH-001}
+  - {id: ops.finance.subscription.transition, description: "Subscription transitions (suspension/cancellation four-eyes, LCH-001-S10).", owner_task: LCH-001}
+  - {id: ops.finance.entitlement.override, description: "Entitlement overrides above plan (four-eyes, LCH-101-S08).", owner_task: LCH-101}
+  - {id: ops.outbox.redrive, description: "Redrive DEAD outbox events (audited).", owner_task: CTL-004}
+  - {id: ops.outbox.discard, description: "Discard DEAD outbox events (two-operator approval).", owner_task: CTL-004}
+  - {id: ops.recovery.execute, description: "Execute signed dry-run recovery manifests (second approver, OPS-106-S05).", owner_task: OPS-106}
+  - {id: ops.config.redrive, description: "Retry FAILED config publications after CONFIG_VERSION_CONFLICT investigation.", owner_task: CTL-005}
+  - {id: ops.incident.respond, description: "Incident response read access and kill-switch execution (RB-09).", owner_task: OPS-106}
+
+# =====================================================================================================
+# Approval (maker-checker) policies per action (SEC-102, Appendix C.4). State machine: approval.yaml.
+# four_eyes: REQUIRED | REQUIRED_WITH_FLAGGED_SELF_APPROVAL | TARGET_ACCEPTANCE | CUSTOMER_APPROVAL | NONE
+# self_approval: NEVER | SINGLE_ELIGIBLE_APPROVER_FLAGGED (allowed only if no other eligible approver exists at
+#   request time; recorded self_approved=true, surfaced on statements/audit) | OWNER_WITH_STEP_UP
+# tenant_overridable: four_eyes values a tenant may choose via tenant.approval_policy_override (owner acknowledgement);
+#   an empty list means the default is fixed.
+# Universal invariants: approver != requester and != last editor of the approved revision (unless self-approval is
+# permitted and flagged); approver holds a checker capability over the object's FULL scope at approval AND at
+# execution; any object revision or content-hash change voids; expiry 7 days; step-up = auth_time <= 600 s.
+# =====================================================================================================
+approval_policies:
+  finance.period.close:
+    object_type: financial_period
+    maker_capabilities: [finance.period.close.request]
+    checker_capabilities: [finance.period.close.approve]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [period_id, object_revision, "content_sha256 = sha256(close manifest: charge/publication/reference/rule/rate/check versions)"]
+    covers: [statement.issue]   # a close approval covers statement issue for statements built from the same manifest hash
+    expires_after_days: 7
+    owner_task: FIN-010
+  finance.period.restate:
+    object_type: restatement_proposal
+    maker_capabilities: [finance.period.restate.request]
+    checker_capabilities: [finance.period.restate.approve]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [period_id, proposal_id, object_revision, "content_sha256 = sha256(new pins + difference lines)"]
+    expires_after_days: 7
+    owner_task: FIN-107
+  statement.issue:
+    object_type: chargeback_statement
+    maker_capabilities: [statement.issue]
+    checker_capabilities: [statement.approve]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [statement_id, object_revision, "content_sha256 = statement manifest hash"]
+    satisfied_by: [finance.period.close]   # EXECUTED close approval with the same manifest hash
+    expires_after_days: 7
+    owner_task: ALC-008
+  statement.precondition_exception:
+    object_type: chargeback_statement
+    maker_capabilities: [statement.issue]
+    checker_capabilities: [statement.approve]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [statement_id, object_revision, "binding_json.precondition_codes[]"]
+    expires_after_days: 7
+    owner_task: ALC-008
+  finance.pricing.publish:
+    object_type: rate_table
+    maker_capabilities: [finance.pricing.import]
+    checker_capabilities: [finance.pricing.approve]
+    four_eyes: REQUIRED
+    self_approval: SINGLE_ELIGIBLE_APPROVER_FLAGGED
+    tenant_overridable: [REQUIRED, REQUIRED_WITH_FLAGGED_SELF_APPROVAL]
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [rate_table_id, object_revision, content_sha256, "binding_json.evidence_file_sha256"]
+    expires_after_days: 7
+    owner_task: FIN-105
+  finance.reference.activate:
+    object_type: billing_reference
+    maker_capabilities: [finance.reference.enter]
+    checker_capabilities: [finance.reference.approve]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: false, approver: false, max_age_seconds: 600}
+    binds: [reference_id, object_revision, "content_sha256 = sha256(file bytes + entered fields)"]
+    expires_after_days: 7
+    owner_task: FIN-101
+  finance.reconciliation.explanation:
+    object_type: reconciliation_explanation
+    maker_capabilities: [finance.reconciliation.explain]
+    checker_capabilities: [finance.reconciliation.approve_explanation]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: false, approver: false, max_age_seconds: 600}
+    binds: [explanation_id, object_revision, content_sha256]
+    expires_after_days: 7
+    owner_task: FIN-009
+  rule.publish:
+    object_type: ruleset
+    maker_capabilities: [tag_rule.edit, allocation_rule.edit, group_set.edit]
+    checker_capabilities: [rule.approve]
+    four_eyes: REQUIRED
+    self_approval: SINGLE_ELIGIBLE_APPROVER_FLAGGED
+    tenant_overridable: [REQUIRED, REQUIRED_WITH_FLAGGED_SELF_APPROVAL]
+    step_up: {requester: false, approver: false, max_age_seconds: 600}
+    binds: [ruleset_id, object_revision, content_sha256, "binding_json.simulation_id", "binding_json.window_fingerprint"]
+    legacy_kind: FINANCIAL      # ALC approval_kind FINANCIAL == this action
+    expires_after_days: 7
+    owner_task: ALC-003
+  access.review:
+    object_type: ruleset
+    maker_capabilities: [tag_rule.edit, allocation_rule.edit, group_set.edit]
+    checker_capabilities: [access.review]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: false, approver: true, max_age_seconds: 600}
+    binds: [object_id, object_revision, content_sha256, "binding_json.access_impact_digest", "binding_json.group_set_version_hash"]
+    legacy_kind: ACCESS         # ALC approval_kind ACCESS == this action; always mandatory (ALC Q1)
+    effects_on_execute: ["bump identity.tenant.authz_epoch", "profile recompute for affected members"]
+    expires_after_days: 7
+    owner_task: ALC-003
+  allocation.transfer:
+    object_type: allocation_transfer
+    maker_capabilities: [allocation_rule.edit]
+    checker_capabilities: [rule.approve]
+    four_eyes: REQUIRED
+    self_approval: SINGLE_ELIGIBLE_APPROVER_FLAGGED
+    tenant_overridable: [REQUIRED, REQUIRED_WITH_FLAGGED_SELF_APPROVAL]
+    step_up: {requester: false, approver: false, max_age_seconds: 600}
+    binds: [transfer_id, object_revision, content_sha256]
+    expires_after_days: 7
+    owner_task: ALC-005
+  allocation.pool_disclosure:
+    object_type: allocation_pool
+    maker_capabilities: [allocation_rule.edit]
+    checker_capabilities: [allocation.pool_disclosure.manage]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: false, approver: true, max_age_seconds: 600}
+    binds: [pool_id, object_revision, "binding_json.disclosure = DISCLOSED", "binding_json.consumer_count"]
+    effects_on_execute: ["bump identity.tenant.authz_epoch"]
+    expires_after_days: 7
+    owner_task: ALC-101
+  privacy.mode.full.enable:
+    object_type: tenant_setting
+    maker_capabilities: [privacy.mode.full.enable]
+    checker_capabilities: [privacy.mode.full.enable]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [tenant_setting_id, object_revision, "content_sha256 = sha256(target privacy_mode + retention)"]
+    effects_on_execute: ["tenant.setting.privacy_mode = FULL", "bump identity.tenant.authz_epoch"]
+    expires_after_days: 7
+    owner_task: SEC-007
+  privacy.erasure:
+    object_type: privacy_request
+    maker_capabilities: [privacy.erasure.request]
+    checker_capabilities: [privacy.erasure.request]
+    four_eyes: REQUIRED
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [request_id, object_revision, "content_sha256 = sha256(pseudonym set + preview counts)"]
+    expires_after_days: 7
+    owner_task: OPS-005
+  tenant.deletion:
+    object_type: privacy_request
+    maker_capabilities: [tenant.offboarding.request]
+    checker_capabilities: [tenant.offboarding.request]
+    four_eyes: REQUIRED
+    self_approval: OWNER_WITH_STEP_UP
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [request_id, object_revision, "content_sha256 = sha256(dry-run manifest)"]
+    followed_by: "OPS-005 second-operator approval on the ops plane"
+    expires_after_days: 7
+    owner_task: ONB-102
+  sso.enforce:
+    object_type: identity_provider
+    maker_capabilities: [sso.enforce]
+    checker_capabilities: [sso.approve]
+    four_eyes: REQUIRED
+    self_approval: OWNER_WITH_STEP_UP
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [identity_provider_id, object_revision, "content_sha256 = metadata_sha256", "binding_json.break_glass_membership_ids"]
+    guards: ["idp status TESTED with tested_metadata_sha256 = metadata_sha256", ">= 1 and <= 2 break-glass owners with passkey MFA"]
+    expires_after_days: 7
+    owner_task: SEC-003
+  sso.disable:
+    object_type: identity_provider
+    maker_capabilities: [sso.disable]
+    checker_capabilities: [sso.approve]
+    four_eyes: REQUIRED
+    self_approval: OWNER_WITH_STEP_UP
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [identity_provider_id, object_revision, "content_sha256 = metadata_sha256"]
+    expires_after_days: 7
+    owner_task: SEC-003
+  tenant.ownership.transfer:
+    object_type: membership
+    maker_capabilities: [tenant.ownership.transfer]
+    checker_capabilities: []          # the TARGET member accepts (TARGET_ACCEPTANCE); no capability needed
+    four_eyes: TARGET_ACCEPTANCE
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: true, approver: true, max_age_seconds: 600}
+    binds: [source_membership_id, target_membership_id, "object_revision of both memberships"]
+    expires_after_days: 7
+    owner_task: CTL-003
+  support.grant:
+    object_type: support_access_grant
+    maker_capabilities: []            # requested by an operator holding ops.support.request
+    checker_capabilities: [support.grant]
+    four_eyes: CUSTOMER_APPROVAL
+    self_approval: NEVER
+    tenant_overridable: []
+    step_up: {requester: false, approver: true, max_age_seconds: 600}
+    binds: [support_access_grant_id, support_scope, data_scope, duration]
+    implemented_by: identity.support_access_grant   # approval recorded on the grant row, not identity.approval
+    auto_approve: "health_read only, when tenant.setting.support_health_read_auto_approve = true"
+    expires_after_days: 1
+    owner_task: SEC-104
+
+# Operator-plane four-eyes (not tenant approvals; recorded by the ops API with both operator ids in audit).
+operator_approval_policies:
+  ops.finance.payment.correct: {requires_second_operator: true, owner_task: LCH-001}
+  ops.finance.subscription.transition: {requires_second_operator: true, applies_to: [SUSPENDED, CANCELLED], owner_task: LCH-001}
+  ops.finance.entitlement.override: {requires_second_operator: true, applies_to: [above_plan], owner_task: LCH-101}
+  ops.outbox.discard: {requires_second_operator: true, owner_task: CTL-004}
+  ops.recovery.execute: {requires_second_operator: true, owner_task: OPS-106}
+  ops.tenant.offboard: {requires_second_operator: true, owner_task: OPS-005}

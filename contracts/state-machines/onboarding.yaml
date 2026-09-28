@@ -1,0 +1,46 @@
+# contract=state-machine-onboarding version=1 status=DRAFT owner_task=ONB-001 decisions=D-08,D-13,D-17,D-29,D-35,D-38 last_changed=2026-09-28
+# Onboarding RUN lifecycle (onboarding.run.status). Step statuses are NOT a transition-driven machine: they are a pure projection of
+# domain facts + bound acknowledgements (G-ONB-01), declared under x-projection and specified in docs/onboarding/state-machine.md.
+machine: onboarding
+version: 1
+owner_task: ONB-001
+entity: onboarding.run
+state_field: status
+initial: ACTIVE
+terminal: [FV1_ACCEPTED, ABANDONED]
+states:
+  ACTIVE: {description: "Run in progress; projection recomputed on domain events and by the 10-minute sweep. Created by POST /v1/onboarding/runs (idempotent)."}
+  PAUSED: {description: "Customer or subscription pause; delegated to sync pause (CON-006/ING-010): no new account-cycles or backfill chunks, coverage kept."}
+  FV1_ACCEPTED: {description: "First value (FV-1) accepted by the customer admin and finance approver (ONB-005-S07); FV-2 review scheduled (LCH-004)."}
+  ABANDONED: {description: "Run ended without FV-1 (customer withdrew, tenant offboarding, pilot not converted, replaced by a new run)."}
+transitions:
+  - {from: ACTIVE, to: PAUSED, event: paused, actors: [onboarding.manage], guards: [run_is_open], effects: ["emit:bridge.onboarding.run.paused", "enqueue:sync.pause_tenant_backfills"]}
+  - {from: ACTIVE, to: PAUSED, event: subscription_suspended, actors: ["system:onboarding-projector"], guards: [subscription_state_is_suspended], effects: ["emit:bridge.onboarding.run.paused"]}
+  - {from: PAUSED, to: ACTIVE, event: resumed, actors: [onboarding.manage], guards: [subscription_not_suspended, tenant_active], effects: ["emit:bridge.onboarding.run.resumed", "enqueue:sync.resume_tenant_backfills", "enqueue:onboarding.recompute_projection"]}
+  - {from: ACTIVE, to: FV1_ACCEPTED, event: first_value_accepted, actors: [onboarding.first_value.accept], guards: [all_steps_complete_or_limited_or_skipped, not_demonstration_only, first_value_acknowledgement_bound_to_current_projection, at_least_one_paid_account_reconciled_or_limited], effects: ["emit:bridge.onboarding.run.first_value_accepted"]}
+  - {from: ACTIVE, to: ABANDONED, event: abandoned, actors: [onboarding.manage, "system:tenant-lifecycle"], guards: [abandon_reason_given], effects: ["emit:bridge.onboarding.run.abandoned"]}
+  - {from: PAUSED, to: ABANDONED, event: abandoned, actors: [onboarding.manage, "system:tenant-lifecycle"], guards: [abandon_reason_given], effects: ["emit:bridge.onboarding.run.abandoned"]}
+guards:
+  run_is_open: "status IN (ACTIVE, PAUSED) and the run belongs to the X-Bridge-Tenant tenant"
+  subscription_state_is_suspended: "bridge.commercial.subscription.state_changed consumed with to_state = SUSPENDED"
+  subscription_not_suspended: "commercial.subscription.state NOT IN (SUSPENDED, CANCELLED)"
+  tenant_active: "tenant lifecycle state = ACTIVE (CTL-102)"
+  all_steps_complete_or_limited_or_skipped: "every step S01..S15 of the current projection is COMPLETED, COMPLETED_WITH_LIMITATIONS or SKIPPED_OPTIONAL (optional steps only); computed from source versions no older than the latest domain event"
+  not_demonstration_only: "run.demonstration_only = false (at least one connected account has trial_account = FALSE, or UNKNOWN attested paid by an Owner, D-35)"
+  first_value_acknowledgement_bound_to_current_projection: "a FIRST_VALUE_ACCEPTANCE acknowledgement exists whose bound_revision equals run.revision"
+  at_least_one_paid_account_reconciled_or_limited: "RECONCILED step of at least one non-trial account is COMPLETED or COMPLETED_WITH_LIMITATIONS"
+  abandon_reason_given: "abandon_reason_code present"
+invariants:
+  - "At most one ACTIVE or PAUSED run per tenant (partial unique index run_one_open_per_tenant)."
+  - "A connection alone never completes onboarding; FV1_ACCEPTED requires every step terminal-ok (ONB-001-S13)."
+  - "A demonstration-only run (only Snowflake trial accounts, D-35) never reaches FV1_ACCEPTED."
+  - "Pausing or abandoning a run never deletes coverage, facts or acknowledgements."
+  - "Step statuses are recomputed, never set by an actor; acknowledgements are append-only and valid only for the exact bound revision."
+x-projection:
+  entity: onboarding.step_projection
+  statuses: [BLOCKED_BY_PREREQ, READY, IN_PROGRESS, WAITING_ON_CUSTOMER, WAITING_ON_SYSTEM, COMPLETED, COMPLETED_WITH_LIMITATIONS, FAILED, BLOCKED, SKIPPED_OPTIONAL]
+  terminal_ok: [COMPLETED, COMPLETED_WITH_LIMITATIONS, SKIPPED_OPTIONAL]
+  steps: [ORG_CREATED, SNOWFLAKE_ORG_CONNECTED, ACCOUNTS_DISCOVERED, ACCOUNTS_SELECTED, ACCOUNT_WIF_INSTALLED, CAPABILITIES_VERIFIED, HISTORY_PLAN_ACCEPTED, HISTORY_SYNCED, RECONCILED, OWNERSHIP_CLASSIFIED, ALLOCATION_SIMULATED, BUDGET_CREATED, MONITORS_CREATED, INSIGHT_REVIEWED, FIRST_VALUE_PACK]
+  per_account_steps: [ACCOUNT_WIF_INSTALLED, CAPABILITIES_VERIFIED, HISTORY_SYNCED, RECONCILED]
+  optional_steps: [SNOWFLAKE_ORG_CONNECTED, OWNERSHIP_CLASSIFIED, INSIGHT_REVIEWED]
+  specification: docs/onboarding/state-machine.md

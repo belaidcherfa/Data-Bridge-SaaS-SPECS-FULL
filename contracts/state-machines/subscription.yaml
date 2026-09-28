@@ -1,0 +1,65 @@
+# contract=state-machine-subscription version=1 status=DRAFT owner_task=LCH-001 decisions=D-17,D-25,D-30,D-35,D-36 last_changed=2026-09-28
+# The only subscription machine (RECONCILIATION C-08, U-08; launch.md canonical; TRIAL renamed PILOT by D-17).
+# Human-readable form with the effect matrix: docs/commercial/subscription-state-machine.md.
+machine: subscription
+version: 1
+owner_task: LCH-001
+entity: commercial.subscription
+state_field: state
+initial: PILOT
+x-initial-alternatives:
+  # A tenant may sign a commercial order without a pilot: the subscription is then created directly in ACTIVE_PENDING_PAYMENT.
+  - {to: ACTIVE_PENDING_PAYMENT, event: commercial_order_recorded, actors: [ops.commercial.subscription.manage], guards: [signed_commercial_order_ref, plan_is_published_commercial, no_current_subscription], effects: ["emit:bridge.commercial.subscription.state_changed", "emit:bridge.commercial.entitlement.changed"]}
+x-initial-event:
+  # Creation into PILOT.
+  {to: PILOT, event: pilot_order_recorded, actors: [ops.commercial.subscription.manage], guards: [signed_pilot_order_ref, plan_is_published_pilot, no_current_subscription], effects: ["emit:bridge.commercial.subscription.state_changed", "emit:bridge.commercial.entitlement.changed"]}
+terminal: [CANCELLED]
+states:
+  PILOT: {description: "Contracted pilot (signed pilot order, contract_ref NOT NULL, possibly discounted, invoiced and paid like any order). Never an unpaid self-service trial."}
+  ACTIVE_PENDING_PAYMENT: {description: "Signed commercial order recorded; the current invoice is not yet fully covered by VERIFIED payments."}
+  ACTIVE_PAID: {description: "The current invoice is fully covered by VERIFIED payments (verified_by != recorded_by)."}
+  PAST_DUE: {description: "An invoice due date passed while unpaid (daily dunning job). Full access with an Owner banner until grace_until."}
+  SUSPENDED: {description: "Manual four-eyes suspension after grace (or pilot ended without a commercial order): read-only, scheduled sync paused (no customer credits burned), export allowed."}
+  CANCELLED: {description: "Term end or termination (four-eyes). Owner-only export for export_window_days (default 30); sync stopped. Deletion only through OPS-005."}
+transitions:
+  - {from: PILOT, to: ACTIVE_PENDING_PAYMENT, event: commercial_order_recorded, actors: [ops.commercial.subscription.manage], guards: [signed_commercial_order_ref, plan_is_published_commercial], effects: ["emit:bridge.commercial.subscription.state_changed", "emit:bridge.commercial.entitlement.changed"]}
+  - {from: PILOT, to: SUSPENDED, event: pilot_expired, actors: ["system:commercial-scheduler"], guards: [pilot_term_ended_without_commercial_order], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: PILOT, to: CANCELLED, event: cancellation_approved, actors: [ops.commercial.change.approve], guards: [approved_change_request_subscription_cancel], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PENDING_PAYMENT, to: ACTIVE_PAID, event: invoice_settled, actors: ["system:commercial-payments"], guards: [all_issued_invoices_of_subscription_covered_by_verified_payments], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PENDING_PAYMENT, to: PAST_DUE, event: payment_overdue, actors: ["system:commercial-dunning"], guards: [an_invoice_due_before_today_not_covered], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PENDING_PAYMENT, to: CANCELLED, event: cancellation_approved, actors: [ops.commercial.change.approve], guards: [approved_change_request_subscription_cancel], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PAID, to: ACTIVE_PENDING_PAYMENT, event: renewal_invoice_recorded, actors: [ops.commercial.invoice.record], guards: [new_invoice_for_next_service_period_not_covered], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PAID, to: ACTIVE_PENDING_PAYMENT, event: payment_reversed, actors: ["system:commercial-payments"], guards: [verified_reversal_uncovers_invoice, no_uncovered_invoice_past_due], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PAID, to: PAST_DUE, event: payment_reversed, actors: ["system:commercial-payments"], guards: [verified_reversal_uncovers_invoice, an_invoice_due_before_today_not_covered], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: ACTIVE_PAID, to: CANCELLED, event: cancellation_approved, actors: [ops.commercial.change.approve], guards: [approved_change_request_subscription_cancel], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: PAST_DUE, to: ACTIVE_PAID, event: invoice_settled, actors: ["system:commercial-payments"], guards: [all_issued_invoices_of_subscription_covered_by_verified_payments], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: PAST_DUE, to: ACTIVE_PENDING_PAYMENT, event: overdue_cleared_by_credit_note, actors: ["system:commercial-payments"], guards: [no_uncovered_invoice_past_due, some_invoice_not_covered], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: PAST_DUE, to: SUSPENDED, event: suspension_approved, actors: [ops.commercial.change.approve], guards: [grace_period_elapsed, approved_change_request_subscription_suspend], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: PAST_DUE, to: CANCELLED, event: cancellation_approved, actors: [ops.commercial.change.approve], guards: [approved_change_request_subscription_cancel], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: SUSPENDED, to: ACTIVE_PAID, event: resumption_approved, actors: [ops.commercial.subscription.manage], guards: [all_issued_invoices_of_subscription_covered_by_verified_payments, contract_in_force], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+  - {from: SUSPENDED, to: ACTIVE_PENDING_PAYMENT, event: commercial_order_recorded, actors: [ops.commercial.subscription.manage], guards: [signed_commercial_order_ref, plan_is_published_commercial], effects: ["emit:bridge.commercial.subscription.state_changed", "emit:bridge.commercial.entitlement.changed"]}
+  - {from: SUSPENDED, to: CANCELLED, event: cancellation_approved, actors: [ops.commercial.change.approve], guards: [approved_change_request_subscription_cancel], effects: ["emit:bridge.commercial.subscription.state_changed"]}
+guards:
+  signed_pilot_order_ref: "contract_kind = PILOT_ORDER and contract_ref present (COMM_CONTRACT_REF_REQUIRED otherwise)"
+  signed_commercial_order_ref: "contract_kind = COMMERCIAL_ORDER and contract_ref present"
+  plan_is_published_pilot: "plan.status = PUBLISHED and plan.kind = PILOT"
+  plan_is_published_commercial: "plan.status = PUBLISHED and plan.kind = COMMERCIAL"
+  no_current_subscription: "no non-CANCELLED subscription for the tenant (partial unique index subscription_one_current)"
+  pilot_term_ended_without_commercial_order: "today > term_end of the PILOT and no commercial order recorded"
+  all_issued_invoices_of_subscription_covered_by_verified_payments: "for every ISSUED invoice of the subscription: SUM(allocations of VERIFIED, non-REVERSED payments) >= amount_incl_tax - SUM(credit notes); partial payments never satisfy it"
+  an_invoice_due_before_today_not_covered: "exists an ISSUED invoice with due_on < today (UTC) not fully covered"
+  no_uncovered_invoice_past_due: "no ISSUED invoice with due_on < today is uncovered"
+  some_invoice_not_covered: "at least one ISSUED invoice is not fully covered"
+  new_invoice_for_next_service_period_not_covered: "an INVOICE whose service period starts at or after the previous period end is recorded and not covered"
+  verified_reversal_uncovers_invoice: "a REVERSAL payment_event became VERIFIED and an invoice previously covered is no longer covered"
+  grace_period_elapsed: "now() >= grace_until (due date of the oldest uncovered invoice + grace_days)"
+  approved_change_request_subscription_suspend: "commercial.change_request kind SUBSCRIPTION_SUSPEND APPROVED by a second finance operator (decided_by != requested_by), unexpired, bound to the current subscription revision"
+  approved_change_request_subscription_cancel: "commercial.change_request kind SUBSCRIPTION_CANCEL APPROVED by a second finance operator, unexpired, bound to the current revision"
+  contract_in_force: "today < term_end"
+invariants:
+  - "There is no TRIAL state and no free trial (D-17). DEMO is a tenant flag (is_synthetic), never a state, and cannot satisfy the paid gate (LCH-002-S06)."
+  - "ACTIVE_PAID is reachable only through invoice_settled / resumption_approved with VERIFIED payments recorded and verified by two different finance operators (G-LCH-10)."
+  - "The same (channel, external_ref) payment entered twice creates one payment and at most one activation."
+  - "A state change never deletes data; retention is independent (OPS-005). Effects per state follow docs/commercial/subscription-state-machine.md."
+  - "A Snowflake trial account (D-35) is a demonstration connection inside a tenant, never a subscription state."
+  - "Every transition inserts commercial.subscription_event (seq = aggregate version) in the same transaction as the outbox event."

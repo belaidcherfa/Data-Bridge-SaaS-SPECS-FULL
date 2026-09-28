@@ -1,0 +1,4501 @@
+{
+ "schema_version": 1,
+ "generated": "2026-09-28",
+ "tasks": [
+  {
+   "id": "ALC-001",
+   "domain": "ALC",
+   "title": "Create dimension registry and external tag fact model",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "CTL-005",
+    "DBT-003",
+    "FIN-001",
+    "ING-103",
+    "WRK-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-001--create-dimension-registry-and-external-tag-fact-model"
+  },
+  {
+   "id": "ALC-002",
+   "domain": "ALC",
+   "title": "Implement bounded rule evaluation and deterministic conflicts",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 62,
+   "dependencies": [
+    "ALC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-002--implement-bounded-rule-evaluation-and-deterministic-conflicts",
+   "r2_hours_low": 8,
+   "r2_hours_high": 14,
+   "release_note": "D-16 regex operators are an R2 follow-up (r2_hours)"
+  },
+  {
+   "id": "ALC-003",
+   "domain": "ALC",
+   "title": "Build simulation, review and ruleset publication",
+   "release": "R1",
+   "estimate_low_h": 54,
+   "estimate_high_h": 77,
+   "dependencies": [
+    "ALC-002",
+    "API-004",
+    "CTL-005",
+    "ORC-004",
+    "SEC-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-003--build-simulation-review-and-ruleset-publication"
+  },
+  {
+   "id": "ALC-004",
+   "domain": "ALC",
+   "title": "Implement usage group sets and effective hierarchies",
+   "release": "R1",
+   "estimate_low_h": 37,
+   "estimate_high_h": 53,
+   "dependencies": [
+    "ALC-003",
+    "CTL-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-004--implement-usage-group-sets-and-effective-hierarchies"
+  },
+  {
+   "id": "ALC-005",
+   "domain": "ALC",
+   "title": "Implement allocation methods and conservation",
+   "release": "R1",
+   "estimate_low_h": 49,
+   "estimate_high_h": 70,
+   "dependencies": [
+    "ALC-004",
+    "FIN-009",
+    "ORC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-005--implement-allocation-methods-and-conservation"
+  },
+  {
+   "id": "ALC-006",
+   "domain": "ALC",
+   "title": "Build allocation studio and quality remediation",
+   "release": "R1",
+   "estimate_low_h": 37,
+   "estimate_high_h": 53,
+   "dependencies": [
+    "ALC-005",
+    "ALC-102",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-006--build-allocation-studio-and-quality-remediation"
+  },
+  {
+   "id": "ALC-007",
+   "domain": "ALC",
+   "title": "Build scoped showback portal",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 43,
+   "dependencies": [
+    "ALC-006",
+    "ALC-101",
+    "ALC-102",
+    "UX-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-007--build-scoped-showback-portal"
+  },
+  {
+   "id": "ALC-008",
+   "domain": "ALC",
+   "title": "Implement chargeback statements, rounding and adjustments",
+   "release": "R1",
+   "estimate_low_h": 39,
+   "estimate_high_h": 55,
+   "dependencies": [
+    "ALC-006",
+    "ALC-103",
+    "API-005",
+    "FIN-010",
+    "FIN-107",
+    "RPT-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-008--implement-chargeback-statements-rounding-and-adjustments",
+   "backlog_estimate_low_h": 43,
+   "backlog_estimate_high_h": 61,
+   "reconciliation_note": "S03 rounding library = FIN-106-S03 (−4 h)"
+  },
+  {
+   "id": "ALC-101",
+   "domain": "ALC",
+   "title": "Group-scope authorization and restricted allocation serving",
+   "release": "R1",
+   "estimate_low_h": 31,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "ALC-004",
+    "ALC-005",
+    "SEC-005",
+    "SEC-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-101--group-scope-authorization-and-restricted-allocation-serving"
+  },
+  {
+   "id": "ALC-102",
+   "domain": "ALC",
+   "title": "Allocation metrics and group dimensions in the semantic registry",
+   "release": "R1",
+   "estimate_low_h": 13,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "ALC-005",
+    "ALC-101",
+    "API-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-102--allocation-metrics-and-group-dimensions-in-the-semantic-registry"
+  },
+  {
+   "id": "ALC-103",
+   "domain": "ALC",
+   "title": "Shared pools, residual, manual transfers and D-15 default book",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "ALC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-103--shared-pools-residual-manual-transfers-and-d-15-default-book"
+  },
+  {
+   "id": "ALC-104",
+   "domain": "ALC",
+   "title": "Allocation scale and cost benchmark",
+   "release": "R1",
+   "estimate_low_h": 16,
+   "estimate_high_h": 23,
+   "dependencies": [
+    "ALC-003",
+    "ALC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ALC.md#alc-104--allocation-scale-and-cost-benchmark"
+  },
+  {
+   "id": "API-001",
+   "domain": "API",
+   "title": "Registry schema, v1 catalog, validator and compiler core",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "DBT-001",
+    "FIN-001",
+    "FND-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-001--registry-schema-v1-catalog-validator-and-compiler-core"
+  },
+  {
+   "id": "API-002",
+   "domain": "API",
+   "title": "Safe analytical planner and Snowflake query broker",
+   "release": "R1",
+   "estimate_low_h": 48,
+   "estimate_high_h": 68,
+   "dependencies": [
+    "API-001",
+    "API-101",
+    "CTL-006",
+    "INF-005",
+    "SEC-005",
+    "SEC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-002--safe-analytical-planner-and-snowflake-query-broker"
+  },
+  {
+   "id": "API-003",
+   "domain": "API",
+   "title": "Response metadata, sealed cursors, publication pins and cache",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 50,
+   "dependencies": [
+    "API-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-003--response-metadata-sealed-cursors-publication-pins-and-cache"
+  },
+  {
+   "id": "API-004",
+   "domain": "API",
+   "title": "Asynchronous analysis jobs and cancellation",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "API-003",
+    "CTL-004",
+    "INF-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-004--asynchronous-analysis-jobs-and-cancellation"
+  },
+  {
+   "id": "API-005",
+   "domain": "API",
+   "title": "Explain This Number: lazy lineage tree",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "API-003",
+    "DBT-006",
+    "ING-012"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-005--explain-this-number-lazy-lineage-tree"
+  },
+  {
+   "id": "API-006",
+   "domain": "API",
+   "title": "Public API credentials, quotas and contract release tests",
+   "release": "R2",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "API-004",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-006--public-api-credentials-quotas-and-contract-release-tests",
+   "release_note": "R2; R1* if the first customer integrates by API (API.md Q-API-1)"
+  },
+  {
+   "id": "API-101",
+   "domain": "API",
+   "title": "Bind the registry to published serving views and certify it on Snowflake (new, split from API-001)",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "API-001",
+    "DBT-006",
+    "FIN-009",
+    "SEC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-101--bind-the-registry-to-published-serving-views-and-certify-it-on-snowflake-new-split-from-api-001"
+  },
+  {
+   "id": "API-102",
+   "domain": "API",
+   "title": "Exports: CSV (sync/async) and evidence bundles; PNG/PDF via render worker",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 31,
+   "dependencies": [
+    "API-003",
+    "API-004",
+    "INF-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-102--exports-csv-syncasync-and-evidence-bundles-pngpdf-via-render-worker",
+   "backlog_estimate_low_h": 24,
+   "backlog_estimate_high_h": 34,
+   "reconciliation_note": "S05 download endpoint = SEC-006-S08 artifact broker (−2 h, R1 part)",
+   "r2_hours_low": 8,
+   "r2_hours_high": 12,
+   "release_note": "PNG/PDF steps S10–S11 are R2 (r2_hours)"
+  },
+  {
+   "id": "API-104",
+   "domain": "API",
+   "title": "Records mode, entity detail and scoped dimension values",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 42,
+   "dependencies": [
+    "API-002",
+    "API-003",
+    "API-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/API.md#api-104--records-mode-entity-detail-and-scoped-dimension-values"
+  },
+  {
+   "id": "CON-001",
+   "domain": "CON",
+   "title": "Register account identities and controlled WIF task roles",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "CTL-001",
+    "INF-003",
+    "INF-005",
+    "INF-103",
+    "SEC-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-001--register-account-identities-and-controlled-wif-task-roles",
+   "backlog_estimate_low_h": 40,
+   "backlog_estimate_high_h": 56,
+   "reconciliation_note": "S04/S05/S10 (provisioner worker, provisioner IAM, quota monitor) → INF-103; S06 launcher IAM → INF-005-S08 and launcher code → ING-106 (−12 step-h)"
+  },
+  {
+   "id": "CON-002",
+   "domain": "CON",
+   "title": "Prove WIF connector and dbt compatibility live",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "CON-001",
+    "FND-002",
+    "INF-002",
+    "INF-008",
+    "INF-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-002--prove-wif-connector-and-dbt-compatibility-live"
+  },
+  {
+   "id": "CON-003",
+   "domain": "CON",
+   "title": "Generate least-privilege installation and revoke scripts",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "CON-002",
+    "CON-101",
+    "CON-102",
+    "INF-101",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-003--generate-least-privilege-installation-and-revoke-scripts"
+  },
+  {
+   "id": "CON-004",
+   "domain": "CON",
+   "title": "Discover organizations, accounts and lifecycle changes",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "CON-003",
+    "CTL-001",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-004--discover-organizations-accounts-and-lifecycle-changes"
+  },
+  {
+   "id": "CON-005",
+   "domain": "CON",
+   "title": "Probe capabilities, source schemas and permission gaps",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "CON-004",
+    "CON-101",
+    "FND-102",
+    "INF-101",
+    "ING-001",
+    "SEC-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-005--probe-capabilities-source-schemas-and-permission-gaps"
+  },
+  {
+   "id": "CON-006",
+   "domain": "CON",
+   "title": "Build connection wizard, pause, revoke and recovery UX",
+   "release": "R1",
+   "estimate_low_h": 64,
+   "estimate_high_h": 96,
+   "dependencies": [
+    "CON-005",
+    "CON-101",
+    "CON-102",
+    "LCH-101",
+    "SEC-006",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-006--build-connection-wizard-pause-revoke-and-recovery-ux"
+  },
+  {
+   "id": "CON-101",
+   "domain": "CON",
+   "title": "Customer-side extraction footprint, credit estimator and Bridge-overhead labelling",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "CON-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-101--customer-side-extraction-footprint-credit-estimator-and-bridge-overhead-labelling"
+  },
+  {
+   "id": "CON-102",
+   "domain": "CON",
+   "title": "Network reachability: fixed egress IPs, network policy, stage-host allowlisting, PrivateLink blocker",
+   "release": "R1",
+   "estimate_low_h": 16,
+   "estimate_high_h": 28,
+   "dependencies": [
+    "CON-002",
+    "INF-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-102--network-reachability-fixed-egress-ips-network-policy-stage-host-allowlisting-privatelink-blocker"
+  },
+  {
+   "id": "CON-103",
+   "domain": "CON",
+   "title": "PrivateLink onboarding (R2)",
+   "release": "R2",
+   "estimate_low_h": 40,
+   "estimate_high_h": 80,
+   "dependencies": [
+    "CON-102",
+    "INF-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CON.md#con-103--privatelink-onboarding-r2"
+  },
+  {
+   "id": "CTL-001",
+   "domain": "CTL",
+   "title": "Extend tenant, organization, account and team schemas",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "CTL-101",
+    "SEC-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-001--extend-tenant-organization-account-and-team-schemas"
+  },
+  {
+   "id": "CTL-002",
+   "domain": "CTL",
+   "title": "Migration safety, indexes and bounded connection pools",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 58,
+   "dependencies": [
+    "CTL-001",
+    "CTL-101",
+    "INF-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-002--migration-safety-indexes-and-bounded-connection-pools"
+  },
+  {
+   "id": "CTL-003",
+   "domain": "CTL",
+   "title": "Scoped CRUD, invitations and optimistic concurrency",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 84,
+   "dependencies": [
+    "CTL-001",
+    "CTL-101",
+    "SEC-002",
+    "SEC-004",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-003--scoped-crud-invitations-and-optimistic-concurrency"
+  },
+  {
+   "id": "CTL-004",
+   "domain": "CTL",
+   "title": "Outbox dispatcher and fenced job leases",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "CTL-002",
+    "CTL-101",
+    "OPS-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-004--outbox-dispatcher-and-fenced-job-leases"
+  },
+  {
+   "id": "CTL-005",
+   "domain": "CTL",
+   "title": "Publish immutable analytical configuration snapshots (D-04)",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 62,
+   "dependencies": [
+    "CTL-004",
+    "INF-003",
+    "INF-008",
+    "INF-104",
+    "SEC-102",
+    "SEC-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-005--publish-immutable-analytical-configuration-snapshots-d-04"
+  },
+  {
+   "id": "CTL-006",
+   "domain": "CTL",
+   "title": "Scoped Redis keys and safe degradation",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "CTL-101",
+    "SEC-006",
+    "SEC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-006--scoped-redis-keys-and-safe-degradation"
+  },
+  {
+   "id": "CTL-007",
+   "domain": "CTL",
+   "title": "Saved views, dashboards and commercial control records",
+   "release": "R1",
+   "estimate_low_h": 31,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "API-001",
+    "CTL-003",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-007--saved-views-dashboards-and-commercial-control-records",
+   "backlog_estimate_low_h": 48,
+   "backlog_estimate_high_h": 72,
+   "reconciliation_note": "S07–S10 commercial tables/subscription/entitlements/payments + commercial tests and billing page removed (owned by LCH-101/LCH-001), −17 step-h"
+  },
+  {
+   "id": "CTL-101",
+   "domain": "CTL",
+   "title": "Control DB kernel (migration runner, roles, unit of work, outbox/idempotency/audit tables)",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "FND-003",
+    "INF-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-101--control-db-kernel-migration-runner-roles-unit-of-work-outboxidempotencyaudit-tables"
+  },
+  {
+   "id": "CTL-102",
+   "domain": "CTL",
+   "title": "Tenant lifecycle and operator provisioning console",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 39,
+   "dependencies": [
+    "CTL-004",
+    "INF-006",
+    "SEC-004",
+    "SEC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-102--tenant-lifecycle-and-operator-provisioning-console",
+   "backlog_estimate_low_h": 28,
+   "backlog_estimate_high_h": 44,
+   "reconciliation_note": "owns ops API skeleton + operator authN for console and CLI (+2 h); tombstone table/restore loader → OPS-104 (−2 h); ordered deletion plan → OPS-005-S09 (−3 h)"
+  },
+  {
+   "id": "CTL-103",
+   "domain": "CTL",
+   "title": "Custom dashboard builder depth",
+   "release": "R2",
+   "estimate_low_h": 0,
+   "estimate_high_h": 0,
+   "dependencies": [],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": "UX-101",
+   "backlog_ref": "docs/22-implementation-readiness/backlog/CTL.md#ctl-103--custom-dashboard-builder-depth",
+   "backlog_estimate_low_h": 24,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "merged into UX-101 (UI) and RPT-103 (widget data API, sharing)"
+  },
+  {
+   "id": "DBT-001",
+   "domain": "DBT",
+   "title": "Bootstrap dbt Core project, profiles and model contracts",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "CON-002",
+    "FND-004",
+    "FND-101",
+    "INF-008",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-001--bootstrap-dbt-core-project-profiles-and-model-contracts"
+  },
+  {
+   "id": "DBT-002",
+   "domain": "DBT",
+   "title": "Implement staging dedup and complete-partition selection",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "DBT-001",
+    "DBT-101",
+    "ING-008",
+    "ORC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-002--implement-staging-dedup-and-complete-partition-selection"
+  },
+  {
+   "id": "DBT-003",
+   "domain": "DBT",
+   "title": "Resolve resource history, account membership and workload joins",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "DBT-002",
+    "DBT-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-003--resolve-resource-history-account-membership-and-workload-joins",
+   "backlog_estimate_low_h": 32,
+   "backlog_estimate_high_h": 46,
+   "reconciliation_note": "S06 workload classification SQL → WRK-001 (D-34) (−4 h)"
+  },
+  {
+   "id": "DBT-004",
+   "domain": "DBT",
+   "title": "Implement workset-bounded rebuilds and shadow rebuild",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "DBT-003",
+    "DBT-101",
+    "ORC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-004--implement-workset-bounded-rebuilds-and-shadow-rebuild"
+  },
+  {
+   "id": "DBT-005",
+   "domain": "DBT",
+   "title": "Build golden financial tests and tenant-safe CI",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 50,
+   "dependencies": [
+    "DBT-004",
+    "DBT-102",
+    "FIN-001",
+    "FND-004",
+    "FND-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-005--build-golden-financial-tests-and-tenant-safe-ci"
+  },
+  {
+   "id": "DBT-006",
+   "domain": "DBT",
+   "title": "Build serving partition revisions and explainable lineage",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "DBT-005",
+    "ORC-005",
+    "SEC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-006--build-serving-partition-revisions-and-explainable-lineage"
+  },
+  {
+   "id": "DBT-101",
+   "domain": "DBT",
+   "title": "Physical analytical revision and publication design (ADR-014) with live benchmark",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "INF-008",
+    "SEC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-101--physical-analytical-revision-and-publication-design-adr-014-with-live-benchmark"
+  },
+  {
+   "id": "DBT-102",
+   "domain": "DBT",
+   "title": "dbt CI platform: isolated schemas, fixture baseline deferral, TTL, lint, private docs",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "DBT-001",
+    "FND-004",
+    "FND-005",
+    "INF-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-102--dbt-ci-platform-isolated-schemas-fixture-baseline-deferral-ttl-lint-private-docs"
+  },
+  {
+   "id": "DBT-103",
+   "domain": "DBT",
+   "title": "Config snapshot consumption and build-context macros (D-04)",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "CTL-005",
+    "ORC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-103--config-snapshot-consumption-and-build-context-macros-d-04"
+  },
+  {
+   "id": "DBT-104",
+   "domain": "DBT",
+   "title": "Schema-breaking model versions with union-view cutover",
+   "release": "R2",
+   "estimate_low_h": 10,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "DBT-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/DBT.md#dbt-104--schema-breaking-model-versions-with-union-view-cutover"
+  },
+  {
+   "id": "FIN-001",
+   "domain": "FIN",
+   "title": "Define charge schema, service authority and exact decimal fixtures",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "FND-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-001--define-charge-schema-service-authority-and-exact-decimal-fixtures"
+  },
+  {
+   "id": "FIN-002",
+   "domain": "FIN",
+   "title": "Normalize billing, rate sheets and approved pricing",
+   "release": "R1",
+   "estimate_low_h": 45,
+   "estimate_high_h": 65,
+   "dependencies": [
+    "DBT-002",
+    "DBT-003",
+    "FIN-001",
+    "FIN-104",
+    "FIN-108",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-002--normalize-billing-rate-sheets-and-approved-pricing"
+  },
+  {
+   "id": "FIN-003",
+   "domain": "FIN",
+   "title": "Implement classic warehouse compute, query attribution and idle",
+   "release": "R1",
+   "estimate_low_h": 50,
+   "estimate_high_h": 75,
+   "dependencies": [
+    "DBT-003",
+    "FIN-002",
+    "FIN-102",
+    "FIN-103",
+    "FIN-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-003--implement-classic-warehouse-compute-query-attribution-and-idle"
+  },
+  {
+   "id": "FIN-004",
+   "domain": "FIN",
+   "title": "Implement Adaptive query-hour compute and maturity",
+   "release": "R1*",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "FIN-002",
+    "FIN-103",
+    "FIN-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-004--implement-adaptive-query-hour-compute-and-maturity"
+  },
+  {
+   "id": "FIN-005",
+   "domain": "FIN",
+   "title": "Implement adjusted cloud services and signed billing entries",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "FIN-002",
+    "FIN-102",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-005--implement-adjusted-cloud-services-and-signed-billing-entries"
+  },
+  {
+   "id": "FIN-006",
+   "domain": "FIN",
+   "title": "Implement storage classes, snapshots and billed reconciliation",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "DBT-003",
+    "FIN-002",
+    "FIN-102",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-006--implement-storage-classes-snapshots-and-billed-reconciliation"
+  },
+  {
+   "id": "FIN-007",
+   "domain": "FIN",
+   "title": "Validate independent serverless service inclusion and totals",
+   "release": "R1",
+   "estimate_low_h": 13,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "FIN-011",
+    "FIN-013",
+    "FIN-014",
+    "FIN-015",
+    "FIN-016",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-007--validate-independent-serverless-service-inclusion-and-totals"
+  },
+  {
+   "id": "FIN-008",
+   "domain": "FIN",
+   "title": "Implement directional transfer and replication charges",
+   "release": "R1",
+   "estimate_low_h": 16,
+   "estimate_high_h": 24,
+   "dependencies": [
+    "FIN-002",
+    "FIN-102",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-008--implement-directional-transfer-and-replication-charges",
+   "conditional_hours_low": 8,
+   "conditional_hours_high": 12,
+   "release_note": "replication steps S06–S07 are R1* (conditional_hours)"
+  },
+  {
+   "id": "FIN-009",
+   "domain": "FIN",
+   "title": "Build reconciliation controls and financial health UX",
+   "release": "R1",
+   "estimate_low_h": 70,
+   "estimate_high_h": 100,
+   "dependencies": [
+    "FIN-003",
+    "FIN-005",
+    "FIN-006",
+    "FIN-007",
+    "FIN-008",
+    "FIN-021",
+    "FIN-101",
+    "FIN-104",
+    "FIN-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-009--build-reconciliation-controls-and-financial-health-ux"
+  },
+  {
+   "id": "FIN-010",
+   "domain": "FIN",
+   "title": "Implement period close, statements and financial evidence retention",
+   "release": "R1",
+   "estimate_low_h": 50,
+   "estimate_high_h": 70,
+   "dependencies": [
+    "FIN-009",
+    "FIN-101",
+    "FIN-106",
+    "SEC-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-010--implement-period-close-statements-and-financial-evidence-retention"
+  },
+  {
+   "id": "FIN-011",
+   "domain": "FIN",
+   "title": "Implement file Snowpipe and hidden pipe attribution",
+   "release": "R1",
+   "estimate_low_h": 12,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-011--implement-file-snowpipe-and-hidden-pipe-attribution"
+  },
+  {
+   "id": "FIN-012",
+   "domain": "FIN",
+   "title": "Implement Snowpipe Streaming channel and client components",
+   "release": "R1*",
+   "estimate_low_h": 17,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-012--implement-snowpipe-streaming-channel-and-client-components"
+  },
+  {
+   "id": "FIN-013",
+   "domain": "FIN",
+   "title": "Implement serverless tasks and alerts",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-013--implement-serverless-tasks-and-alerts"
+  },
+  {
+   "id": "FIN-014",
+   "domain": "FIN",
+   "title": "Implement automatic clustering",
+   "release": "R1",
+   "estimate_low_h": 10,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-014--implement-automatic-clustering"
+  },
+  {
+   "id": "FIN-015",
+   "domain": "FIN",
+   "title": "Implement search optimization",
+   "release": "R1",
+   "estimate_low_h": 10,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-015--implement-search-optimization"
+  },
+  {
+   "id": "FIN-016",
+   "domain": "FIN",
+   "title": "Implement materialized view maintenance",
+   "release": "R1",
+   "estimate_low_h": 10,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-016--implement-materialized-view-maintenance"
+  },
+  {
+   "id": "FIN-017",
+   "domain": "FIN",
+   "title": "Implement query acceleration",
+   "release": "R1*",
+   "estimate_low_h": 12,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-003",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-017--implement-query-acceleration"
+  },
+  {
+   "id": "FIN-018",
+   "domain": "FIN",
+   "title": "Implement current Cortex services and non-overlapping AI attribution",
+   "release": "R1*",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103",
+    "FIN-108"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-018--implement-current-cortex-services-and-non-overlapping-ai-attribution"
+  },
+  {
+   "id": "FIN-019",
+   "domain": "FIN",
+   "title": "Implement SPCS compute-pool and application attribution",
+   "release": "R1*",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "DBT-005",
+    "FIN-002",
+    "FIN-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-019--implement-spcs-compute-pool-and-application-attribution"
+  },
+  {
+   "id": "FIN-020",
+   "domain": "FIN",
+   "title": "Implement marketplace purchase and native-app cost separation",
+   "release": "R1*",
+   "estimate_low_h": 20,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "FIN-002",
+    "FIN-103",
+    "FIN-108",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-020--implement-marketplace-purchase-and-native-app-cost-separation"
+  },
+  {
+   "id": "FIN-021",
+   "domain": "FIN",
+   "title": "Cover new billable services, organization fees and unmapped spend",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "FIN-002",
+    "FIN-108"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-021--cover-new-billable-services-organization-fees-and-unmapped-spend"
+  },
+  {
+   "id": "FIN-101",
+   "domain": "FIN",
+   "title": "Billing reference intake: usage statements, invoices and manual totals",
+   "release": "R1",
+   "estimate_low_h": 45,
+   "estimate_high_h": 65,
+   "dependencies": [
+    "CTL-005",
+    "FIN-001",
+    "INF-003",
+    "SEC-005",
+    "SEC-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-101--billing-reference-intake-usage-statements-invoices-and-manual-totals"
+  },
+  {
+   "id": "FIN-102",
+   "domain": "FIN",
+   "title": "Provisional estimator and family-bucket supersession engine (D-12 core)",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "DBT-004",
+    "FIN-001",
+    "FIN-002",
+    "FIN-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-102--provisional-estimator-and-family-bucket-supersession-engine-d-12-core"
+  },
+  {
+   "id": "FIN-103",
+   "domain": "FIN",
+   "title": "Exact attribution framework (allocate_exact, residual kinds, bridge conventions)",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "DBT-005",
+    "FIN-001",
+    "FIN-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-103--exact-attribution-framework-allocate_exact-residual-kinds-bridge-conventions"
+  },
+  {
+   "id": "FIN-104",
+   "domain": "FIN",
+   "title": "Maturity policy registry and status evaluator (D-13)",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "FIN-001",
+    "ING-001",
+    "ING-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-104--maturity-policy-registry-and-status-evaluator-d-13"
+  },
+  {
+   "id": "FIN-105",
+   "domain": "FIN",
+   "title": "Customer-approved rate tables (reseller / no-billing-access tenants)",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "CTL-005",
+    "FIN-002",
+    "SEC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-105--customer-approved-rate-tables-reseller--no-billing-access-tenants"
+  },
+  {
+   "id": "FIN-106",
+   "domain": "FIN",
+   "title": "Money library, JSON money contract and statement rounding",
+   "release": "R1",
+   "estimate_low_h": 15,
+   "estimate_high_h": 23,
+   "dependencies": [
+    "FND-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-106--money-library-json-money-contract-and-statement-rounding",
+   "backlog_estimate_low_h": 16,
+   "backlog_estimate_high_h": 24,
+   "reconciliation_note": "S05 ESLint money rule = FND-103-S03 (−1 h)"
+  },
+  {
+   "id": "FIN-107",
+   "domain": "FIN",
+   "title": "Corrections, restatement and prior-period adjustments",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "FIN-009",
+    "FIN-010"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-107--corrections-restatement-and-prior-period-adjustments"
+  },
+  {
+   "id": "FIN-108",
+   "domain": "FIN",
+   "title": "Tenant-zero live verification of Snowflake billing semantics",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 39,
+   "dependencies": [
+    "CON-005",
+    "ING-007",
+    "ING-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-108--tenant-zero-live-verification-of-snowflake-billing-semantics",
+   "backlog_estimate_low_h": 28,
+   "backlog_estimate_high_h": 44,
+   "reconciliation_note": "S08 decimal end-to-end check = ING-003-S01/S04 acceptance; S06 source-latency part = ING-102-S06 (−3.5 step-h)"
+  },
+  {
+   "id": "FIN-109",
+   "domain": "FIN",
+   "title": "Customer-approved FX dataset and display conversion",
+   "release": "R2",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "FIN-002",
+    "FIN-105",
+    "FIN-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FIN.md#fin-109--customer-approved-fx-dataset-and-display-conversion",
+   "release_note": "R2; R1 only if owner question FIN Q5 requires chargeback in a currency other than billing"
+  },
+  {
+   "id": "FND-001",
+   "domain": "FND",
+   "title": "Create monorepo boundaries and dependency rules",
+   "release": "R1",
+   "estimate_low_h": 18,
+   "estimate_high_h": 26,
+   "dependencies": [],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-001--create-monorepo-boundaries-and-dependency-rules"
+  },
+  {
+   "id": "FND-002",
+   "domain": "FND",
+   "title": "Resolve and lock the compatible runtime matrix",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "FND-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-002--resolve-and-lock-the-compatible-runtime-matrix"
+  },
+  {
+   "id": "FND-003",
+   "domain": "FND",
+   "title": "Build safe local Compose and developer onboarding",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "FND-001",
+    "FND-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-003--build-safe-local-compose-and-developer-onboarding"
+  },
+  {
+   "id": "FND-004",
+   "domain": "FND",
+   "title": "Create golden synthetic tenant and finance fixtures",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "FND-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-004--create-golden-synthetic-tenant-and-finance-fixtures"
+  },
+  {
+   "id": "FND-005",
+   "domain": "FND",
+   "title": "Implement validation dispatcher and evidence schema",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "FND-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-005--implement-validation-dispatcher-and-evidence-schema"
+  },
+  {
+   "id": "FND-006",
+   "domain": "FND",
+   "title": "Establish CI quality gates and agent working rules",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "FND-002",
+    "FND-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-006--establish-ci-quality-gates-and-agent-working-rules"
+  },
+  {
+   "id": "FND-101",
+   "domain": "FND",
+   "title": "Developer Snowflake inner loop (DEV SSO, personal schemas, CI ephemeral schemas)",
+   "release": "R1",
+   "estimate_low_h": 15,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "FND-002",
+    "FND-004",
+    "INF-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-101--developer-snowflake-inner-loop-dev-sso-personal-schemas-ci-ephemeral-schemas",
+   "backlog_estimate_low_h": 20,
+   "backlog_estimate_high_h": 30,
+   "reconciliation_note": "S04, S07 and the ci profile part of S05 duplicate DBT-102 dbt CI (−7 h)"
+  },
+  {
+   "id": "FND-102",
+   "domain": "FND",
+   "title": "Recorded Snowflake fixtures and adapter replay harness",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "FND-005",
+    "INF-008",
+    "INF-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-102--recorded-snowflake-fixtures-and-adapter-replay-harness"
+  },
+  {
+   "id": "FND-103",
+   "domain": "FND",
+   "title": "Contract codegen and Decimal/UUID/date enforcement",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "FIN-106",
+    "FND-001",
+    "FND-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/FND.md#fnd-103--contract-codegen-and-decimaluuiddate-enforcement"
+  },
+  {
+   "id": "GOV-001",
+   "domain": "GOV",
+   "title": "Implement scoped budgets and actuals",
+   "release": "R1",
+   "estimate_low_h": 42,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "API-001",
+    "API-002",
+    "CTL-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-001--implement-scoped-budgets-and-actuals"
+  },
+  {
+   "id": "GOV-002",
+   "domain": "GOV",
+   "title": "Implement forecasting (R1: run-rate + seasonal-naive)",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 43,
+   "dependencies": [
+    "GOV-001",
+    "GOV-101",
+    "ORC-005",
+    "ORC-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-002--implement-forecasting-r1-run-rate--seasonal-naive"
+  },
+  {
+   "id": "GOV-003",
+   "domain": "GOV",
+   "title": "Define monitor DSL, validation and schedule planner",
+   "release": "R1",
+   "estimate_low_h": 45,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "API-002",
+    "CTL-005",
+    "GOV-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-003--define-monitor-dsl-validation-and-schedule-planner"
+  },
+  {
+   "id": "GOV-004",
+   "domain": "GOV",
+   "title": "Implement partition evaluation, incident state and suppression",
+   "release": "R1",
+   "estimate_low_h": 47,
+   "estimate_high_h": 67,
+   "dependencies": [
+    "CTL-004",
+    "GOV-003",
+    "GOV-101",
+    "ORC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-004--implement-partition-evaluation-incident-state-and-suppression"
+  },
+  {
+   "id": "GOV-005",
+   "domain": "GOV",
+   "title": "Implement robust anomaly candidates and quality gates",
+   "release": "R1",
+   "estimate_low_h": 18,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "GOV-004",
+    "GOV-101",
+    "ORC-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-005--implement-robust-anomaly-candidates-and-quality-gates"
+  },
+  {
+   "id": "GOV-006",
+   "domain": "GOV",
+   "title": "Implement Email, Slack, Teams and secure webhook adapters",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 62,
+   "dependencies": [
+    "CTL-004",
+    "GOV-102",
+    "INF-003",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-006--implement-email-slack-teams-and-secure-webhook-adapters",
+   "release_note": "Teams adapter is R1* (D-20); its ≈ 6–9 h are inside the R1 estimate (GOV.md §6)"
+  },
+  {
+   "id": "GOV-007",
+   "domain": "GOV",
+   "title": "Implement delivery outbox, retries, DLQ and premium alerts",
+   "release": "R1",
+   "estimate_low_h": 39,
+   "estimate_high_h": 55,
+   "dependencies": [
+    "CTL-004",
+    "GOV-004",
+    "GOV-006",
+    "SEC-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-007--implement-delivery-outbox-retries-dlq-and-premium-alerts"
+  },
+  {
+   "id": "GOV-008",
+   "domain": "GOV",
+   "title": "Build incident center and governance E2E acceptance",
+   "release": "R1",
+   "estimate_low_h": 33,
+   "estimate_high_h": 47,
+   "dependencies": [
+    "GOV-002",
+    "GOV-005",
+    "GOV-007",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-008--build-incident-center-and-governance-e2e-acceptance"
+  },
+  {
+   "id": "GOV-101",
+   "domain": "GOV",
+   "title": "Shared statistics library (`packages/bridge_stats`)",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 28,
+   "dependencies": [
+    "FND-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-101--shared-statistics-library-packagesbridge_stats"
+  },
+  {
+   "id": "GOV-102",
+   "domain": "GOV",
+   "title": "Notification delivery infrastructure (SES, egress proxy, Slack app, Teams setup)",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 20,
+   "dependencies": [
+    "INF-002",
+    "INF-003",
+    "INF-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-102--notification-delivery-infrastructure-ses-egress-proxy-slack-app-teams-setup",
+   "backlog_estimate_low_h": 21,
+   "backlog_estimate_high_h": 30,
+   "reconciliation_note": "S01–S03 SES identity/config set/production access = INF-006-S11 (−7 h)",
+   "release_note": "Teams setup guide (S07) is R1*; inside the R1 estimate"
+  },
+  {
+   "id": "GOV-103",
+   "domain": "GOV",
+   "title": "Monitor evaluation scale and cost benchmark",
+   "release": "R1",
+   "estimate_low_h": 13,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "GOV-004",
+    "GOV-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-103--monitor-evaluation-scale-and-cost-benchmark"
+  },
+  {
+   "id": "GOV-104",
+   "domain": "GOV",
+   "title": "Custom fiscal calendars (4-4-5 and explicit periods)",
+   "release": "R2",
+   "estimate_low_h": 18,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "GOV-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-104--custom-fiscal-calendars-4-4-5-and-explicit-periods"
+  },
+  {
+   "id": "GOV-105",
+   "domain": "GOV",
+   "title": "Theil–Sen trend, rolling-origin selection and calibrated intervals",
+   "release": "R2",
+   "estimate_low_h": 22,
+   "estimate_high_h": 31,
+   "dependencies": [
+    "GOV-002",
+    "GOV-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/GOV.md#gov-105--theilsen-trend-rolling-origin-selection-and-calibrated-intervals"
+  },
+  {
+   "id": "INF-001",
+   "domain": "INF",
+   "title": "Bootstrap AWS organization, accounts, state and environment guards",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "FND-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-001--bootstrap-aws-organization-accounts-state-and-environment-guards"
+  },
+  {
+   "id": "INF-002",
+   "domain": "INF",
+   "title": "Create VPC, endpoints, controlled egress and in-VPC runners",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "INF-001",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-002--create-vpc-endpoints-controlled-egress-and-in-vpc-runners"
+  },
+  {
+   "id": "INF-003",
+   "domain": "INF",
+   "title": "Provision KMS, buckets, queues and retention boundaries",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "INF-001",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-003--provision-kms-buckets-queues-and-retention-boundaries"
+  },
+  {
+   "id": "INF-004",
+   "domain": "INF",
+   "title": "Provision Aurora and Valkey with safe resource budgets",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "INF-002",
+    "INF-003",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-004--provision-aurora-and-valkey-with-safe-resource-budgets"
+  },
+  {
+   "id": "INF-005",
+   "domain": "INF",
+   "title": "Build ECS base services, launcher isolation and role separation",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 50,
+   "dependencies": [
+    "INF-002",
+    "INF-003",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-005--build-ecs-base-services-launcher-isolation-and-role-separation"
+  },
+  {
+   "id": "INF-006",
+   "domain": "INF",
+   "title": "Configure edge, DNS, TLS, email domain and private operations access",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "INF-002",
+    "INF-003",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-006--configure-edge-dns-tls-email-domain-and-private-operations-access"
+  },
+  {
+   "id": "INF-007",
+   "domain": "INF",
+   "title": "Create container build, signing, deployment pipeline and staged rollback",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 50,
+   "dependencies": [
+    "INF-005",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-007--create-container-build-signing-deployment-pipeline-and-staged-rollback"
+  },
+  {
+   "id": "INF-008",
+   "domain": "INF",
+   "title": "Provision central Snowflake accounts, IaC identity, objects and service roles",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "INF-001",
+    "INF-002",
+    "INF-003",
+    "INF-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-008--provision-central-snowflake-accounts-iac-identity-objects-and-service-roles"
+  },
+  {
+   "id": "INF-101",
+   "domain": "INF",
+   "title": "Snowflake test estate: synthetic customer orgs, accounts and workload generators",
+   "release": "R1",
+   "estimate_low_h": 35,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "INF-001",
+    "INF-002",
+    "INF-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-101--snowflake-test-estate-synthetic-customer-orgs-accounts-and-workload-generators",
+   "backlog_estimate_low_h": 34,
+   "backlog_estimate_high_h": 52,
+   "reconciliation_note": "+1 h: hourly deterministic canary scenario and known-answer tags absorbed from OPS-103-S03"
+  },
+  {
+   "id": "INF-102",
+   "domain": "INF",
+   "title": "Terraform delivery pipeline: OIDC plan/apply roles, plan policy and drift detection",
+   "release": "R1",
+   "estimate_low_h": 18,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "INF-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-102--terraform-delivery-pipeline-oidc-planapply-roles-plan-policy-and-drift-detection"
+  },
+  {
+   "id": "INF-103",
+   "domain": "INF",
+   "title": "Runtime identity provisioner for per-connection and per-tenant IAM roles",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "INF-003",
+    "INF-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-103--runtime-identity-provisioner-for-per-connection-and-per-tenant-iam-roles"
+  },
+  {
+   "id": "INF-104",
+   "domain": "INF",
+   "title": "Snowflake schema-migration runner and grant-drift audit",
+   "release": "R1",
+   "estimate_low_h": 16,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "INF-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-104--snowflake-schema-migration-runner-and-grant-drift-audit"
+  },
+  {
+   "id": "INF-105",
+   "domain": "INF",
+   "title": "Cost guardrails, budgets and baseline cost model",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "INF-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-105--cost-guardrails-budgets-and-baseline-cost-model"
+  },
+  {
+   "id": "INF-106",
+   "domain": "INF",
+   "title": "Egress inspection and customer PrivateLink path (R2)",
+   "release": "R2",
+   "estimate_low_h": 16,
+   "estimate_high_h": 26,
+   "dependencies": [
+    "CON-006",
+    "INF-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INF.md#inf-106--egress-inspection-and-customer-privatelink-path-r2"
+  },
+  {
+   "id": "ING-001",
+   "domain": "ING",
+   "title": "Create executable source contracts and registry validation (framework)",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "FND-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-001--create-executable-source-contracts-and-registry-validation-framework"
+  },
+  {
+   "id": "ING-002",
+   "domain": "ING",
+   "title": "Implement UTC window planning, pass schedules and source horizons",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "CTL-004",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-002--implement-utc-window-planning-pass-schedules-and-source-horizons"
+  },
+  {
+   "id": "ING-003",
+   "domain": "ING",
+   "title": "Build bounded Arrow extraction with WIF cancellation",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 55,
+   "dependencies": [
+    "CON-002",
+    "FND-102",
+    "ING-001",
+    "OPS-001",
+    "SEC-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-003--build-bounded-arrow-extraction-with-wif-cancellation"
+  },
+  {
+   "id": "ING-004",
+   "domain": "ING",
+   "title": "Implement typed Parquet schema and size rotation",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-004--implement-typed-parquet-schema-and-size-rotation"
+  },
+  {
+   "id": "ING-005",
+   "domain": "ING",
+   "title": "Commit S3 batches and validated manifests",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "CON-001",
+    "CTL-004",
+    "INF-003",
+    "ING-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-005--commit-s3-batches-and-validated-manifests"
+  },
+  {
+   "id": "ING-006",
+   "domain": "ING",
+   "title": "Provision typed RAW tables, stages and Snowpipe",
+   "release": "R1",
+   "estimate_low_h": 37,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "INF-003",
+    "INF-008",
+    "INF-104",
+    "ING-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-006--provision-typed-raw-tables-stages-and-snowpipe"
+  },
+  {
+   "id": "ING-007",
+   "domain": "ING",
+   "title": "Build file receipts and complete-batch acceptance",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "CTL-004",
+    "ING-005",
+    "ING-006",
+    "ING-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-007--build-file-receipts-and-complete-batch-acceptance"
+  },
+  {
+   "id": "ING-008",
+   "domain": "ING",
+   "title": "Advance fenced checkpoints and deterministic source revisions",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "ING-002",
+    "ING-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-008--advance-fenced-checkpoints-and-deterministic-source-revisions"
+  },
+  {
+   "id": "ING-009",
+   "domain": "ING",
+   "title": "Handle schema drift and source BCR changes",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "CON-005",
+    "ING-001",
+    "ING-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-009--handle-schema-drift-and-source-bcr-changes"
+  },
+  {
+   "id": "ING-010",
+   "domain": "ING",
+   "title": "Plan historical backfills with steady-first coverage and fair admission",
+   "release": "R1",
+   "estimate_low_h": 48,
+   "estimate_high_h": 70,
+   "dependencies": [
+    "CON-101",
+    "ING-008",
+    "ING-106",
+    "LCH-101",
+    "ORC-003",
+    "WRK-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-010--plan-historical-backfills-with-steady-first-coverage-and-fair-admission"
+  },
+  {
+   "id": "ING-011",
+   "domain": "ING",
+   "title": "Implement journal replay and anti-entropy repair",
+   "release": "R1",
+   "estimate_low_h": 39,
+   "estimate_high_h": 57,
+   "dependencies": [
+    "ING-006",
+    "ING-007",
+    "ING-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-011--implement-journal-replay-and-anti-entropy-repair"
+  },
+  {
+   "id": "ING-012",
+   "domain": "ING",
+   "title": "Truthful Data Health model, API and UX (hot path deferred to ING-112 per D-24)",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "CON-005",
+    "ING-008",
+    "ING-010",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-012--truthful-data-health-model-api-and-ux-hot-path-deferred-to-ing-112-per-d-24",
+   "backlog_estimate_low_h": 42,
+   "backlog_estimate_high_h": 61,
+   "reconciliation_note": "+2 h: batch-manifest read endpoint for API-005 Explain leaves"
+  },
+  {
+   "id": "ING-101",
+   "domain": "ING",
+   "title": "Activate query-family source contracts (QH, QAH, QMH)",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "CON-002",
+    "CON-005",
+    "INF-101",
+    "ING-001",
+    "ING-107",
+    "WRK-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-101--activate-query-family-source-contracts-qh-qah-qmh",
+   "backlog_estimate_low_h": 28,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "+4 h: consolidated QH/QAH projection union (INS/ALC/WRK), AU.SESSIONS contract and live verification",
+   "release_note": "QUERY_METERING_HISTORY contract is R1* (Adaptive, D-20); inside the R1 estimate"
+  },
+  {
+   "id": "ING-102",
+   "domain": "ING",
+   "title": "Activate metering and billing source contracts (WMH, MH, MDH, OU currency, OU rate sheet)",
+   "release": "R1",
+   "estimate_low_h": 29,
+   "estimate_high_h": 42,
+   "dependencies": [
+    "CON-002",
+    "CON-005",
+    "INF-101",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-102--activate-metering-and-billing-source-contracts-wmh-mh-mdh-ou-currency-ou-rate-sheet"
+  },
+  {
+   "id": "ING-103",
+   "domain": "ING",
+   "title": "Activate storage, object and inventory contracts (STORAGE_USAGE, DATABASE_STORAGE_USAGE_HISTORY, DATABASES, TABLE_STORAGE_METRICS opt-in, OU.ACCOUNTS)",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 35,
+   "dependencies": [
+    "CON-005",
+    "INF-101",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-103--activate-storage-object-and-inventory-contracts-storage_usage-database_storage_usage_history-databases-table_storage_metrics-opt-in-ouaccounts",
+   "backlog_estimate_low_h": 22,
+   "backlog_estimate_high_h": 32,
+   "reconciliation_note": "+3 h AU.TAG_REFERENCES snapshot contract (ALC-001); −1 h OU.ACCOUNTS contract authored in CON-004-S03"
+  },
+  {
+   "id": "ING-104",
+   "domain": "ING",
+   "title": "Activate serverless and transfer contracts (AUTOMATIC_CLUSTERING, SERVERLESS_TASK, PIPE_USAGE, DATA_TRANSFER)",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 45,
+   "dependencies": [
+    "CON-005",
+    "INF-101",
+    "ING-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-104--activate-serverless-and-transfer-contracts-automatic_clustering-serverless_task-pipe_usage-data_transfer",
+   "backlog_estimate_low_h": 20,
+   "backlog_estimate_high_h": 30,
+   "reconciliation_note": "+10/+15 h: TASK_HISTORY and DYNAMIC_TABLE_REFRESH_HISTORY contracts pulled from R2 (ING-105) for R1 WRK-004 (≈ 5–7.5 h per source, as for the four existing ING-104 sources)"
+  },
+  {
+   "id": "ING-105",
+   "domain": "ING",
+   "title": "Activate R2 extension source families",
+   "release": "R2",
+   "estimate_low_h": 70,
+   "estimate_high_h": 125,
+   "dependencies": [
+    "ING-101",
+    "ING-102",
+    "ING-103",
+    "ING-104",
+    "ING-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-105--activate-r2-extension-source-families",
+   "backlog_estimate_low_h": 80,
+   "backlog_estimate_high_h": 140,
+   "reconciliation_note": "−10/−15 h: TASK_HISTORY and DT refresh contracts moved to R1 ING-104"
+  },
+  {
+   "id": "ING-106",
+   "domain": "ING",
+   "title": "Account-cycle runner and extractor ↔ control-plane trust path (D-07)",
+   "release": "R1",
+   "estimate_low_h": 37,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "CON-001",
+    "CON-101",
+    "INF-005",
+    "ING-002",
+    "ING-003",
+    "ING-005",
+    "ING-107",
+    "ORC-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-106--account-cycle-runner-and-extractor--control-plane-trust-path-d-07",
+   "backlog_estimate_low_h": 40,
+   "backlog_estimate_high_h": 58,
+   "reconciliation_note": "S01 cycle table = ORC-003-S01 (−3 h); S08 schedule formula = ORC-003-S02 (−2 h); +2 h launcher service (from CON-001-S06)"
+  },
+  {
+   "id": "ING-107",
+   "domain": "ING",
+   "title": "Privacy transforms in the extraction path with a throughput budget",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 33,
+   "dependencies": [
+    "ING-001",
+    "SEC-007",
+    "SEC-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-107--privacy-transforms-in-the-extraction-path-with-a-throughput-budget",
+   "backlog_estimate_low_h": 24,
+   "backlog_estimate_high_h": 36,
+   "reconciliation_note": "S04 sanitizer cache duplicates SEC-007-S08 (−2 h; process-pool sizing kept)"
+  },
+  {
+   "id": "ING-112",
+   "domain": "ING",
+   "title": "Bounded INFORMATION_SCHEMA hot path (R2, moved out of ING-012 per D-24)",
+   "release": "R2",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "ING-008",
+    "ING-012"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ING.md#ing-112--bounded-information_schema-hot-path-r2-moved-out-of-ing-012-per-d-24"
+  },
+  {
+   "id": "INS-001",
+   "domain": "INS",
+   "title": "Build insight registry and evidence publication",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "API-005",
+    "CTL-004",
+    "CTL-005",
+    "GOV-101",
+    "ORC-005",
+    "ORC-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-001--build-insight-registry-and-evidence-publication",
+   "backlog_estimate_low_h": 40,
+   "backlog_estimate_high_h": 60,
+   "reconciliation_note": "S08 landing via ORC-103 writer (−3 h); S04 impact_floor from GOV-101 (−1 h)"
+  },
+  {
+   "id": "INS-002",
+   "domain": "INS",
+   "title": "Implement warehouse optimization detectors (R1: WH01 incl. WH04 tier, WH02)",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "FIN-003",
+    "INS-001",
+    "INS-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-002--implement-warehouse-optimization-detectors-r1-wh01-incl-wh04-tier-wh02"
+  },
+  {
+   "id": "INS-003",
+   "domain": "INS",
+   "title": "Implement query optimization detectors (R1: Q01, Q02, Q03, Q07)",
+   "release": "R1",
+   "estimate_low_h": 31,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "FIN-003",
+    "GOV-005",
+    "ING-101",
+    "INS-001",
+    "WRK-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-003--implement-query-optimization-detectors-r1-q01-q02-q03-q07",
+   "backlog_estimate_low_h": 34,
+   "backlog_estimate_high_h": 50,
+   "reconciliation_note": "S02 becomes a view over WRK-104 fct_query_family_daily (−3 h)"
+  },
+  {
+   "id": "INS-004",
+   "domain": "INS",
+   "title": "Implement storage optimization detectors (R1: ST03, ST04)",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "FIN-006",
+    "INS-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-004--implement-storage-optimization-detectors-r1-st03-st04"
+  },
+  {
+   "id": "INS-005",
+   "domain": "INS",
+   "title": "Implement Cortex and container optimization detectors",
+   "release": "R2",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "FIN-018",
+    "FIN-019",
+    "INS-001",
+    "UX-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-005--implement-cortex-and-container-optimization-detectors",
+   "release_note": "R2; AI01/AI04 detectors become R1* only if D-20 reports Cortex spend at the first customer"
+  },
+  {
+   "id": "INS-006",
+   "domain": "INS",
+   "title": "Implement action workflow and immutable baseline capture",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "CTL-004",
+    "INS-002",
+    "INS-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-006--implement-action-workflow-and-immutable-baseline-capture"
+  },
+  {
+   "id": "INS-007",
+   "domain": "INS",
+   "title": "Measure normalized savings and finish optimization acceptance",
+   "release": "R1",
+   "estimate_low_h": 45,
+   "estimate_high_h": 66,
+   "dependencies": [
+    "FIN-009",
+    "INS-006"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-007--measure-normalized-savings-and-finish-optimization-acceptance"
+  },
+  {
+   "id": "INS-101",
+   "domain": "INS",
+   "title": "Insight read API, inbox, deep dive and portfolio totals",
+   "release": "R1",
+   "estimate_low_h": 35,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "API-003",
+    "INS-001",
+    "SEC-006",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-101--insight-read-api-inbox-deep-dive-and-portfolio-totals"
+  },
+  {
+   "id": "INS-102",
+   "domain": "INS",
+   "title": "Warehouse configuration snapshot source (cross-domain; execute with ING/CON owners)",
+   "release": "R1",
+   "estimate_low_h": 23,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "CON-003",
+    "CON-005",
+    "ING-005",
+    "ING-006",
+    "ING-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-102--warehouse-configuration-snapshot-source-cross-domain-execute-with-ingcon-owners"
+  },
+  {
+   "id": "INS-103",
+   "domain": "INS",
+   "title": "Query and pipeline detectors, R2 set (Q04, Q05 evidence, Q06, Q08, PL01–PL05)",
+   "release": "R2",
+   "estimate_low_h": 48,
+   "estimate_high_h": 72,
+   "dependencies": [
+    "ING-105",
+    "INS-003",
+    "WRK-002",
+    "WRK-004",
+    "WRK-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-103--query-and-pipeline-detectors-r2-set-q04-q05-evidence-q06-q08-pl01pl05"
+  },
+  {
+   "id": "INS-104",
+   "domain": "INS",
+   "title": "Storage access and ingestion hygiene detectors, R2 (ST01, ST02, ST05, PI01–PI04 re-scoped)",
+   "release": "R2",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "FIN-011",
+    "FIN-012",
+    "ING-105",
+    "INS-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-104--storage-access-and-ingestion-hygiene-detectors-r2-st01-st02-st05-pi01pi04-re-scoped"
+  },
+  {
+   "id": "INS-105",
+   "domain": "INS",
+   "title": "Detector qualification: backtest and false-positive review",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "INS-002",
+    "INS-003",
+    "INS-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-105--detector-qualification-backtest-and-false-positive-review"
+  },
+  {
+   "id": "INS-106",
+   "domain": "INS",
+   "title": "Warehouse detectors, R2 set (WH03, WH05 redefined, WH06, WH07, WH08)",
+   "release": "R2",
+   "estimate_low_h": 34,
+   "estimate_high_h": 51,
+   "dependencies": [
+    "ING-105",
+    "INS-002",
+    "INS-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/INS.md#ins-106--warehouse-detectors-r2-set-wh03-wh05-redefined-wh06-wh07-wh08"
+  },
+  {
+   "id": "LCH-001",
+   "domain": "LCH",
+   "title": "Implement subscription state machine, manual billing references and payment evidence workflow",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 53,
+   "dependencies": [
+    "CTL-102",
+    "LCH-101",
+    "LCH-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-001--implement-subscription-state-machine-manual-billing-references-and-payment-evidence-workflow",
+   "backlog_estimate_low_h": 38,
+   "backlog_estimate_high_h": 56,
+   "reconciliation_note": "S05 operator authentication reuses the CTL-102 ops plane (−2 h)"
+  },
+  {
+   "id": "LCH-002",
+   "domain": "LCH",
+   "title": "Verify first customer acceptance and payment evidence (M12 gate)",
+   "release": "R1",
+   "estimate_low_h": 8,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "LCH-001",
+    "ONB-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-002--verify-first-customer-acceptance-and-payment-evidence-m12-gate"
+  },
+  {
+   "id": "LCH-003",
+   "domain": "LCH",
+   "title": "Production go-live for the first customer and monitored rollout",
+   "release": "R1",
+   "estimate_low_h": 12,
+   "estimate_high_h": 20,
+   "dependencies": [
+    "REL-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-003--production-go-live-for-the-first-customer-and-monitored-rollout"
+  },
+  {
+   "id": "LCH-004",
+   "domain": "LCH",
+   "title": "Execute first-week, day-30 and FV-2 validation with improvement backlog",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "LCH-003",
+    "ONB-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-004--execute-first-week-day-30-and-fv-2-validation-with-improvement-backlog"
+  },
+  {
+   "id": "LCH-101",
+   "domain": "LCH",
+   "title": "Plan-agnostic entitlements and admission enforcement",
+   "release": "R1",
+   "estimate_low_h": 28,
+   "estimate_high_h": 42,
+   "dependencies": [
+    "CTL-006",
+    "CTL-102",
+    "SEC-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-101--plan-agnostic-entitlements-and-admission-enforcement"
+  },
+  {
+   "id": "LCH-102",
+   "domain": "LCH",
+   "title": "Legal, privacy and security questionnaire pack",
+   "release": "R1",
+   "estimate_low_h": 30,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "OPS-005",
+    "OPS-104",
+    "SEC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-102--legal-privacy-and-security-questionnaire-pack"
+  },
+  {
+   "id": "LCH-103",
+   "domain": "LCH",
+   "title": "Invoicing and tax compliance setup (tool, approved platform, VAT matrix)",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 24,
+   "dependencies": [
+    "LCH-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-103--invoicing-and-tax-compliance-setup-tool-approved-platform-vat-matrix"
+  },
+  {
+   "id": "LCH-104",
+   "domain": "LCH",
+   "title": "Support policy, customer communications and status page",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 22,
+   "dependencies": [
+    "OPS-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/LCH.md#lch-104--support-policy-customer-communications-and-status-page"
+  },
+  {
+   "id": "ONB-001",
+   "domain": "ONB",
+   "title": "Build resumable onboarding checklist as a projection of domain state",
+   "release": "R1",
+   "estimate_low_h": 52,
+   "estimate_high_h": 78,
+   "dependencies": [
+    "CON-006",
+    "ING-012",
+    "LCH-101",
+    "ONB-101",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-001--build-resumable-onboarding-checklist-as-a-projection-of-domain-state"
+  },
+  {
+   "id": "ONB-002",
+   "domain": "ONB",
+   "title": "Prepare customer and support documentation with clean-room rehearsal",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "ONB-001",
+    "ONB-102",
+    "OPS-010"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-002--prepare-customer-and-support-documentation-with-clean-room-rehearsal"
+  },
+  {
+   "id": "ONB-003",
+   "domain": "ONB",
+   "title": "Prepare authorized first-customer environment and identities",
+   "release": "R1",
+   "estimate_low_h": 18,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "LCH-001",
+    "LCH-003",
+    "LCH-102",
+    "ONB-002",
+    "REL-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-003--prepare-authorized-first-customer-environment-and-identities"
+  },
+  {
+   "id": "ONB-004",
+   "domain": "ONB",
+   "title": "Complete historical synchronization and customer reconciliation (FV-1 financial evidence)",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 42,
+   "dependencies": [
+    "ALC-103",
+    "FIN-010",
+    "FIN-105",
+    "FIN-107",
+    "ING-010",
+    "ONB-003",
+    "ONB-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-004--complete-historical-synchronization-and-customer-reconciliation-fv-1-financial-evidence"
+  },
+  {
+   "id": "ONB-005",
+   "domain": "ONB",
+   "title": "Complete FV-1 workshop and customer acceptance",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "ALC-008",
+    "GOV-008",
+    "INS-006",
+    "ONB-004",
+    "RPT-003",
+    "RPT-005",
+    "UX-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-005--complete-fv-1-workshop-and-customer-acceptance"
+  },
+  {
+   "id": "ONB-101",
+   "domain": "ONB",
+   "title": "Pre-consent history, credit and duration estimates",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "CON-005",
+    "ING-010",
+    "LCH-101",
+    "OPS-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-101--pre-consent-history-credit-and-duration-estimates",
+   "backlog_estimate_low_h": 26,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "S01/S03 credit formulas duplicate CON-101-S01 estimator (−4 h)"
+  },
+  {
+   "id": "ONB-102",
+   "domain": "ONB",
+   "title": "Offboarding export, disconnect/pause semantics and reconnection",
+   "release": "R1",
+   "estimate_low_h": 21,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "ALC-008",
+    "API-004",
+    "API-102",
+    "CON-006",
+    "CTL-102",
+    "OPS-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ONB.md#onb-102--offboarding-export-disconnectpause-semantics-and-reconnection",
+   "backlog_estimate_low_h": 26,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "S02 export bundle reuses API-102 export job (−3 h); S04 pause/disconnect semantics = CON-006-S09/S11 (−3 h)"
+  },
+  {
+   "id": "OPS-001",
+   "domain": "OPS",
+   "title": "Instrument shared telemetry contract, correlation and platform dashboards",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "FND-003",
+    "INF-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-001--instrument-shared-telemetry-contract-correlation-and-platform-dashboards"
+  },
+  {
+   "id": "OPS-002",
+   "domain": "OPS",
+   "title": "Implement publication quality gates and financial canaries",
+   "release": "R1",
+   "estimate_low_h": 31,
+   "estimate_high_h": 47,
+   "dependencies": [
+    "DBT-006",
+    "FIN-009",
+    "OPS-001",
+    "OPS-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-002--implement-publication-quality-gates-and-financial-canaries",
+   "backlog_estimate_low_h": 38,
+   "backlog_estimate_high_h": 58,
+   "reconciliation_note": "S02 result table = DBT-005 QUALITY.CHECK_RESULT; S08 eligibility = ORC-005-S03; F03 conservation reuses DBT-005 macro (−8 h)"
+  },
+  {
+   "id": "OPS-003",
+   "domain": "OPS",
+   "title": "Define and qualify SLOs, synthetic probes and burn-rate alerting",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "API-003",
+    "OPS-001",
+    "OPS-101",
+    "OPS-102",
+    "OPS-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-003--define-and-qualify-slos-synthetic-probes-and-burn-rate-alerting"
+  },
+  {
+   "id": "OPS-004",
+   "domain": "OPS",
+   "title": "Run adversarial tenant isolation and internal security qualification",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 84,
+   "dependencies": [
+    "GOV-007",
+    "OPS-106",
+    "RPT-005",
+    "SEC-006",
+    "SEC-008",
+    "SEC-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-004--run-adversarial-tenant-isolation-and-internal-security-qualification"
+  },
+  {
+   "id": "OPS-005",
+   "domain": "OPS",
+   "title": "Implement retention enforcement, deletion/DSAR workflow, legal holds and audit verification",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 84,
+   "dependencies": [
+    "CTL-007",
+    "OPS-104",
+    "RPT-005",
+    "SEC-007",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-005--implement-retention-enforcement-deletiondsar-workflow-legal-holds-and-audit-verification",
+   "backlog_estimate_low_h": 58,
+   "backlog_estimate_high_h": 86,
+   "reconciliation_note": "S03 landing lifecycle rules = ING-005-S04; S05 canonical expiry executed by ORC-105 (−2 h)"
+  },
+  {
+   "id": "OPS-006",
+   "domain": "OPS",
+   "title": "Rehearse control-plane backup, PITR and side-effect reconciliation",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 50,
+   "dependencies": [
+    "CTL-004",
+    "INF-004",
+    "OPS-102",
+    "OPS-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-006--rehearse-control-plane-backup-pitr-and-side-effect-reconciliation"
+  },
+  {
+   "id": "OPS-007",
+   "domain": "OPS",
+   "title": "Implement tiered analytical recovery (backups, incremental revision export) and restore drill",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 84,
+   "dependencies": [
+    "DBT-006",
+    "FIN-010",
+    "ING-011",
+    "OPS-104",
+    "ORC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-007--implement-tiered-analytical-recovery-backups-incremental-revision-export-and-restore-drill"
+  },
+  {
+   "id": "OPS-008",
+   "domain": "OPS",
+   "title": "Qualify capacity (staged C1), noisy-neighbor protection and admission quotas",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 90,
+   "dependencies": [
+    "API-004",
+    "OPS-002",
+    "OPS-105",
+    "ORC-006",
+    "ORC-102",
+    "RPT-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-008--qualify-capacity-staged-c1-noisy-neighbor-protection-and-admission-quotas"
+  },
+  {
+   "id": "OPS-009",
+   "domain": "OPS",
+   "title": "Measure Bridge unit economics and internal cost allocation",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "ALC-104",
+    "FIN-002",
+    "GOV-103",
+    "INF-105",
+    "LCH-001",
+    "OPS-008",
+    "OPS-109",
+    "ORC-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-009--measure-bridge-unit-economics-and-internal-cost-allocation"
+  },
+  {
+   "id": "OPS-010",
+   "domain": "OPS",
+   "title": "Publish runbooks, incident process and run incident exercises",
+   "release": "R1",
+   "estimate_low_h": 46,
+   "estimate_high_h": 70,
+   "dependencies": [
+    "OPS-003",
+    "OPS-004",
+    "OPS-006",
+    "OPS-007",
+    "OPS-102",
+    "OPS-106",
+    "OPS-110"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-010--publish-runbooks-incident-process-and-run-incident-exercises"
+  },
+  {
+   "id": "OPS-011",
+   "domain": "OPS",
+   "title": "Complete cross-product QA and release evidence matrix",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 66,
+   "dependencies": [
+    "ALC-008",
+    "GOV-008",
+    "ING-009",
+    "INS-007",
+    "INS-105",
+    "OPS-004",
+    "OPS-008",
+    "OPS-010",
+    "OPS-107",
+    "RPT-005",
+    "UX-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-011--complete-cross-product-qa-and-release-evidence-matrix"
+  },
+  {
+   "id": "OPS-101",
+   "domain": "OPS",
+   "title": "Pipeline ops facts, freshness emitters and data-platform dashboards",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "ING-007",
+    "OPS-001",
+    "ORC-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-101--pipeline-ops-facts-freshness-emitters-and-data-platform-dashboards"
+  },
+  {
+   "id": "OPS-102",
+   "domain": "OPS",
+   "title": "Alert routing, on-call rota, incident tooling and status page",
+   "release": "R1",
+   "estimate_low_h": 18,
+   "estimate_high_h": 28,
+   "dependencies": [
+    "INF-006",
+    "OPS-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-102--alert-routing-on-call-rota-incident-tooling-and-status-page"
+  },
+  {
+   "id": "OPS-103",
+   "domain": "OPS",
+   "title": "Synthetic Snowflake canary organization and lagged financial canaries",
+   "release": "R1",
+   "estimate_low_h": 12,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "CON-003",
+    "INF-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-103--synthetic-snowflake-canary-organization-and-lagged-financial-canaries",
+   "backlog_estimate_low_h": 26,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "S01–S04, S09, S10 (org creation, bootstrap, generator, install, spend and expiry monitors) → INF-101 (−16 step-h)"
+  },
+  {
+   "id": "OPS-104",
+   "domain": "OPS",
+   "title": "Tombstone registry outside restore scope and privacy data inventory",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "CTL-002",
+    "INF-003",
+    "SEC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-104--tombstone-registry-outside-restore-scope-and-privacy-data-inventory"
+  },
+  {
+   "id": "OPS-105",
+   "domain": "OPS",
+   "title": "Early capacity probes (ingestion at M3, serving at M5)",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "ING-008",
+    "OPS-101",
+    "ORC-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-105--early-capacity-probes-ingestion-at-m3-serving-at-m5"
+  },
+  {
+   "id": "OPS-106",
+   "domain": "OPS",
+   "title": "Operator identity, break-glass, `bridge-admin` CLI and customer-approved support access",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "CTL-102",
+    "INF-006",
+    "ING-007",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-106--operator-identity-break-glass-bridge-admin-cli-and-customer-approved-support-access",
+   "backlog_estimate_low_h": 40,
+   "backlog_estimate_high_h": 60,
+   "reconciliation_note": "S02 ops API skeleton → CTL-102; S06–S09 support grants/approval/profile/audit → SEC-104 (−16 step-h)"
+  },
+  {
+   "id": "OPS-107",
+   "domain": "OPS",
+   "title": "External penetration test and vulnerability disclosure programme",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "OPS-004",
+    "REL-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-107--external-penetration-test-and-vulnerability-disclosure-programme"
+  },
+  {
+   "id": "OPS-108",
+   "domain": "OPS",
+   "title": "SOC 2-ready control evidence baseline (continuous from M1)",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "INF-007",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-108--soc-2-ready-control-evidence-baseline-continuous-from-m1"
+  },
+  {
+   "id": "OPS-109",
+   "domain": "OPS",
+   "title": "Cost-attribution instrumentation (tags, QUERY_TAG, processing ledger)",
+   "release": "R1",
+   "estimate_low_h": 13,
+   "estimate_high_h": 19,
+   "dependencies": [
+    "INF-008",
+    "OPS-001",
+    "ORC-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-109--cost-attribution-instrumentation-tags-query_tag-processing-ledger",
+   "backlog_estimate_low_h": 20,
+   "backlog_estimate_high_h": 30,
+   "reconciliation_note": "S01 tags → INF-105-S02; S08 CUR export → INF-105-S05; S02 per-tenant build rows → ORC-104-S02 (−8 h)"
+  },
+  {
+   "id": "OPS-110",
+   "domain": "OPS",
+   "title": "Notification and report delivery SLIs",
+   "release": "R1",
+   "estimate_low_h": 11,
+   "estimate_high_h": 17,
+   "dependencies": [
+    "GOV-007",
+    "OPS-003",
+    "RPT-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-110--notification-and-report-delivery-slis",
+   "backlog_estimate_low_h": 14,
+   "backlog_estimate_high_h": 22,
+   "reconciliation_note": "S03 error classification = GOV-007-S03; S07 destination health UI = GOV-006-S13 (−4 h)"
+  },
+  {
+   "id": "OPS-111",
+   "domain": "OPS",
+   "title": "Regional recovery: Snowflake database replication and S3 cross-region copies (R2)",
+   "release": "R2",
+   "estimate_low_h": 22,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "OPS-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/OPS.md#ops-111--regional-recovery-snowflake-database-replication-and-s3-cross-region-copies-r2"
+  },
+  {
+   "id": "ORC-001",
+   "domain": "ORC",
+   "title": "Deploy private OSS control services and metadata database",
+   "release": "R1",
+   "estimate_low_h": 31,
+   "estimate_high_h": 43,
+   "dependencies": [
+    "INF-004",
+    "INF-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-001--deploy-private-oss-control-services-and-metadata-database",
+   "backlog_estimate_low_h": 38,
+   "backlog_estimate_high_h": 52,
+   "reconciliation_note": "S05–S07 BridgeEcsRunLauncher subclass, contract test and in-task guard retired by D-07 dedicated launcher (−7 h)"
+  },
+  {
+   "id": "ORC-002",
+   "domain": "ORC",
+   "title": "Define generic jobs/assets and the no-tenant-partition catalog",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 33,
+   "dependencies": [
+    "ING-001",
+    "ORC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-002--define-generic-jobsassets-and-the-no-tenant-partition-catalog",
+   "backlog_estimate_low_h": 24,
+   "backlog_estimate_high_h": 36,
+   "reconciliation_note": "S03 account_cycle_job body replaced by a sync-outcome observation sensor; launch is ING-106 (−2 h)"
+  },
+  {
+   "id": "ORC-003",
+   "domain": "ORC",
+   "title": "Implement fair admission, schedules and idempotent sensors",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "CON-001",
+    "CTL-004",
+    "ING-002",
+    "ORC-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-003--implement-fair-admission-schedules-and-idempotent-sensors"
+  },
+  {
+   "id": "ORC-004",
+   "domain": "ORC",
+   "title": "Integrate dbt assets and Python result dependencies",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "CON-002",
+    "DBT-001",
+    "DBT-002",
+    "DBT-101",
+    "ORC-003",
+    "ORC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-004--integrate-dbt-assets-and-python-result-dependencies"
+  },
+  {
+   "id": "ORC-005",
+   "domain": "ORC",
+   "title": "Publish coherent datasets and version notifications",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 62,
+   "dependencies": [
+    "CTL-005",
+    "CTL-006",
+    "DBT-101",
+    "ORC-004",
+    "ORC-101",
+    "SEC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-005--publish-coherent-datasets-and-version-notifications"
+  },
+  {
+   "id": "ORC-006",
+   "domain": "ORC",
+   "title": "Exercise backfill, cancellation and selective recovery",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "ING-011",
+    "ORC-005",
+    "ORC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-006--exercise-backfill-cancellation-and-selective-recovery"
+  },
+  {
+   "id": "ORC-101",
+   "domain": "ORC",
+   "title": "Processing ledger, build snapshot and workset planner",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "CTL-005",
+    "DBT-101",
+    "ING-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-101--processing-ledger-build-snapshot-and-workset-planner"
+  },
+  {
+   "id": "ORC-102",
+   "domain": "ORC",
+   "title": "Dagster metadata retention and capacity guardrails",
+   "release": "R1",
+   "estimate_low_h": 16,
+   "estimate_high_h": 24,
+   "dependencies": [
+    "ORC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-102--dagster-metadata-retention-and-capacity-guardrails"
+  },
+  {
+   "id": "ORC-103",
+   "domain": "ORC",
+   "title": "Python output landing and lineage contract",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "CON-002",
+    "DBT-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-103--python-output-landing-and-lineage-contract",
+   "release_note": "moves to R2 with forecasts/insights if D-01/D-20 defer them"
+  },
+  {
+   "id": "ORC-104",
+   "domain": "ORC",
+   "title": "Central compute metering capture per build and tenant",
+   "release": "R1",
+   "estimate_low_h": 8,
+   "estimate_high_h": 12,
+   "dependencies": [
+    "DBT-101",
+    "ORC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-104--central-compute-metering-capture-per-build-and-tenant",
+   "backlog_estimate_low_h": 16,
+   "backlog_estimate_high_h": 24,
+   "reconciliation_note": "S01 query-tag builder → OPS-109-S03; S04–S06 credit allocation → OPS-009-S05/S06 (−8 h)"
+  },
+  {
+   "id": "ORC-105",
+   "domain": "ORC",
+   "title": "Revision retention, pins and garbage collection",
+   "release": "R1",
+   "estimate_low_h": 23,
+   "estimate_high_h": 33,
+   "dependencies": [
+    "ORC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/ORC.md#orc-105--revision-retention-pins-and-garbage-collection",
+   "backlog_estimate_low_h": 22,
+   "backlog_estimate_high_h": 32,
+   "reconciliation_note": "+1 h: dataset retention expiry (D-11/D-26) executed by the single GC job"
+  },
+  {
+   "id": "REL-001",
+   "domain": "REL",
+   "title": "Qualify complete CI/CD promotion, provenance and schema compatibility",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "FND-006",
+    "INF-007",
+    "REL-101",
+    "REL-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-001--qualify-complete-cicd-promotion-provenance-and-schema-compatibility"
+  },
+  {
+   "id": "REL-002",
+   "domain": "REL",
+   "title": "Rehearse production deployment and rollback (code, publication, forward fix)",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "OPS-010",
+    "REL-001",
+    "REL-102",
+    "REL-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-002--rehearse-production-deployment-and-rollback-code-publication-forward-fix"
+  },
+  {
+   "id": "REL-003",
+   "domain": "REL",
+   "title": "Assemble operational, commercial and support readiness pack",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "LCH-001",
+    "LCH-102",
+    "LCH-104",
+    "OPS-009",
+    "OPS-107",
+    "OPS-108",
+    "REL-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-003--assemble-operational-commercial-and-support-readiness-pack"
+  },
+  {
+   "id": "REL-004",
+   "domain": "REL",
+   "title": "Approve immutable release candidate and production gate",
+   "release": "R1",
+   "estimate_low_h": 12,
+   "estimate_high_h": 18,
+   "dependencies": [
+    "OPS-011",
+    "REL-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-004--approve-immutable-release-candidate-and-production-gate"
+  },
+  {
+   "id": "REL-101",
+   "domain": "REL",
+   "title": "Migration safety gate and expand/contract harness",
+   "release": "R1",
+   "estimate_low_h": 10,
+   "estimate_high_h": 14,
+   "dependencies": [
+    "CTL-002",
+    "INF-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-101--migration-safety-gate-and-expandcontract-harness",
+   "backlog_estimate_low_h": 20,
+   "backlog_estimate_high_h": 30,
+   "reconciliation_note": "S02, S03, S05, S07, S08 duplicate CTL-101-S01/S04 and CTL-002-S01/S03 (−11 h); keeps policy, N−1 compatibility job, contract gate"
+  },
+  {
+   "id": "REL-102",
+   "domain": "REL",
+   "title": "Feature flags and operational kill switches",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "CTL-004",
+    "CTL-006",
+    "OPS-106"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-102--feature-flags-and-operational-kill-switches"
+  },
+  {
+   "id": "REL-103",
+   "domain": "REL",
+   "title": "Serving schema versioning and code/publication compatibility",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "API-001",
+    "DBT-006",
+    "ORC-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-103--serving-schema-versioning-and-codepublication-compatibility"
+  },
+  {
+   "id": "REL-104",
+   "domain": "REL",
+   "title": "Dark production environment from M5",
+   "release": "R1",
+   "estimate_low_h": 20,
+   "estimate_high_h": 31,
+   "dependencies": [
+    "INF-007",
+    "INF-008",
+    "OPS-102",
+    "OPS-103"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/REL.md#rel-104--dark-production-environment-from-m5",
+   "backlog_estimate_low_h": 22,
+   "backlog_estimate_high_h": 34,
+   "reconciliation_note": "S08 cost guards = INF-105 (−2 h)"
+  },
+  {
+   "id": "RPT-001",
+   "domain": "RPT",
+   "title": "Define report schema and reusable component contracts",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "API-001",
+    "API-004",
+    "CTL-003",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-001--define-report-schema-and-reusable-component-contracts"
+  },
+  {
+   "id": "RPT-002",
+   "domain": "RPT",
+   "title": "Implement isolated snapshot and render workers",
+   "release": "R1",
+   "estimate_low_h": 42,
+   "estimate_high_h": 63,
+   "dependencies": [
+    "API-002",
+    "API-004",
+    "CTL-004",
+    "INF-004",
+    "INF-005",
+    "ORC-003",
+    "RPT-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-002--implement-isolated-snapshot-and-render-workers",
+   "backlog_estimate_low_h": 44,
+   "backlog_estimate_high_h": 66,
+   "reconciliation_note": "S08 CSV writer reuses API-102-S03 library (−2 h)"
+  },
+  {
+   "id": "RPT-003",
+   "domain": "RPT",
+   "title": "Implement and visually qualify the R1 report templates",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 54,
+   "dependencies": [
+    "ALC-007",
+    "ALC-008",
+    "GOV-001",
+    "GOV-004",
+    "RPT-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-003--implement-and-visually-qualify-the-r1-report-templates"
+  },
+  {
+   "id": "RPT-004",
+   "domain": "RPT",
+   "title": "Implement calendar schedules and report occurrence planning",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "GOV-007",
+    "RPT-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-004--implement-calendar-schedules-and-report-occurrence-planning"
+  },
+  {
+   "id": "RPT-005",
+   "domain": "RPT",
+   "title": "Implement report history, secure access and retention",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "CTL-007",
+    "RPT-004",
+    "SEC-006",
+    "SEC-008"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-005--implement-report-history-secure-access-and-retention",
+   "backlog_estimate_low_h": 29,
+   "backlog_estimate_high_h": 44,
+   "reconciliation_note": "S03/S04 download broker and presign = SEC-006-S08 (−5 h); +1 h report authorization resolver plug-in"
+  },
+  {
+   "id": "RPT-101",
+   "domain": "RPT",
+   "title": "R2 templates and PNG (Platform Review, Warehouse Review, dbt Review, AI/Cortex Review)",
+   "release": "R2",
+   "estimate_low_h": 30,
+   "estimate_high_h": 45,
+   "dependencies": [
+    "FIN-018",
+    "INS-101",
+    "RPT-003",
+    "UX-007",
+    "WRK-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-101--r2-templates-and-png-platform-review-warehouse-review-dbt-review-aicortex-review"
+  },
+  {
+   "id": "RPT-102",
+   "domain": "RPT",
+   "title": "External recipients and attachment policy",
+   "release": "R2",
+   "estimate_low_h": 22,
+   "estimate_high_h": 33,
+   "dependencies": [
+    "GOV-006",
+    "RPT-004",
+    "RPT-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-102--external-recipients-and-attachment-policy"
+  },
+  {
+   "id": "RPT-103",
+   "domain": "RPT",
+   "title": "Dashboards builder and viewer-scoped widgets",
+   "release": "R2",
+   "estimate_low_h": 27,
+   "estimate_high_h": 41,
+   "dependencies": [
+    "CTL-007",
+    "RPT-001",
+    "UX-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/RPT.md#rpt-103--dashboards-builder-and-viewer-scoped-widgets",
+   "backlog_estimate_low_h": 38,
+   "backlog_estimate_high_h": 57,
+   "reconciliation_note": "S03/S04 builder and viewer UI = UX-101 (−11 h)"
+  },
+  {
+   "id": "SEC-001",
+   "domain": "SEC",
+   "title": "Model threats and classify sensitive data",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "FND-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-001--model-threats-and-classify-sensitive-data"
+  },
+  {
+   "id": "SEC-002",
+   "domain": "SEC",
+   "title": "Implement Cognito login, BFF sessions and local MFA",
+   "release": "R1",
+   "estimate_low_h": 64,
+   "estimate_high_h": 96,
+   "dependencies": [
+    "CTL-101",
+    "SEC-001",
+    "SEC-004",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-002--implement-cognito-login-bff-sessions-and-local-mfa"
+  },
+  {
+   "id": "SEC-003",
+   "domain": "SEC",
+   "title": "Add tenant-bound SAML and OIDC SSO",
+   "release": "R1*",
+   "estimate_low_h": 56,
+   "estimate_high_h": 84,
+   "dependencies": [
+    "CTL-003",
+    "SEC-002",
+    "SEC-102",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-003--add-tenant-bound-saml-and-oidc-sso",
+   "release_note": "R1* only if the first customer requires SAML/OIDC SSO (D-20)"
+  },
+  {
+   "id": "SEC-004",
+   "domain": "SEC",
+   "title": "Implement scoped RBAC and tenant RLS foundation",
+   "release": "R1",
+   "estimate_low_h": 52,
+   "estimate_high_h": 80,
+   "dependencies": [
+    "CTL-101",
+    "INF-004",
+    "SEC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-004--implement-scoped-rbac-and-tenant-rls-foundation"
+  },
+  {
+   "id": "SEC-005",
+   "domain": "SEC",
+   "title": "Provision identity-bound Snowflake serving policies (ADR-005 amended)",
+   "release": "R1",
+   "estimate_low_h": 60,
+   "estimate_high_h": 92,
+   "dependencies": [
+    "INF-005",
+    "INF-008",
+    "INF-104",
+    "SEC-004",
+    "SEC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-005--provision-identity-bound-snowflake-serving-policies-adr-005-amended"
+  },
+  {
+   "id": "SEC-006",
+   "domain": "SEC",
+   "title": "Enforce revocation across sessions, jobs, caches and downloads",
+   "release": "R1",
+   "estimate_low_h": 41,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "CTL-101",
+    "SEC-002",
+    "SEC-004",
+    "SEC-005",
+    "SEC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-006--enforce-revocation-across-sessions-jobs-caches-and-downloads",
+   "backlog_estimate_low_h": 44,
+   "backlog_estimate_high_h": 68,
+   "reconciliation_note": "S06 HMAC cursors replaced by API-003-S05 sealed-token library (−3 h); S08 becomes the single artifact download broker"
+  },
+  {
+   "id": "SEC-007",
+   "domain": "SEC",
+   "title": "Sanitize SQL, tags and errors before persistence",
+   "release": "R1",
+   "estimate_low_h": 47,
+   "estimate_high_h": 73,
+   "dependencies": [
+    "FND-004",
+    "SEC-001",
+    "WRK-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-007--sanitize-sql-tags-and-errors-before-persistence",
+   "backlog_estimate_low_h": 50,
+   "backlog_estimate_high_h": 78,
+   "reconciliation_note": "S07 comment/tag metadata extraction → WRK-101 library (−3 h)"
+  },
+  {
+   "id": "SEC-008",
+   "domain": "SEC",
+   "title": "Audit trail, export and early isolation attack suite",
+   "release": "R1",
+   "estimate_low_h": 56,
+   "estimate_high_h": 86,
+   "dependencies": [
+    "CTL-101",
+    "INF-003",
+    "SEC-006",
+    "SEC-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-008--audit-trail-export-and-early-isolation-attack-suite"
+  },
+  {
+   "id": "SEC-101",
+   "domain": "SEC",
+   "title": "Scope grammar and normalized permission profile library",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "FND-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-101--scope-grammar-and-normalized-permission-profile-library"
+  },
+  {
+   "id": "SEC-102",
+   "domain": "SEC",
+   "title": "Maker-checker approvals and step-up authentication",
+   "release": "R1",
+   "estimate_low_h": 36,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "CTL-101",
+    "SEC-002",
+    "SEC-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-102--maker-checker-approvals-and-step-up-authentication"
+  },
+  {
+   "id": "SEC-103",
+   "domain": "SEC",
+   "title": "Pseudonymization and deletable identity dictionary (D-10)",
+   "release": "R1",
+   "estimate_low_h": 35,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "CTL-101",
+    "INF-003",
+    "SEC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-103--pseudonymization-and-deletable-identity-dictionary-d-10",
+   "backlog_estimate_low_h": 40,
+   "backlog_estimate_high_h": 64,
+   "reconciliation_note": "S04 in-extractor decrypt/pseudonymize → ING-107-S03 (−2 h); S09 erasure workflow → OPS-005 privacy-request workflow, primitive kept (−3 h)"
+  },
+  {
+   "id": "SEC-104",
+   "domain": "SEC",
+   "title": "Time-bound, customer-approved support access",
+   "release": "R1",
+   "estimate_low_h": 25,
+   "estimate_high_h": 42,
+   "dependencies": [
+    "CTL-102",
+    "SEC-006",
+    "SEC-102",
+    "SEC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-104--time-bound-customer-approved-support-access",
+   "backlog_estimate_low_h": 24,
+   "backlog_estimate_high_h": 40,
+   "reconciliation_note": "+1 h: tenant auto-approve policy for health_read (from OPS-106-S07)"
+  },
+  {
+   "id": "SEC-105",
+   "domain": "SEC",
+   "title": "Tenant serving principal and profile-role provisioner",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 63,
+   "dependencies": [
+    "CTL-004",
+    "INF-005",
+    "INF-103",
+    "SEC-005",
+    "SEC-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-105--tenant-serving-principal-and-profile-role-provisioner",
+   "backlog_estimate_low_h": 48,
+   "backlog_estimate_high_h": 76,
+   "reconciliation_note": "S02 IAM role creation and IAM parts of S07/S08/S09 → INF-103 (−8 step-h)"
+  },
+  {
+   "id": "SEC-106",
+   "domain": "SEC",
+   "title": "Resource-level scopes, SCIM and pseudonym key rotation",
+   "release": "R2",
+   "estimate_low_h": 40,
+   "estimate_high_h": 64,
+   "dependencies": [
+    "SEC-101",
+    "SEC-103",
+    "SEC-105"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/SEC.md#sec-106--resource-level-scopes-scim-and-pseudonym-key-rotation"
+  },
+  {
+   "id": "UX-001",
+   "domain": "UX",
+   "title": "Design system, application shell and frontend platform",
+   "release": "R1",
+   "estimate_low_h": 42,
+   "estimate_high_h": 58,
+   "dependencies": [
+    "FND-002",
+    "FND-003"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-001--design-system-application-shell-and-frontend-platform"
+  },
+  {
+   "id": "UX-002",
+   "domain": "UX",
+   "title": "Authenticated scope state, data layer and semantic query components",
+   "release": "R1",
+   "estimate_low_h": 44,
+   "estimate_high_h": 60,
+   "dependencies": [
+    "API-001",
+    "API-104",
+    "SEC-002",
+    "SEC-006",
+    "UX-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-002--authenticated-scope-state-data-layer-and-semantic-query-components"
+  },
+  {
+   "id": "UX-003",
+   "domain": "UX",
+   "title": "Home and executive drivers",
+   "release": "R1",
+   "estimate_low_h": 24,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "API-001",
+    "API-101",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-003--home-and-executive-drivers"
+  },
+  {
+   "id": "UX-004",
+   "domain": "UX",
+   "title": "Cost Explorer, billing ledger, services and saved analyses",
+   "release": "R1",
+   "estimate_low_h": 48,
+   "estimate_high_h": 66,
+   "dependencies": [
+    "API-001",
+    "API-102",
+    "API-104",
+    "CTL-007"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-004--cost-explorer-billing-ledger-services-and-saved-analyses"
+  },
+  {
+   "id": "UX-005",
+   "domain": "UX",
+   "title": "Warehouse and query deep dives",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "API-101",
+    "API-104",
+    "FIN-003",
+    "UX-002",
+    "WRK-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-005--warehouse-and-query-deep-dives"
+  },
+  {
+   "id": "UX-006",
+   "domain": "UX",
+   "title": "Storage and serverless resource views",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 38,
+   "dependencies": [
+    "API-104",
+    "FIN-006",
+    "FIN-007",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-006--storage-and-serverless-resource-views"
+  },
+  {
+   "id": "UX-007",
+   "domain": "UX",
+   "title": "AI/Cortex and SPCS analytical experiences",
+   "release": "R1*",
+   "estimate_low_h": 28,
+   "estimate_high_h": 40,
+   "dependencies": [
+    "API-104",
+    "FIN-018",
+    "FIN-019",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-007--aicortex-and-spcs-analytical-experiences"
+  },
+  {
+   "id": "UX-008",
+   "domain": "UX",
+   "title": "End-to-end product-state, accessibility and navigation qualification",
+   "release": "R1",
+   "estimate_low_h": 38,
+   "estimate_high_h": 52,
+   "dependencies": [
+    "ALC-007",
+    "GOV-008",
+    "INS-101",
+    "UX-003",
+    "UX-004",
+    "UX-005",
+    "UX-006",
+    "UX-102",
+    "UX-103",
+    "UX-104",
+    "WRK-002",
+    "WRK-004",
+    "WRK-005",
+    "WRK-102"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-008--end-to-end-product-state-accessibility-and-navigation-qualification"
+  },
+  {
+   "id": "UX-101",
+   "domain": "UX",
+   "title": "Dashboards list and builder",
+   "release": "R2",
+   "estimate_low_h": 30,
+   "estimate_high_h": 44,
+   "dependencies": [
+    "API-102",
+    "CTL-007",
+    "RPT-103",
+    "UX-002",
+    "UX-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-101--dashboards-list-and-builder"
+  },
+  {
+   "id": "UX-102",
+   "domain": "UX",
+   "title": "Settings and administration pages (workspace, roles, audit, privacy, support)",
+   "release": "R1",
+   "estimate_low_h": 32,
+   "estimate_high_h": 46,
+   "dependencies": [
+    "CTL-003",
+    "SEC-004",
+    "SEC-007",
+    "SEC-008",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-102--settings-and-administration-pages-workspace-roles-audit-privacy-support"
+  },
+  {
+   "id": "UX-103",
+   "domain": "UX",
+   "title": "Integration Health and connection detail",
+   "release": "R1",
+   "estimate_low_h": 12,
+   "estimate_high_h": 17,
+   "dependencies": [
+    "CON-005",
+    "CON-006",
+    "ING-012",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-103--integration-health-and-connection-detail",
+   "backlog_estimate_low_h": 20,
+   "backlog_estimate_high_h": 28,
+   "reconciliation_note": "S04 connection detail = CON-006-S12; S05 destination health = GOV-006-S13; overhead credits in S03 = ING-012-S08 (−7 step-h)"
+  },
+  {
+   "id": "UX-104",
+   "domain": "UX",
+   "title": "Explain drawer, analysis jobs and exports center",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "API-004",
+    "API-005",
+    "API-102",
+    "UX-002"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/UX.md#ux-104--explain-drawer-analysis-jobs-and-exports-center"
+  },
+  {
+   "id": "WRK-001",
+   "domain": "WRK",
+   "title": "Versioned workload classifier and evidence model",
+   "release": "R1",
+   "estimate_low_h": 34,
+   "estimate_high_h": 48,
+   "dependencies": [
+    "DBT-003",
+    "SEC-007",
+    "WRK-101"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-001--versioned-workload-classifier-and-evidence-model"
+  },
+  {
+   "id": "WRK-002",
+   "domain": "WRK",
+   "title": "dbt project, invocation and model intelligence",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "API-104",
+    "UX-002",
+    "WRK-001",
+    "WRK-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-002--dbt-project-invocation-and-model-intelligence"
+  },
+  {
+   "id": "WRK-003",
+   "domain": "WRK",
+   "title": "Power BI activity and mode intelligence",
+   "release": "R1*",
+   "estimate_low_h": 24,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "API-104",
+    "UX-002",
+    "WRK-001",
+    "WRK-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-003--power-bi-activity-and-mode-intelligence"
+  },
+  {
+   "id": "WRK-004",
+   "domain": "WRK",
+   "title": "Tasks, procedures and dynamic-table execution graphs",
+   "release": "R1",
+   "estimate_low_h": 40,
+   "estimate_high_h": 56,
+   "dependencies": [
+    "API-104",
+    "FIN-013",
+    "ING-104",
+    "UX-002",
+    "WRK-001",
+    "WRK-104"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-004--tasks-procedures-and-dynamic-table-execution-graphs"
+  },
+  {
+   "id": "WRK-005",
+   "domain": "WRK",
+   "title": "Workload comparison (volume vs unit-cost decomposition)",
+   "release": "R1",
+   "estimate_low_h": 26,
+   "estimate_high_h": 36,
+   "dependencies": [
+    "API-004",
+    "WRK-002",
+    "WRK-004"
+   ],
+   "status": "NOT_STARTED",
+   "source": "original",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-005--workload-comparison-volume-vs-unit-cost-decomposition"
+  },
+  {
+   "id": "WRK-101",
+   "domain": "WRK",
+   "title": "Workload metadata extraction library (dbt/PBI/Bridge/customer keys) for the sanitizer",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "FND-004",
+    "SEC-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-101--workload-metadata-extraction-library-dbtpbibridgecustomer-keys-for-the-sanitizer"
+  },
+  {
+   "id": "WRK-102",
+   "domain": "WRK",
+   "title": "Workloads overview, ad hoc and Bridge-overhead views",
+   "release": "R1",
+   "estimate_low_h": 14,
+   "estimate_high_h": 20,
+   "dependencies": [
+    "API-104",
+    "UX-002",
+    "WRK-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-102--workloads-overview-ad-hoc-and-bridge-overhead-views"
+  },
+  {
+   "id": "WRK-103",
+   "domain": "WRK",
+   "title": "On-demand operator evidence (GET_QUERY_OPERATOR_STATS)",
+   "release": "R2",
+   "estimate_low_h": 24,
+   "estimate_high_h": 34,
+   "dependencies": [
+    "API-004",
+    "CON-005",
+    "ING-003",
+    "SEC-007",
+    "UX-005"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-103--on-demand-operator-evidence-get_query_operator_stats"
+  },
+  {
+   "id": "WRK-104",
+   "domain": "WRK",
+   "title": "Retention-tier facts: execution-level (400 d) and query-family × day with mergeable states",
+   "release": "R1",
+   "estimate_low_h": 22,
+   "estimate_high_h": 30,
+   "dependencies": [
+    "DBT-004",
+    "ING-001",
+    "WRK-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-104--retention-tier-facts-execution-level-400-d-and-query-family--day-with-mergeable-states"
+  },
+  {
+   "id": "WRK-105",
+   "domain": "WRK",
+   "title": "Native Applications and custom applications",
+   "release": "R2",
+   "estimate_low_h": 22,
+   "estimate_high_h": 32,
+   "dependencies": [
+    "API-104",
+    "FIN-019",
+    "FIN-020",
+    "UX-002",
+    "WRK-001"
+   ],
+   "status": "NOT_STARTED",
+   "source": "new",
+   "merged_into": null,
+   "backlog_ref": "docs/22-implementation-readiness/backlog/WRK.md#wrk-105--native-applications-and-custom-applications"
+  }
+ ]
+}

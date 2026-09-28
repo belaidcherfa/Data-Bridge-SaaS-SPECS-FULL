@@ -15,7 +15,7 @@ Other gaps:
 - The D-07 account-cycle runner and its trust path to the control plane have no owner (G-ING-08/09).
 - Complete-partition snapshots can wipe billing data on a silent empty read (G-ING-07).
 
-Author first: the registry schema with explicit watermark modes (§3.1 contract table), the key grammar, the manifest v1 schema, and the acceptance / revision / schema-diff / health decision tables (§3.2–§3.6). R1 effort is ≈ 647–949 senior hours. The task files assume 12 × 2–6 h. The INFORMATION_SCHEMA hot path is deferred to R2 (D-24 confirmed, G-ING-14).
+Author first: the registry schema with explicit watermark modes (§3.1 contract table), the key grammar, the manifest v1 schema, and the acceptance / revision / schema-diff / health decision tables (§3.2–§3.6). R1 effort is ≈ 595–865 senior hours. The task files assume 12 × 2–6 h. The INFORMATION_SCHEMA hot path is deferred to R2 (D-24 confirmed, G-ING-14).
 
 ## 2. Findings
 
@@ -357,7 +357,7 @@ PG tables in `sync.*`:
 - `leases`, `cycle_requests`, `backfill_plans`, `replay_requests`, `source_health`.
 
 APIs:
-- `POST /v1/sync/backfills` (preview) and `/{id}/approve|pause|resume|cancel`;
+- `POST /v1/sync/backfills` (preview) and `/{id}/approve`, `/pause`, `/resume`, `/cancel`;
 - `POST /v1/sync/replays` (preview) and `/{id}/approve`;
 - `GET /v1/data-health`, `GET /v1/data-health/accounts/{id}/sources/{source}/intervals`, `GET /v1/data-health/sync-history`;
 - internal `sync-api`: `POST /cycles/{id}/claim`, `/heartbeat`, `/attempts`, `/manifests`, `/outcomes`, authenticated by STS caller identity.
@@ -507,7 +507,7 @@ Dependency changes: none (ING-001, CTL-004).
 | ING-002-S05 | Write the PG `sync.coverage` migration using `tstzmultirange` for journaled/raw_accepted/published/settled, with a revision column, plus `sync.planned_windows`. Function `contiguous_through(multirange, requested_start)`. | migration + `coverage.py` | Accepted [00,01) and [02,03) → checkpoint 01. Filling [01,02) → 03. | 4 |
 | ING-002-S06 | Implement the retention clamp and availability horizon: `earliest = max(requested_start, now − retention_days + 2 d safety, availability_start, enrollment_at for SNAPSHOT)`; unavailable intervals are stored explicitly with a reason. | `windows.py::clamp` | 365-day request on a 90-day source gives 90 available and 275 unavailable (RETENTION). A snapshot source gives available from enrollment only. | 3 |
 | ING-002-S07 | Implement the anti-entropy planner per registry (RESNAPSHOT daily 7 d / open month / previous month until +5 d; CHECKSUM weekly 30 d). Exclude partitions within 7 d of the retention cutoff. | `windows.py::anti_entropy` | On 2026-10-03 the MDH plan includes Sept 1–30 and Oct 1–2; the QH checksum plan excludes days older than now − 358 d. | 3 |
-| ING-002-S08 | Run a live pruning benchmark in an OPS-103 account: for 1 h windows compare partitions scanned and elapsed time of (a) END_TIME-only, (b) END_TIME + START_TIME ≥ ws − 8 d, (c) START_TIME only (reference). Record the choice in the registry `predicate_template`. | evidence + registry update | The chosen predicate scans ≤ 2× the partitions of (c), or the registry documents the accepted cost. | 4 |
+| ING-002-S08 | Run a live pruning benchmark in an OPS-103 account: for 1 h windows compare partitions scanned and elapsed time of (a) END_TIME-only, (b) END_TIME + START_TIME ≥ ws − 8 d, (c) START_TIME only (reference). Record the choice in the registry `predicate_template`. | evidence + registry update | The chosen predicate scans ≤ 2× the partitions of (c), or the registry documents the accepted cost. | 5 |
 | ING-002-S09 | Write the edge-case test suite: END_TIME exactly = we goes to the next window; leap day 2028-02-29; DST irrelevance (UTC session plus TIMESTAMP_LTZ); future end clamped to `now − first_delay`; clock skew (DB time only); equal timestamps; sparse source; failed middle interval. | `tests/spec/ING-002/` | All pass. The oracle "late record inside settle is re-read; out-of-retention is unavailable, not zero" is asserted. | 4 |
 | ING-002-S10 | Implement the long-duration alarm: if any extracted row has `END_TIME − START_TIME > 7 d − 1 d`, emit `watermark_horizon_breach_total{source}` and widen the pruning bound for that account via config. | alarm + config | Fixture with a 6.5-day query fires the alarm. | 2 |
 | ING-002-S11 | Write the planner API `plan_windows(requested_range, policy, coverage, now)`: pure and deterministic (injected `now`). | `windows.py` | Identical inputs give identical output (hash test). | 2 |
@@ -520,7 +520,7 @@ Task acceptance:
 - [ ] The predicate choice is backed by a live pruning measurement.
 
 ### ING-003 — Build bounded Arrow extraction with WIF cancellation
-Release: R1 · Estimate: 40–60 h · Risk: H · Decisions: D-07, D-21 · Closes: G-ING-02, G-ING-16
+Release: R1 · Estimate: 38–55 h · Risk: H · Decisions: D-07, D-21 · Closes: G-ING-02, G-ING-16
 Dependency changes: `−ING-002 (the executor needs the query builder, not the planner)`, `+ING-001`. CON-002 and SEC-007 are retained.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -529,10 +529,10 @@ Dependency changes: `−ING-002 (the executor needs the query builder, not the p
 | ING-003-S03 | Cast every batch to the registry Arrow schema (`pa.Table.cast(schema, safe=True)`). Overflow or invalid → `TransportCastError` with column name only. Zero rows → produce no batches and hand the registry schema to the writer. | `executor.py::normalize` | Fixtures: an int8 → int64 batch cast OK; a decimal overflow raises; float64 for a NUMBER source raises (G-ING-02 guard); an empty result yields a valid empty file schema. | 4 |
 | ING-003-S04 | Add the float guard: a contract test over all R1 sources asserts no `float`/`double` in the transport schema unless the registry declares a FLOAT source column (PIPE_USAGE exceptions listed). | `tests/contracts/test_no_float.py` | CI fails when the registry is mutated to map CREDITS_USED to float. | 2 |
 | ING-003-S05 | Call the privacy hook per batch (ING-107) before any durable write; the hook is mandatory (the executor refuses to yield without it). | executor ↔ privacy interface | A test proves the Parquet writer never receives raw QUERY_TEXT (sentinel literal absent from files). | 2 |
-| ING-003-S06 | Bound memory: `client_prefetch_threads=2`; per-batch row cap; RSS sampler (psutil) every 1 s; backpressure when RSS > 60 % of the container limit (pause fetch). | `executor.py::memory_guard` | A 10 M-row synthetic stream (QH-shaped with 1.5 KB text) stays < 70 % of 4 GB. A graph is attached to the evidence. | 4 |
-| ING-003-S07 | Implement bisection: on statement timeout, or result bytes > 2 GiB, or rows > registry cap, split `[ws, we)` into halves recursively down to `min_chunk` (QH 5 min). An irreducible window → quarantine the window with reason `IRREDUCIBLE_SIZE`. Sub-windows keep the parent's logical window for coverage. | `executor.py::bisect` | Fixture: a 1-day window with a synthetic timeout at > 6 h spans → split to 4 × 6 h, accepted coverage equals the full day, no duplicate or missing boundary rows. | 4 |
+| ING-003-S06 | Bound memory: `client_prefetch_threads=2`; per-batch row cap; RSS sampler (psutil) every 1 s; backpressure when RSS > 60 % of the container limit (pause fetch). | `executor.py::memory_guard` | A 10 M-row synthetic stream (QH-shaped with 1.5 KB text) stays < 70 % of 4 GB. A graph is attached to the evidence. | 5 |
+| ING-003-S07 | Implement bisection: on statement timeout, or result bytes > 2 GiB, or rows > registry cap, split `[ws, we)` into halves recursively down to `min_chunk` (QH 5 min). An irreducible window → quarantine the window with reason `IRREDUCIBLE_SIZE`. Sub-windows keep the parent's logical window for coverage. | `executor.py::bisect` | Fixture: a 1-day window with a synthetic timeout at > 6 h spans → split to 4 × 6 h, accepted coverage equals the full day, no duplicate or missing boundary rows. | 5 |
 | ING-003-S08 | Apply the oversized-row policy: QUERY_TEXT > 100 KB → sanitized text dropped with `text_omitted=SIZE`; any single row > 16 MB → quarantine that window. | executor + registry field | Fixture with a 2 MB query text → row kept, text null, flag set. | 2 |
-| ING-003-S09 | Handle cancellation: a job cancel or epoch change triggers `SYSTEM$CANCEL_QUERY(sfqid)` or `cursor.abort_query`. A process kill is handled server-side via `ABORT_DETACHED_QUERY` (live-verify within 10 min). Orphan query IDs are listed in the cycle outcome. | `executor.py::cancel` | Live: kill -9 mid-query → AU.QUERY_HISTORY shows the query cancelled/aborted, not completed after its natural duration (TO VERIFY LIVE timing). | 4 |
+| ING-003-S09 | Handle cancellation: a job cancel or epoch change triggers `SYSTEM$CANCEL_QUERY(sfqid)` or `cursor.abort_query`. A process kill is handled server-side via `ABORT_DETACHED_QUERY` (live-verify within 10 min). Orphan query IDs are listed in the cycle outcome. | `executor.py::cancel` | Live: kill -9 mid-query → AU.QUERY_HISTORY shows the query cancelled/aborted, not completed after its natural duration (TO VERIFY LIVE timing). | 5 |
 | ING-003-S10 | Handle session expiry and revoked grants: an expired session triggers reconnect (CON-002-S08) and restarts the current window. A revoked grant → classify DENIED for this source; the cycle continues with other sources. | executor + errors | Live: REVOKE between sources → next source DENIED, remaining sources OK, coverage unchanged for the denied source. | 3 |
 | ING-003-S11 | Add observability: `extract_rows_total`, `extract_bytes_total`, `extract_window_seconds`, `extract_bisect_total`, `extract_rss_peak_bytes`; logs carry `sfqid` and the window, never SQL text. | metrics + log schema | Dashboard panels exist. The log grep for `SELECT` is empty. | 2 |
 | ING-003-S12 | Write the performance and live evidence: 10 M synthetic rows; one live 1-day QH chunk from an OPS-103 account. | `docs/evidence/ING-003/<commit>/` | RSS < 70 %. Decimal exactness verified against a Snowflake `SUM(...)::VARCHAR` on the same window. | 3 |
@@ -549,13 +549,13 @@ Dependency changes: `−ING-003`, `+ING-001 (the writer needs only the transport
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-004-S01 | Implement the type map per §3 and reject lossy narrowing and case-fold collisions (`Query_Id` vs `QUERY_ID`). | `packages/parquet/schema.py` | Table-driven tests for every registry type. A collision raises. | 3 |
-| ING-004-S02 | Configure the writer: `ParquetWriter(version='2.6', compression='zstd', compression_level=3, write_statistics=True, use_dictionary=[low-card columns], data_page_size=1 MiB)`; row groups of about 64 MiB uncompressed; close the file when `sink.tell() ≥ 128 MiB` after a row group; hard cap 256 MiB. | `packages/parquet/writer.py` | A 1 GB synthetic stream yields files in the [100, 256] MiB band except the last. Row totals across files equal the input. | 4 |
+| ING-004-S02 | Configure the writer: `ParquetWriter(version='2.6', compression='zstd', compression_level=3, write_statistics=True, use_dictionary=[low-card columns], data_page_size=1 MiB)`; row groups of about 64 MiB uncompressed; close the file when `sink.tell() ≥ 128 MiB` after a row group; hard cap 256 MiB. | `packages/parquet/writer.py` | A 1 GB synthetic stream yields files in the [100, 256] MiB band except the last. Row totals across files equal the input. | 5 |
 | ING-004-S03 | Write key-value metadata: `bridge.batch_id`, `bridge.logical_window_id`, `bridge.schema_fingerprint`, `bridge.contract_version`, `bridge.extractor_image_digest`. | writer | Round-trip read returns the metadata. | 1 |
 | ING-004-S04 | Compute `row_hash`: SHA-256 over a canonical encoding of the source fields (registry order; decimals as canonical strings; timestamps as ISO-8601 UTC with the declared precision; nulls as a sentinel), vectorized per batch. Used for diagnostics, not dedup. | `packages/parquet/row_hash.py` | Independent Python reference implementation equality on 10k fixture rows. Throughput ≥ 200k rows/s/core. | 3 |
 | ING-004-S05 | Bound local disk: ephemeral storage 30 GiB (backfill); a spool file is deleted after upload is confirmed; `ENOSPC` → fail the batch (no partial manifest). | writer + tests | A disk-full injection leaves no manifest and the attempt is RETRYABLE_FAILED. | 2 |
 | ING-004-S06 | Write empty-window output: no Parquet file; the writer returns `[]` with the schema fingerprint for the manifest (`empty_window=true`). | writer | ING-004 oracle: zero rows → valid empty manifest metadata. | 1 |
 | ING-004-S07 | Run the Arrow round trip: NUMBER(38,9) max/min, negative adjustment −10.000000000, NUMBER(38,0) 10^37, TIMESTAMP_LTZ(6) at 2026-03-29 01:00 UTC, NTZ, DATE 2028-02-29, 4-byte Unicode, empty strings vs nulls. | `tests/spec/ING-004/roundtrip.py` | Byte-exact equality after Arrow→Parquet→Arrow. | 3 |
-| ING-004-S08 | Run the Snowflake round trip in staging: load the same fixture via `BRIDGE_PARQUET_V1` (ING-006 file format) and compare with `SELECT … ::VARCHAR`. | `tests/live/parquet_roundtrip/` | All values equal as strings; nanosecond case recorded as supported or unsupported (TO VERIFY LIVE). | 3 |
+| ING-004-S08 | Run the Snowflake round trip in staging: load the same fixture via `BRIDGE_PARQUET_V1` (ING-006 file format) and compare with `SELECT … ::VARCHAR`. | `tests/live/parquet_roundtrip/` | All values equal as strings; nanosecond case recorded as supported or unsupported (TO VERIFY LIVE). | 4 |
 | ING-004-S09 | Cross-check sizes: record the compression ratio per source on the synthetic corpus (feeds §G-ING-10 assumptions). | evidence | Ratios recorded; assumptions in G-ING-10 updated. | 1 |
 | ING-004-S10 | Capture evidence. | `docs/evidence/ING-004/<commit>/` | Reviewed. | 1 |
 Task acceptance:
@@ -565,7 +565,7 @@ Task acceptance:
 - [ ] Empty windows produce manifest metadata without files.
 
 ### ING-005 — Commit S3 batches and validated manifests
-Release: R1 · Estimate: 36–52 h · Risk: H · Decisions: D-09 (none), D-11 (retention class) · Closes: G-ING-04, G-ING-05, G-ING-13 (lifecycle rules input)
+Release: R1 · Estimate: 36–52 h · Risk: H · Decisions: D-11 (retention class) · Closes: G-ING-04, G-ING-05, G-ING-13 (lifecycle rules input)
 Dependency changes: `+CON-001 (connection role prefix policy)`, `+CTL-004 (leases/fencing)`. ING-004 and INF-003 are retained.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -574,7 +574,7 @@ Dependency changes: `+CON-001 (connection role prefix policy)`, `+CTL-004 (lease
 | ING-005-S03 | Write the bucket policy statements (to INF-003): deny `s3:PutObject` without `s3:if-none-match` on `landing/`, `manifests/`, `replay/`, `probes/`; deny non-TLS; deny non-KMS; deny `DeleteObject` to `bridge-conn-*` roles. | INF-003 change + policy test | A PUT without the header gets 403. A connector DeleteObject gets 403. | 2 |
 | ING-005-S04 | Write the S3 lifecycle rules by `retention_class` (G-ING-13): QUERY_GRAIN prefixes expire at 90 d; FINANCIAL moves to Glacier IR at 30 d and expires at 400 d. Because the prefix is source-first, rules are per `landing/source=<S>/`. No transitions that generate ObjectCreated events. | INF-003 Terraform input | The Terraform plan shows one rule per source. The lifecycle validation test shows no ObjectCreated event on transition (S3 event log). | 2 |
 | ING-005-S05 | Write the manifest v1 JSON Schema (§3 fields, `additionalProperties:false`) and the builder. | `data/contracts/batch-manifest.v1.json`, `packages/parquet/manifest.py` | Positive and negative fixtures pass or fail. The synthetic `ingestion.md` example validates after adding the new required fields. | 3 |
-| ING-005-S06 | Publish the manifest last: HEAD every file (size + SHA-256 via GetObjectAttributes) → validate the Parquet footer fingerprint of each file (range GET of the footer) → PUT the manifest to `manifests/…` with If-None-Match → register it via sync-api. | `s3.py::commit` | Crash injection before the manifest PUT → no manifest; the attempt is found by the reconciler as orphan files. | 4 |
+| ING-005-S06 | Publish the manifest last: HEAD every file (size + SHA-256 via GetObjectAttributes) → validate the Parquet footer fingerprint of each file (range GET of the footer) → PUT the manifest to `manifests/…` with If-None-Match → register it via sync-api. | `s3.py::commit` | Crash injection before the manifest PUT → no manifest; the attempt is found by the reconciler as orphan files. | 5 |
 | ING-005-S07 | Implement the PG attempt lifecycle (through sync-api): PLANNED → LEASED → EXTRACTING → JOURNALED; `fencing_token` is checked by the server at manifest registration (stale → 409 and the attempt is fenced). | `services/sync_api/attempts.py` | A stale worker registering after lease takeover gets 409 and its manifest is marked REJECT_MANIFEST at intake (A1). | 4 |
 | ING-005-S08 | Build the reconciler: an S3 event on `manifests/` plus an hourly LIST of `manifests/` for the last 48 h. Adopt manifests whose PG state is < JOURNALED (crash after manifest, before PG). | `services/ingestion/manifest_reconciler.py` | Fault-matrix case "crash after manifest commit, before PG checkpoint" repaired within ≤ 1 h. | 3 |
 | ING-005-S09 | Run the orphan janitor: data files without a manifest 24 h after attempt start → `batch_files.orphan=true`. The janitor role deletes them after 7 d (it is the only role with DeleteObject on landing). RAW rows from orphans are never accepted. | `services/ingestion/janitor.py` | A fixture orphan is deleted at day 7. Acceptance never references it. | 3 |
@@ -589,18 +589,18 @@ Task acceptance:
 - [ ] Crafted and cross-tenant keys are refused at upload and at intake.
 
 ### ING-006 — Provision typed RAW tables, stages and Snowpipe
-Release: R1 · Estimate: 40–56 h · Risk: H · Decisions: D-03 · Closes: G-ING-03, G-ING-04 (pipe PATTERN), G-ING-11 (RAW pruning column)
+Release: R1 · Estimate: 37–54 h · Risk: H · Decisions: D-03 · Closes: G-ING-03, G-ING-04 (pipe PATTERN), G-ING-11 (RAW pruning column)
 Dependency changes: `−ING-005 (DDL needs the transport schema, not the committer)`, `+ING-004`, `+INF-003`. INF-008 is retained.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-006-S01 | Write the RAW DDL generator from the registry: `RAW.<SOURCE>_V<major>` with technical columns NOT NULL (account_id nullable only for ORG scope), typed source columns, the five `LOADER_*` columns, `ENABLE_SCHEMA_EVOLUTION=FALSE`, `DATA_RETENTION_TIME_IN_DAYS=1`, `COMMENT` = contract version. | `infra/snowflake/ingestion/raw_ddl.py`, generated SQL | Generated DDL for all R1 sources in CI. A re-run is a no-op diff. | 4 |
-| ING-006-S02 | Create the storage integration: `STORAGE_ALLOWED_LOCATIONS = ('s3://<bucket>/landing/', 's3://<bucket>/replay/')` (manifests and probes are excluded); IAM trust with external ID from `DESC INTEGRATION`; KMS key policy grants decrypt to the Snowflake IAM user/role. | Terraform + SQL | `LIST @stage` works on landing. `LIST` on `manifests/` via an ad-hoc stage fails (not allowed). | 4 |
+| ING-006-S02 | Create the storage integration: `STORAGE_ALLOWED_LOCATIONS = ('s3://<bucket>/landing/', 's3://<bucket>/replay/')` (manifests and probes are excluded); IAM trust with external ID from `DESC INTEGRATION`; KMS key policy grants decrypt to the Snowflake IAM user/role. | Terraform + SQL | `LIST @stage` works on landing. `LIST` on `manifests/` via an ad-hoc stage fails (not allowed). | 5 |
 | ING-006-S03 | Create file format `BRIDGE_PARQUET_V1` (`USE_LOGICAL_TYPE=TRUE USE_VECTORIZED_SCANNER=TRUE BINARY_AS_TEXT=FALSE REPLACE_INVALID_CHARACTERS=FALSE`). | SQL | The timestamp fixture loads correctly. A control load without logical types reproduces the far-future-date defect (documented once). | 2 |
 | ING-006-S04 | Create stages per source × major (`URL='s3://<bucket>/landing/source=<S>/schema_major=<n>/'`) and non-auto replay stages (`replay/`). | SQL generator | Stage count = active sources × majors + replay. | 2 |
 | ING-006-S05 | Create the pipes: `CREATE PIPE … AUTO_INGEST=TRUE AWS_SNS_TOPIC='<arn>' AS COPY INTO RAW.<S>_V<n> FROM @stage FILE_FORMAT=BRIDGE_PARQUET_V1 MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE INCLUDE_METADATA=(LOADER_FILENAME=METADATA$FILENAME, LOADER_FILE_ROW_NUMBER=METADATA$FILE_ROW_NUMBER, LOADER_START_SCAN_TIME=METADATA$START_SCAN_TIME, LOADER_FILE_LAST_MODIFIED=METADATA$FILE_LAST_MODIFIED, LOADER_FILE_CONTENT_KEY=METADATA$FILE_CONTENT_KEY) ON_ERROR=SKIP_FILE PATTERN='<§3.2 pipe pattern>'`. | SQL generator | The pipe definition matches a golden file. `SYSTEM$PIPE_STATUS` shows RUNNING. | 3 |
 | ING-006-S06 | Build the event topology: an S3 notification on `landing/` suffix `.parquet` → SNS topic → subscriptions (Snowflake pipe queue from `notification_channel`, Bridge `receipt-hints` SQS). A separate notification on `manifests/` suffix `.json` → Bridge `manifest-intake` SQS (with DLQ). | Terraform | Duplicate-delivery test: 1 file → Snowflake loads once; the Bridge queue receives ≥ 1 message; the consumer is idempotent. | 4 |
 | ING-006-S07 | Grant roles: `INGEST_OWNER` owns the RAW tables and pipes; the `ingest-acceptor` WIF user gets SELECT on RAW plus INSERT on `CONTROL.ACCEPTED_BATCHES` only; the API reader has no RAW access (INF-008 proof reused). | SQL + tests | The API reader `SELECT` on RAW → insufficient privileges. | 2 |
-| ING-006-S08 | Run the live load tests: exactness fixture (ING-004-S07 values); duplicate SNS deliveries; malformed Parquet (LOAD_FAILED visible in INFORMATION_SCHEMA.COPY_HISTORY); a file missing the `tenant_id` column (NOT NULL → file skipped); an extra unknown column (ignored); a crafted key failing PATTERN (not loaded; TO VERIFY LIVE semantics). | `tests/live/snowpipe/` | 6/6 scenarios behave as expected; evidence contains the COPY_HISTORY rows. | 5 |
+| ING-006-S08 | Run the live load tests: exactness fixture (ING-004-S07 values); duplicate SNS deliveries; malformed Parquet (LOAD_FAILED visible in INFORMATION_SCHEMA.COPY_HISTORY); a file missing the `tenant_id` column (NOT NULL → file skipped); an extra unknown column (ignored); a crafted key failing PATTERN (not loaded; TO VERIFY LIVE semantics). | `tests/live/snowpipe/` | 6/6 scenarios behave as expected; evidence contains the COPY_HISTORY rows. | 6 |
 | ING-006-S09 | Build pipe health: poll `SYSTEM$PIPE_STATUS` every 5 min (executionState, pendingFileCount, lastIngestedTimestamp, lastReceivedMessageTimestamp) → metrics; alarm when paused or when pending > 0 for 30 min with no ingestion. | `services/ingestion/pipe_health.py` | A paused pipe fires the alarm ≤ 10 min. | 3 |
 | ING-006-S10 | Write the repair/replay COPY templates (D-03): `COPY INTO RAW.<S>_V<n> FROM @replay_stage FILES=(…≤1000) FILE_FORMAT=… MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE INCLUDE_METADATA=(…) ON_ERROR=ABORT_STATEMENT` via the WIF SQL session of `ingest-acceptor`. | `infra/snowflake/ingestion/copy_templates.sql`, executor | A 3-file replay loads exactly once; a second COPY with the same files loads 0 (64-day load metadata) — recorded. | 3 |
 | ING-006-S11 | Write the major-version runbook: new major = new RAW table, stage and pipe; the old pipe keeps running until drained; no ALTER PIPE on an active definition. | runbook | Dry run on staging with a synthetic major 2. | 2 |
@@ -613,17 +613,17 @@ Task acceptance:
 - [ ] Pipe pause or stall is detected ≤ 10 min.
 
 ### ING-007 — Build file receipts and complete-batch acceptance
-Release: R1 · Estimate: 48–72 h · Risk: H · Decisions: D-03, D-04 (insert-only pattern), D-06 · Closes: G-ING-04 (acceptance checks), G-ING-06
+Release: R1 · Estimate: 44–64 h · Risk: H · Decisions: D-03, D-04 (insert-only pattern), D-06 · Closes: G-ING-04 (acceptance checks), G-ING-06
 Dependency changes: `+ING-005 (manifests)`, `+ING-106 (the sync-api exists)`. ING-006 and CTL-004 are retained.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-007-S01 | Write the migrations: PG `sync.batch_files` receipt columns (`raw_rows`, `raw_distinct_rows`, `receipt_status`, `copy_history_status`, `first_seen_at`), monthly partitioning; Snowflake `CONTROL.ACCEPTED_BATCHES` (insert-only; `batch_id` PK enforced by an `INSERT … SELECT … WHERE NOT EXISTS`). | migrations + DDL | A second insert of the same batch_id is a no-op (row count unchanged). | 3 |
 | ING-007-S02 | Build the manifest intake consumer (SQS `manifest-intake` + reconciler hook): JSON Schema validation, rules A1–A2, register the expected files. | `services/ingestion/intake.py` | A1/A2 fixtures reject or quarantine with alarm. A valid manifest creates N expected-file rows. | 4 |
-| ING-007-S03 | Write the RAW evidence query, batched per RAW table every 5 min while pending files exist: `SELECT LOADER_FILENAME, COUNT(*), COUNT(DISTINCT LOADER_FILE_ROW_NUMBER), MIN(tenant_id), MAX(tenant_id), MIN(account_id), MAX(account_id), MIN(source_batch_id), MAX(source_batch_id), MIN(LOADER_START_SCAN_TIME) FROM RAW.<S>_V<n> WHERE LOADER_START_SCAN_TIME >= :oldest_pending − 1 h AND LOADER_FILENAME IN (:pending) GROUP BY 1`. | `services/ingestion/receipts.py` | Plan inspection: pruned by `LOADER_START_SCAN_TIME`. Fixture receipts match. | 4 |
+| ING-007-S03 | Write the RAW evidence query, batched per RAW table every 5 min while pending files exist: `SELECT LOADER_FILENAME, COUNT(*), COUNT(DISTINCT LOADER_FILE_ROW_NUMBER), MIN(tenant_id), MAX(tenant_id), MIN(account_id), MAX(account_id), MIN(source_batch_id), MAX(source_batch_id), MIN(LOADER_START_SCAN_TIME) FROM RAW.<S>_V<n> WHERE LOADER_START_SCAN_TIME >= :oldest_pending − 1 h AND LOADER_FILENAME IN (:pending) GROUP BY 1`. | `services/ingestion/receipts.py` | Plan inspection: pruned by `LOADER_START_SCAN_TIME`. Fixture receipts match. | 5 |
 | ING-007-S04 | Capture failure evidence: for files with no RAW rows 15 min after manifest, query `INFORMATION_SCHEMA.COPY_HISTORY(TABLE_NAME=>…, START_TIME=>…)` and persist status and first error (sanitized, no row content) to PG immediately. | `receipts.py::diagnose` | A malformed-file fixture shows LOAD_FAILED in PG within 20 min. | 3 |
-| ING-007-S05 | Implement the acceptance decision table §3.3 (A1–A9) as a pure function with a table-driven test. | `services/ingestion/acceptance.py` | 9 rule fixtures give the expected outcomes. The ING-007 oracle 100+100 rows: one file loaded → 0 accepted; both → 200; duplicate → 200 canonical. | 4 |
-| ING-007-S06 | Publish acceptance: the `ingest-acceptor` WIF session inserts into `CONTROL.ACCEPTED_BATCHES`, then acks PG (compare-and-set on the attempt state, outbox). Crash reconciliation both ways: Snowflake row without a PG ack → PG adopts; PG ack without a Snowflake row → impossible by ordering (asserted). | `acceptance.py::publish` | A crash injected between insert and ack converges in ≤ 1 cycle. A duplicate acceptance event leaves 1 row. | 4 |
-| ING-007-S07 | Implement repair (A8): `ALTER PIPE … REFRESH PREFIX='<batch path>'` when within the eligible window (TO VERIFY LIVE: 7 d), else `COPY INTO … FILES=(…)` from ING-006-S10; ≤ 3 attempts spaced 30 min; then QUARANTINED + RB-02 alarm. | `services/ingestion/repair.py` | Fixture with a dropped notification → repaired and accepted. A double load is detected by A6, not double-counted. | 4 |
+| ING-007-S05 | Implement the acceptance decision table §3.3 (A1–A9) as a pure function with a table-driven test. | `services/ingestion/acceptance.py` | 9 rule fixtures give the expected outcomes. The ING-007 oracle 100+100 rows: one file loaded → 0 accepted; both → 200; duplicate → 200 canonical. | 5 |
+| ING-007-S06 | Publish acceptance: the `ingest-acceptor` WIF session inserts into `CONTROL.ACCEPTED_BATCHES`, then acks PG (compare-and-set on the attempt state, outbox). Crash reconciliation both ways: Snowflake row without a PG ack → PG adopts; PG ack without a Snowflake row → impossible by ordering (asserted). | `acceptance.py::publish` | A crash injected between insert and ack converges in ≤ 1 cycle. A duplicate acceptance event leaves 1 row. | 5 |
+| ING-007-S07 | Implement repair (A8): `ALTER PIPE … REFRESH PREFIX='<batch path>'` when within the eligible window (TO VERIFY LIVE: 7 d), else `COPY INTO … FILES=(…)` from ING-006-S10; ≤ 3 attempts spaced 30 min; then QUARANTINED + RB-02 alarm. | `services/ingestion/repair.py` | Fixture with a dropped notification → repaired and accepted. A double load is detected by A6, not double-counted. | 5 |
 | ING-007-S08 | Write the staging contract for DBT-002: staging reads RAW ⋈ `CONTROL.ACCEPTED_BATCHES` on `source_batch_id`, filters `LOADER_START_SCAN_TIME >= :watermark − 1 h`, deduplicates transport duplicates by `(LOADER_FILENAME, LOADER_FILE_ROW_NUMBER)`, and never reads unaccepted rows. | `data/dbt/models/staging/_accepted_batches.sql` contract + dbt test | A dbt test on a fixture with an unaccepted batch → 0 rows in staging. A duplicate load → no duplicates. | 3 |
 | ING-007-S09 | Handle late manifests: files loaded before the manifest arrives stay invisible; the manifest arriving later triggers immediate evaluation. | tests | Fault-matrix row 2 passes. | 2 |
 | ING-007-S10 | Run the adversarial fixtures: out-of-order loads; a missing file; a duplicate file; a foreign-tenant row inside tenant A's file (A2/A5 → QUARANTINED + security alarm). | `tests/spec/ING-007/` | All incomplete or invalid attempts are invisible to staging (asserted by the dbt test). | 3 |
@@ -637,14 +637,14 @@ Task acceptance:
 - [ ] Acceptance is idempotent and crash-safe across Snowflake and PG.
 
 ### ING-008 — Advance fenced checkpoints and deterministic source revisions
-Release: R1 · Estimate: 36–52 h · Risk: H · Decisions: D-05, D-06, D-13 · Closes: G-ING-07
+Release: R1 · Estimate: 32–46 h · Risk: H · Decisions: D-05, D-06, D-13 · Closes: G-ING-07
 Dependency changes: none (ING-007, ING-002).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-008-S01 | Implement `compare_and_advance(connection_id, source_id, stage, expected_revision, fencing_token, intervals)`: `UPDATE … SET intervals = intervals + :new, revision = revision + 1 WHERE revision = :expected AND lease token valid`. | `services/ingestion/checkpoints.py` | Concurrent writers: exactly one succeeds; the loser retries with a re-read; a stale fence gets 409. | 4 |
 | ING-008-S02 | Implement stage progression: JOURNALED on manifest registration; RAW_ACCEPTED on acceptance ack; SETTLED when a pass meets the settle rule; PUBLISHED on the ORC-005 publication ack. | checkpoints | Fault-matrix "lease expires while old worker runs" passes. | 3 |
-| ING-008-S03 | Write the revision-selection specification (§3.4) as dbt macros plus reference SQL for DBT-002: EVENT_UPSERT ordering; COMPLETE_PARTITION `b*` selection; SNAPSHOT capture handling. | `data/contracts/source-revisions.v1.md`, `data/dbt/macros/select_revision.sql` | Macro unit tests (dbt unit tests) match an independent Python reference on 20 fixtures. | 5 |
-| ING-008-S04 | Implement the suspect guard: `suspect` flag at acceptance (A4 plus measure-drop rule); confirmation job (≥ 6 h later, fresh probe, ±0.1 %); `CONTROL.PARTITION_CONFIRMATIONS` insert-only. | `services/ingestion/suspect.py` + DDL | Worked examples (a)–(c) of §3.4 produce the documented totals (10 after confirmation; 30 kept without it; previous kept on DENIED). | 4 |
+| ING-008-S03 | Write the revision-selection specification (§3.4) as dbt macros plus reference SQL for DBT-002: EVENT_UPSERT ordering; COMPLETE_PARTITION `b*` selection; SNAPSHOT capture handling. | `data/contracts/source-revisions.v1.md`, `data/dbt/macros/select_revision.sql` | Macro unit tests (dbt unit tests) match an independent Python reference on 20 fixtures. | 6 |
+| ING-008-S04 | Implement the suspect guard: `suspect` flag at acceptance (A4 plus measure-drop rule); confirmation job (≥ 6 h later, fresh probe, ±0.1 %); `CONTROL.PARTITION_CONFIRMATIONS` insert-only. | `services/ingestion/suspect.py` + DDL | Worked examples (a)–(c) of §3.4 produce the documented totals (10 after confirmation; 30 kept without it; previous kept on DENIED). | 5 |
 | ING-008-S05 | Enforce the retention edge: the planner refuses RESNAPSHOT of partitions near the cutoff (ING-002-S07); the selection ignores batches flagged `retention_edge`. | code + test | The fixture re-read of the oldest day returning fewer rows does not change totals. | 2 |
 | ING-008-S06 | Run the cross-store reconciler (hourly): `CONTROL.ACCEPTED_BATCHES` vs PG raw_accepted coverage; missing-in-PG → adopt; missing-in-Snowflake with PG accepted → alarm (should be impossible). | `services/ingestion/reconcile_coverage.py` | Fault-matrix row 4 passes. | 3 |
 | ING-008-S07 | Write the oracle tests: failed middle interval blocks the checkpoint; identical replay yields the same facts; corrected partition 10+20→10 (confirmed) → 10; zero-row confirmed correction → 0; QMH 0.25 + 0.75 then correction 0.30 → 1.05. | `tests/spec/ING-008/` | All pass; values computed independently. | 4 |
@@ -662,13 +662,13 @@ Release: R1 · Estimate: 28–40 h · Risk: M · Decisions: — · Closes: G-ING
 Dependency changes: `−ING-008`, `+ING-001 (compatibility function)`, `+ING-006 (major versions)`, `+CON-005 (per-account DESCRIBE)`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ING-009-S01 | Build the daily schema sensor in the 03:00 UTC account cycle: `DESCRIBE VIEW` for each active source (warehouse need TO VERIFY LIVE; fallback `cursor.describe(projection)`); per-(account, source) fingerprint of projected columns. | `services/extractor/schema_diff.py::sense` | 500 accounts × 17 sources = 8,500 DESCRIBEs/day, fitting inside existing cycles (no extra warehouse resume). | 3 |
+| ING-009-S01 | Build the daily schema sensor in the 03:00 UTC account cycle: `DESCRIBE VIEW` for each active source (warehouse need TO VERIFY LIVE; fallback `cursor.describe(projection)`); per-(account, source) fingerprint of projected columns. | `services/extractor/schema_diff.py::sense` | 500 accounts × 17 sources = 8,500 DESCRIBEs/day, fitting inside existing cycles (no extra warehouse resume). | 4 |
 | ING-009-S02 | Implement the classifier per §3.5 (uses ING-001-S06). | `schema_diff.py::classify` | Table-driven tests for every row of §3.5. | 3 |
 | ING-009-S03 | Support multiple accepted fingerprints per source major (a BCR rollout period); per-account acceptance. | registry field + check | Account X on the new fingerprint and account Y on the old are both healthy when both are listed as accepted. | 2 |
 | ING-009-S04 | Maintain a curated BCR watchlist (`bundle`, `view`, `columns`, `semantic_note`, `action`); weekly review task; optional `SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS` per account (privilege TO VERIFY LIVE). | `data/contracts/bcr_watchlist.json`, reviewer checklist | The watchlist entry for a synthetic bundle forces BREAKING for the named column. | 2 |
 | ING-009-S05 | Implement the quarantine flow: BREAKING → source state QUARANTINED_SCHEMA for that (account, source) only; the next cycle skips it; Data Health reason; the previous publication stays served. | `schema_diff.py::quarantine` | The ING-009 oracle "removed QUERY_ID blocks that source before publication" holds; other sources keep running. | 3 |
 | ING-009-S06 | Enforce the compatible deploy order: registry change → RAW `ALTER TABLE ADD COLUMN` → transport minor → extractor image. The deploy pipeline refuses the extractor if the RAW column is missing. | CI check | CI blocks an out-of-order deploy in a fixture PR. | 3 |
-| ING-009-S07 | Build the breaking migration path: new major contract, RAW table, stage and pipe; dual-version staging union with explicit mapping; re-backfill of the impacted windows via ING-010. | runbook + generator support | Staging drill with synthetic major 2: old Parquet still replayable into V1; new files into V2. | 4 |
+| ING-009-S07 | Build the breaking migration path: new major contract, RAW table, stage and pipe; dual-version staging union with explicit mapping; re-backfill of the impacted windows via ING-010. | runbook + generator support | Staging drill with synthetic major 2: old Parquet still replayable into V1; new files into V2. | 5 |
 | ING-009-S08 | Handle rollback: roll the extractor back to the previous version after a partial deploy; previously accepted batches stay valid (fingerprints recorded per batch). | test | Rollback drill passes with no coverage regression. | 2 |
 | ING-009-S09 | Handle a denied probe: a failed DESCRIBE (permission) → capability event, not a schema change. | test | The fixture does not quarantine and does raise a capability alert. | 1 |
 | ING-009-S10 | Write RB-04 concrete steps and metrics `schema_drift_total{class}`. | runbook + metric | Dry run. | 2 |
@@ -679,22 +679,22 @@ Task acceptance:
 - [ ] Compatible changes deploy in enforced order; breaking changes use a new major with replayable old data.
 
 ### ING-010 — Plan historical backfills with steady-first coverage and fair admission
-Release: R1 · Estimate: 52–76 h · Risk: H · Decisions: D-07, D-08, D-11, D-13 · Closes: G-ING-10
+Release: R1 · Estimate: 48–70 h · Risk: H · Decisions: D-07, D-08, D-11, D-13 · Closes: G-ING-10
 Dependency changes: `−ING-009`, `−CON-006 (the wizard consumes this plan; removes the implicit cycle)`, `+ING-008`, `+ING-106`, `+ORC-003 (fair queues)`, `+CON-101 (credit estimate)`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ING-010-S01 | Write the `sync.backfill_plans` model plus API: `POST /v1/sync/backfills` (preview: per source requested/available/unavailable ranges with reasons, chunk count, estimated rows, customer credits range, duration range) and `/{id}/approve|pause|resume|cancel` with `If-Match` and idempotency. | `apps/api/sync/backfills.py`, OpenAPI | Preview is side-effect free. Approve twice with the same key → one plan. | 4 |
-| ING-010-S02 | Run source-side sizing (cheap aggregate on BRIDGE_FINOPS_WH): `SELECT DATE_TRUNC('day', END_TIME), COUNT(*) FROM QH WHERE END_TIME >= :start GROUP BY 1` and equivalents for QAH/QMH. Other sources use registry row estimates. | `services/ingestion/backfill_sizing.py` | Live: sizing for 365 d runs in one query ≤ 60 s on XS (TO VERIFY LIVE). | 3 |
+| ING-010-S01 | Write the `sync.backfill_plans` model plus API: `POST /v1/sync/backfills` (preview: per source requested/available/unavailable ranges with reasons, chunk count, estimated rows, customer credits range, duration range) and `/{id}/approve`, `/pause`, `/resume`, `/cancel` with `If-Match` and idempotency. | `apps/api/sync/backfills.py`, OpenAPI | Preview is side-effect free. Approve twice with the same key → one plan. | 5 |
+| ING-010-S02 | Run source-side sizing (cheap aggregate on BRIDGE_FINOPS_WH): `SELECT DATE_TRUNC('day', END_TIME), COUNT(*) FROM QH WHERE END_TIME >= :start GROUP BY 1` and equivalents for QAH/QMH. Other sources use registry row estimates. | `services/ingestion/backfill_sizing.py` | Live: sizing for 365 d runs in one query ≤ 60 s on XS (TO VERIFY LIVE). | 4 |
 | ING-010-S03 | Chunk: day chunks for QH/QAH, split to hours when estimated rows > 2 M; 7 d chunks for hourly financial sources; 31 d for daily sources. | `backfill.py::chunk` | Fixture of 1 M/day → 365 day chunks; a spike day with 5 M → 24 hour chunks. | 3 |
 | ING-010-S04 | Implement ordering and tiering: source order OU billing → MDH → WMH/MH → serverless/transfer/storage → QAH → QH; within a source, expiring edge (days < retention cutoff + 7 d) first, then newest→oldest; QUERY_TEXT not projected for windows older than the hot horizon (D-11). | `backfill.py::order` | Order snapshot test. The generated SQL for a day 200 days old lacks QUERY_TEXT. | 3 |
-| ING-010-S05 | Implement steady-first: on READY→SYNCING, enable steady cycles with an enrollment boundary `E = floor_hour(now) − settle`; backfill covers `[start, E)`; HEALTHY is evaluated on union coverage (no separate catch-up phase). | `backfill.py::boundaries` | Fixture: backfill finishing after 3 days leaves no gap between history and steady windows (multirange contiguous). | 3 |
-| ING-010-S06 | Implement admission: backfill chunks are separate work items in the ORC-003 backfill lane; max 1 active backfill task per account and 1 per tenant (initial); per-plan customer credit cap; pause automatically when the resource monitor is ≥ 80 % (from CON-101 status). | `backfill.py::admit` + ORC config | Flood test: tenant A with a 365-day plan, tenant B hourly steady → B's queue age p95 ≤ 10 min (ORC-003 target). | 4 |
+| ING-010-S05 | Implement steady-first: on READY→SYNCING, enable steady cycles with an enrollment boundary `E = floor_hour(now) − settle`; backfill covers `[start, E)`; HEALTHY is evaluated on union coverage (no separate catch-up phase). | `backfill.py::boundaries` | Fixture: backfill finishing after 3 days leaves no gap between history and steady windows (multirange contiguous). | 4 |
+| ING-010-S06 | Implement admission: backfill chunks are separate work items in the ORC-003 backfill lane; max 1 active backfill task per account and 1 per tenant (initial); per-plan customer credit cap; pause automatically when the resource monitor is ≥ 80 % (from CON-101 status). | `backfill.py::admit` + ORC config | Flood test: tenant A with a 365-day plan, tenant B hourly steady → B's queue age p95 ≤ 10 min (ORC-003 target). | 6 |
 | ING-010-S07 | Implement adaptive chunk sizing: measured seconds and bytes per chunk → halve the next chunk if > 10 min or > 2 GiB, double if < 1 min (bounded by registry min/max). | `backfill.py::adapt` | Simulated durations converge within 5 chunks. | 3 |
-| ING-010-S08 | Implement the state machine DRAFT → APPROVED → RUNNING ⇄ PAUSED → COMPLETED / CANCELLED / FAILED_PARTIAL; resume reads coverage and never restarts accepted windows. | `backfill.py::state` | Resume after 40 % → remaining 60 % only (counted by windows). Cancel leaves accepted windows accepted. | 4 |
+| ING-010-S08 | Implement the state machine DRAFT → APPROVED → RUNNING ⇄ PAUSED → COMPLETED / CANCELLED / FAILED_PARTIAL; resume reads coverage and never restarts accepted windows. | `backfill.py::state` | Resume after 40 % → remaining 60 % only (counted by windows). Cancel leaves accepted windows accepted. | 5 |
 | ING-010-S09 | Re-clamp at execution: each chunk re-computes the retention clamp; newly expired days → unavailable with reason RETENTION_EXPIRED_DURING_BACKFILL. | `backfill.py::execute_chunk` | A fixture with the clock advanced 2 days mid-plan → 2 days reported unavailable, not failed. | 2 |
 | ING-010-S10 | Show progress data for Data Health and onboarding: per source accepted days ÷ available days, rows loaded, bytes; ETA only after ≥ 10 completed chunks (throughput evidence). | API fields | UI fixture shows counts and dates; no ETA before 10 chunks. | 3 |
 | ING-010-S11 | Write the oracle tests: 365-day request vs 90-day source → 90 available / 275 unavailable; pause/resume; tenant fairness; customer pause via connection PAUSED (epoch) stops the plan. | `tests/spec/ING-010/` | All pass. | 4 |
-| ING-010-S12 | Run the performance evidence on a synthetic 1 M queries/day source (a Snowflake table with the QH schema in a Bridge-owned account, generated) plus one live AU backfill of 30 days in an OPS-103 account. | `docs/evidence/ING-010/<commit>/` | Throughput (rows/s, sanitizer CPU-h) recorded; G-ING-10 assumptions updated. | 5 |
+| ING-010-S12 | Run the performance evidence on a synthetic 1 M queries/day source (a Snowflake table with the QH schema in a Bridge-owned account, generated) plus one live AU backfill of 30 days in an OPS-103 account. | `docs/evidence/ING-010/<commit>/` | Throughput (rows/s, sanitizer CPU-h) recorded; G-ING-10 assumptions updated. | 6 |
 Task acceptance:
 - [ ] The backfill preview shows available versus unavailable history, credit and duration estimates before consent.
 - [ ] Finance sources complete first; expiring days are captured before they age out.
@@ -703,16 +703,16 @@ Task acceptance:
 - [ ] Resume never re-extracts accepted windows.
 
 ### ING-011 — Implement journal replay and anti-entropy repair
-Release: R1 · Estimate: 44–64 h · Risk: M · Decisions: D-03, D-11 · Closes: G-ING-05 (replay re-PUT), G-ING-07 (additive anti-entropy), G-ING-13
+Release: R1 · Estimate: 39–57 h · Risk: M · Decisions: D-03, D-11 · Closes: G-ING-05 (replay re-PUT), G-ING-07 (additive anti-entropy), G-ING-13
 Dependency changes: `−ING-010`, `+ING-007`, `+ING-008`, `+ING-006`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-011-S01 | Write the replay request model and API: `POST /v1/sync/replays` (preview: affected accepted batches, manifest availability, storage class, restore time and cost for Glacier IR/Deep Archive, downstream dbt assets); approve with reason; RBAC `sync.replay` plus audit. | `apps/api/sync/replays.py` | Preview for 7 days of WMH lists exact batch IDs and 0 missing. A foreign tenant gets 404. | 4 |
 | ING-011-S02 | Implement restore handling: for non-instant storage classes, RestoreObject plus polling; the plan waits (state RESTORING); expiry of the restored copy is tracked. | `services/ingestion/replay.py::restore` | A fixture with a mocked archive class goes through RESTORING → READY. | 3 |
-| ING-011-S03 | Rehydrate: GET the original → verify SHA-256 against the manifest → PUT to `replay/generation=<g>/…` with If-None-Match (no CopyObject; G-ING-05) → write a replay manifest (`pass_kind=REPLAY`, `replay_of_batch_id`, same `source_batch_id` content). | `replay.py::rehydrate` | A checksum mismatch aborts only the affected batch, with an alarm. | 4 |
+| ING-011-S03 | Rehydrate: GET the original → verify SHA-256 against the manifest → PUT to `replay/generation=<g>/…` with If-None-Match (no CopyObject; G-ING-05) → write a replay manifest (`pass_kind=REPLAY`, `replay_of_batch_id`, same `source_batch_id` content). | `replay.py::rehydrate` | A checksum mismatch aborts only the affected batch, with an alarm. | 5 |
 | ING-011-S04 | Load via orchestrated COPY (ING-006-S10) and accept through the same A-table with `generation=g`. | `replay.py::load` | Replay twice → the second generation is accepted, and canonical totals are unchanged (staging dedup by business key and revision rules). | 4 |
 | ING-011-S05 | Implement generation selection in staging: rows from generations are identical in content; EVENT_UPSERT/COMPLETE_PARTITION rules pick one deterministically; add a dbt test "replay does not change totals". | dbt test | The WMH fixture total is identical before and after 2 replays. | 3 |
-| ING-011-S06 | Build the anti-entropy executor: RESNAPSHOT plans run as normal windows with `pass_kind=ANTI_ENTROPY`. CHECKSUM plans run the source aggregate query, compare with canonical per day, and enqueue re-extraction of mismatched days only (additive for EVENT_UPSERT). | `services/ingestion/anti_entropy.py` | A fixture with 3 injected missing QH rows on day D → only D is re-extracted and the 3 rows appear. Nothing is deleted. | 5 |
+| ING-011-S06 | Build the anti-entropy executor: RESNAPSHOT plans run as normal windows with `pass_kind=ANTI_ENTROPY`. CHECKSUM plans run the source aggregate query, compare with canonical per day, and enqueue re-extraction of mismatched days only (additive for EVENT_UPSERT). | `services/ingestion/anti_entropy.py` | A fixture with 3 injected missing QH rows on day D → only D is re-extracted and the 3 rows appear. Nothing is deleted. | 6 |
 | ING-011-S07 | Report missing journal coverage: expired or missing files → affected intervals marked `REPLAY_UNAVAILABLE` (not failed coverage); disclose the re-extraction option (customer credits, 365-day source limit). | replay report | The oracle "missing retained file blocks only affected coverage" passes. | 3 |
 | ING-011-S08 | Serialize with steady state: a replay takes a per-(connection, source) replay lease; steady cycles skip SETTLE/ANTI_ENTROPY passes for the leased windows (FIRST passes continue). | lease rules | Race test: replay and a steady pass on an overlapping window → deterministic final selection, no lost update. | 3 |
 | ING-011-S09 | Assert no customer query: a replay run emits 0 Snowflake customer sessions (assert via launcher logs: no extractor task launched). | test | Asserted in the recovery suite. | 1 |
@@ -726,15 +726,15 @@ Task acceptance:
 - [ ] Replay and steady state never race on the same window.
 
 ### ING-012 — Truthful Data Health model, API and UX (hot path deferred to ING-112 per D-24)
-Release: R1 · Estimate: 48–72 h · Risk: M · Decisions: D-24, D-13, D-18 · Closes: G-ING-14, G-ING-17 (disclosure)
+Release: R1 · Estimate: 42–61 h · Risk: M · Decisions: D-24, D-13, D-18 · Closes: G-ING-14, G-ING-17 (disclosure)
 Dependency changes: `−ING-011`, `+ING-008 (coverage)`, `+CON-005 (capabilities)`, `+ING-010 (backfill state)`. UX-001 is retained.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-012-S01 | Implement the health model per §3.6 (precedence, thresholds from the registry) as a pure function over coverage, capability, connection state and last errors. | `services/ingestion/health.py` | The QH example thresholds (DELAYED at 2 h 30 min, STALE at 5 h) are asserted with an injected clock. | 4 |
 | ING-012-S02 | Materialize `sync.source_health` updated per cycle and acceptance event (not per API call); history of state transitions retained 400 d. | migration + updater | State flaps are debounced (≥ 2 evaluations) and asserted. | 3 |
-| ING-012-S03 | Build the API: `GET /v1/data-health?organization_id=&account_id=` (per account and source: state, reason code, source_current_through, settled_through, published_through, source latency vs pipeline lag, last error class, next action); `GET …/sources/{source}/intervals` (keyset-paginated coverage segments); `GET /v1/data-health/sync-history`. RBAC and tenant scope; no Dagster IDs exposed to customers. | `apps/api/data_health/` | A foreign account gets 404. The response contains no SQL, hostnames or Dagster run IDs (scan). | 5 |
+| ING-012-S03 | Build the API: `GET /v1/data-health?organization_id=&account_id=` (per account and source: state, reason code, source_current_through, settled_through, published_through, source latency vs pipeline lag, last error class, next action); `GET …/sources/{source}/intervals` (keyset-paginated coverage segments); `GET /v1/data-health/sync-history`. RBAC and tenant scope; no Dagster IDs exposed to customers. | `apps/api/data_health/` | A foreign account gets 404. The response contains no SQL, hostnames or Dagster run IDs (scan). | 6 |
 | ING-012-S04 | Write the customer language catalog: per state and reason, a message, the affected metrics (from the semantic registry's `required_sources`) and the next action; externalized strings (D-18). | `apps/web/data_health/messages.en.json` | Every §3.6 state and §3.5 reason has text. Lint for missing keys. | 3 |
-| ING-012-S05 | Build the Data Health page `/platform/data-health` per [data-health.md](../../21-ui-ux/pages/data-health.md): coverage timeline per account and source, Stage/State/Coverage/Next-action table, "Source data current through … / Last successful synchronization …" (PRD §43). | `apps/web/data_health/` | Playwright: values equal the API fixtures. Availability and maturity are shown as separate axes. | 6 |
+| ING-012-S05 | Build the Data Health page `/platform/data-health` per [data-health.md](../../21-ui-ux/pages/data-health.md): coverage timeline per account and source, Stage/State/Coverage/Next-action table, "Source data current through … / Last successful synchronization …" (PRD §43). | `apps/web/data_health/` | Playwright: values equal the API fixtures. Availability and maturity are shown as separate axes. | 7 |
 | ING-012-S06 | Build the source-detail and sync-history subpages (intervals, batches, retries, replay entry point for authorized roles). | `apps/web/data_health/source/`, `sync_history/` | The retry story fixture (attempt 2 accepted under the same logical window) renders as specified. | 5 |
 | ING-012-S07 | Implement permitted actions: re-probe (CON-005), retry a failed window (enqueue with idempotency), open replay preview (ING-011); RBAC per action; audit. | UI + API wiring | A read-only user sees no actions; the server returns 403 on forced calls. | 3 |
 | ING-012-S08 | Build the Bridge overhead panel (credits month-to-date vs estimate, from CON-101-S06) and a disclosure row for "aggregated queries not itemized" when detected (G-ING-17). | UI | Fixture values match. | 2 |
@@ -762,7 +762,7 @@ Dependency changes: `+ING-001`, `+CON-005`, `+CON-002`, `+OPS-103`.
 | ING-101-S05 | Check key uniqueness: `SELECT QUERY_ID, COUNT(*) FROM AU.QH WHERE END_TIME >= DATEADD(day,-7,CURRENT_TIMESTAMP()) GROUP BY 1 HAVING COUNT(*) > 1` (and the QAH/QMH equivalents with their keys). | evidence | 0 rows, or an explicit dedup rule documented. | 2 |
 | ING-101-S06 | Measure latency and retention: the canary (CON-005-S05) for QH; `MIN(END_TIME)` for retention; QAH lag distribution over 48 h. | evidence | Settle defaults are confirmed or adjusted (settle ≥ p99 observed lag × 1.5). | 3 |
 | ING-101-S07 | Validate the privacy path on live data: sanitizer, HMAC and tier-aware projection on 1 day of QH (ING-107). | evidence | A sentinel secret in a test query's literal is absent from Parquet. | 3 |
-| ING-101-S08 | Run one WIF extraction plus replay fixture per source; complete the source-catalog test matrix rows (empty window, missing grant, missing optional column, decimal edge, duplicate attempt, late data beyond settle via anti-entropy, retention clamp). | `tests/live/sources/query_family/` | Matrix passes; activation state → VERIFIED. | 6 |
+| ING-101-S08 | Run one WIF extraction plus replay fixture per source; complete the source-catalog test matrix rows (empty window, missing grant, missing optional column, decimal edge, duplicate attempt, late data beyond settle via anti-entropy, retention clamp). | `tests/live/sources/query_family/` | Matrix passes; activation state → VERIFIED. | 7 |
 | ING-101-S09 | Activate in production (config) with review sign-off. | registry state change | State ACTIVE with evidence links. | 1 |
 Task acceptance:
 - [ ] QH, QAH (and QMH if Adaptive) contracts are live-verified with types, keys, latency and retention.
@@ -770,7 +770,7 @@ Task acceptance:
 - [ ] The privacy path is proven on live data.
 
 ### ING-102 — Activate metering and billing source contracts (WMH, MH, MDH, OU currency, OU rate sheet)
-Release: R1 · Estimate: 32–48 h · Risk: H · Decisions: D-12, D-13 · Closes: G-ING-07 (suspect guard parameters)
+Release: R1 · Estimate: 29–42 h · Risk: H · Decisions: D-12, D-13 · Closes: G-ING-07 (suspect guard parameters)
 Dependency changes: `+ING-001`, `+CON-005`, `+CON-002`, `+OPS-103`. Coordinate with FIN-108 (billing semantics verification) so the two tasks do not duplicate work.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -778,10 +778,10 @@ Dependency changes: `+ING-001`, `+CON-005`, `+CON-002`, `+OPS-103`. Coordinate w
 | ING-102-S02 | Author the MDH contract (DATE_PARTITION; signed adjustment; open-month anti-entropy). | contract | Validate. | 2 |
 | ING-102-S03 | Author the OU.USAGE_IN_CURRENCY_DAILY and OU.RATE_SHEET_DAILY contracts (ORG scope; 13-month monthly sweep). | contracts | Validate. | 3 |
 | ING-102-S04 | Run live DESCRIBE and type checks in account plus org accounts; record the NUMBER scales of the credit and currency columns. | verification records | Recorded. The transport schema uses the exact scales. | 3 |
-| ING-102-S05 | Verify partition completeness: for 7 days compare per-hour row sets of two extractions 24 h apart and measure the fraction of changed hours (WMH cloud services revision); confirms the settle and suspect-guard thresholds. | evidence | Changed-hour fraction and max measure delta recorded. The 50 % suspect threshold is confirmed or tuned. | 4 |
+| ING-102-S05 | Verify partition completeness: for 7 days compare per-hour row sets of two extractions 24 h apart and measure the fraction of changed hours (WMH cloud services revision); confirms the settle and suspect-guard thresholds. | evidence | Changed-hour fraction and max measure delta recorded. The 50 % suspect threshold is confirmed or tuned. | 5 |
 | ING-102-S06 | Check latency and retention per source (max(START_TIME) lag, MIN(date)); record the OU latency (≤ 72 h documented). | evidence | Registry values updated. | 3 |
 | ING-102-S07 | Validate the reseller/denied path: an org account without billing access → DENIED_OR_UNAVAILABLE plus FIN imported-statement path flag. | test | Fixture passes. | 2 |
-| ING-102-S08 | Run the source-catalog test matrix including "complete partition with deleted old row" (synthetic view) and "independent billing comparison" (MDH CREDITS_BILLED vs OU USAGE for one day, FIN-owned oracle). | `tests/live/sources/metering_family/` | Matrix passes; activation → VERIFIED. | 6 |
+| ING-102-S08 | Run the source-catalog test matrix including "complete partition with deleted old row" (synthetic view) and "independent billing comparison" (MDH CREDITS_BILLED vs OU USAGE for one day, FIN-owned oracle). | `tests/live/sources/metering_family/` | Matrix passes; activation → VERIFIED. | 7 |
 | ING-102-S09 | Activate in production. | registry | ACTIVE. | 1 |
 Task acceptance:
 - [ ] Hourly and daily metering partitions are complete snapshots with measured revision behaviour.
@@ -789,31 +789,31 @@ Task acceptance:
 - [ ] Credit and currency scales are exact in transport.
 
 ### ING-103 — Activate storage, object and inventory contracts (STORAGE_USAGE, DATABASE_STORAGE_USAGE_HISTORY, DATABASES, TABLE_STORAGE_METRICS opt-in, OU.ACCOUNTS)
-Release: R1 (TABLE_STORAGE_METRICS opt-in per CON Q3) · Estimate: 24–36 h · Risk: M · Decisions: D-15 · Closes: G-CON-02 (TSM mapping), G-ING-07 (snapshot guard)
+Release: R1 (TABLE_STORAGE_METRICS opt-in per CON Q3) · Estimate: 22–32 h · Risk: M · Decisions: D-15 · Closes: G-CON-02 (TSM mapping), G-ING-07 (snapshot guard)
 Dependency changes: `+ING-001`, `+CON-005`, `+OPS-103`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-103-S01 | Author the STORAGE_USAGE and DATABASE_STORAGE_USAGE_HISTORY contracts. | contracts | Validate. | 3 |
 | ING-103-S02 | Author the AU.DATABASES snapshot contract (owner, deleted) and the OU.ACCOUNTS contract (shared with CON-004-S03). | contracts | Validate. | 2 |
-| ING-103-S03 | Verify TABLE_STORAGE_METRICS access: test with USAGE_VIEWER, OBJECT_VIEWER and GOVERNANCE_VIEWER separately, then IMPORTED PRIVILEGES; record which returns rows. | evidence + privilege map update | The mapping is decided; if IMPORTED PRIVILEGES is needed, the module is opt-in with disclosure. | 3 |
+| ING-103-S03 | Verify TABLE_STORAGE_METRICS access: test with USAGE_VIEWER, OBJECT_VIEWER and GOVERNANCE_VIEWER separately, then IMPORTED PRIVILEGES; record which returns rows. | evidence + privilege map update | The mapping is decided; if IMPORTED PRIVILEGES is needed, the module is opt-in with disclosure. | 4 |
 | ING-103-S04 | Author the TSM snapshot contract with the strict suspect guard (0 rows vs previous > 0). | contract | Validate. | 2 |
 | ING-103-S05 | Run live DESCRIBE, type and latency checks; key uniqueness per snapshot (`ID` per capture). | evidence | Recorded. | 3 |
 | ING-103-S06 | Test "pre-enrollment history unavailable" for snapshot sources (catalog matrix row). | test | Data Health shows unavailable before enrollment. | 2 |
-| ING-103-S07 | Run the test matrix and activate. | `tests/live/sources/storage_family/` | VERIFIED → ACTIVE. | 5 |
+| ING-103-S07 | Run the test matrix and activate. | `tests/live/sources/storage_family/` | VERIFIED → ACTIVE. | 6 |
 Task acceptance:
 - [ ] Storage and owner inventories are live-verified; TSM access is decided with explicit privilege disclosure.
 - [ ] Snapshot sources never infer pre-enrollment history, and empty snapshots cannot wipe prior data.
 
 ### ING-104 — Activate serverless and transfer contracts (AUTOMATIC_CLUSTERING, SERVERLESS_TASK, PIPE_USAGE, DATA_TRANSFER)
-Release: R1 · Estimate: 20–32 h · Risk: M · Decisions: D-15 · Closes: G-ING-02 (FLOAT/VARCHAR exceptions)
+Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-15 · Closes: G-ING-02 (FLOAT/VARCHAR exceptions)
 Dependency changes: `+ING-001`, `+CON-005`, `+OPS-103`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-104-S01 | Author the four contracts (HOUR/DATE partitions, COMPLETE_PARTITION). | contracts | Validate. | 4 |
 | ING-104-S02 | Record the documented non-NUMBER types (SERVERLESS_TASK CREDITS_USED VARCHAR; PIPE_USAGE FLOAT/VARIANT; DATA_TRANSFER VARIANT bytes) as explicit transport exceptions with dbt parse rules owned by FIN. | registry exceptions list | The ING-003-S04 float guard passes with explicit exceptions only. | 2 |
-| ING-104-S03 | Run live DESCRIBE, type and latency checks; interval-boundary behaviour (START/END not aligned to hours → bucketing by START_TIME hour documented). | evidence | Recorded. | 4 |
+| ING-104-S03 | Run live DESCRIBE, type and latency checks; interval-boundary behaviour (START/END not aligned to hours → bucketing by START_TIME hour documented). | evidence | Recorded. | 5 |
 | ING-104-S04 | Generate activity in OPS-103 (a clustering-enabled table, a serverless task, a pipe) so that the sources are non-empty; verify rows appear. | fixture workload | Rows observed for each source. | 3 |
-| ING-104-S05 | Run the test matrix and activate. | `tests/live/sources/serverless_family/` | VERIFIED → ACTIVE. | 5 |
+| ING-104-S05 | Run the test matrix and activate. | `tests/live/sources/serverless_family/` | VERIFIED → ACTIVE. | 6 |
 Task acceptance:
 - [ ] All four sources are live-verified with explicit non-NUMBER exceptions and documented interval bucketing.
 
@@ -831,15 +831,15 @@ Task acceptance:
 - [ ] Each activated family has live verification evidence equivalent to R1 sources.
 
 ### ING-106 — Account-cycle runner and extractor ↔ control-plane trust path (D-07)
-Release: R1 · Estimate: 40–60 h · Risk: H · Decisions: D-07, D-08 · Closes: G-ING-08, G-ING-09
+Release: R1 · Estimate: 40–58 h · Risk: H · Decisions: D-07, D-08 · Closes: G-ING-08, G-ING-09
 Why: nothing composes due windows into one warehouse resume per account, and connection-role tasks have no safe path to leases and attempts. Plugs in after ING-003, ING-005 and CON-101; ORC-003 and ING-007 depend on it.
 Dependency changes: `+ING-002`, `+ING-003`, `+ING-005`, `+ING-107`, `+CON-001`, `+CON-101`, `+INF-005`. New edge `ORC-003 +ING-106`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ING-106-S01 | Write the `sync.cycle_requests` model: `(tenant_id, connection_id, cycle_id, kind STEADY/BACKFILL_CHUNK/ANTI_ENTROPY/PROBE/ORG, due_windows jsonb, connection_epoch, state, lease_id, fencing_token, deadline_at)`; unique partial index "one active STEADY per connection". | migration | A second STEADY insert while one is active → conflict; the Dagster sensor treats it as a no-op. | 3 |
-| ING-106-S02 | Build the internal `sync-api` authenticated by a presigned `sts:GetCallerIdentity` (header carries the signed request; the server calls STS with a 5 s timeout and caches 5 min by signature hash), mapping `assumed-role/bridge-conn-<env>-<uuid32>/*` to a connection; authorize only that connection's cycle, attempts and manifests. Private ALB; no public route. | `services/sync_api/auth.py`, routes | Attack tests: a task with role A calling for B's cycle → 403; a replayed signature after 15 min → 401; the API role (not a connector role) → 403. | 6 |
+| ING-106-S02 | Build the internal `sync-api` authenticated by a presigned `sts:GetCallerIdentity` (header carries the signed request; the server calls STS with a 5 s timeout and caches 5 min by signature hash), mapping `assumed-role/bridge-conn-<env>-<uuid32>/*` to a connection; authorize only that connection's cycle, attempts and manifests. Private ALB; no public route. | `services/sync_api/auth.py`, routes | Attack tests: a task with role A calling for B's cycle → 403; a replayed signature after 15 min → 401; the API role (not a connector role) → 403. | 7 |
 | ING-106-S03 | Integrate Dagster: a generic op (orchestrator role) calls the launcher → `RunTask` (extractor family, `taskRoleArn` override resolved server-side, env `CYCLE_ID` only) → polls ECS until STOPPED → reads the outcome from sync-api → emits asset materializations per source (ORC-002). Dagster code never runs under a connection role. | `orchestration/ops/account_cycle.py` | A Dagster run for one cycle shows per-source materialization events. The extractor container has no Dagster/PG environment variables (inspection test). | 5 |
-| ING-106-S04 | Build the cycle executor: claim (fencing token) → one WIF session → sources in finance-first order → for each due window: ING-003 → ING-107 → ING-004 → ING-005 → register via sync-api; per-source try/classify/continue. | `services/extractor/cycle.py` | Fixture: source 3 of 7 DENIED → 6 sources accepted, 1 reason recorded. | 5 |
+| ING-106-S04 | Build the cycle executor: claim (fencing token) → one WIF session → sources in finance-first order → for each due window: ING-003 → ING-107 → ING-004 → ING-005 → register via sync-api; per-source try/classify/continue. | `services/extractor/cycle.py` | Fixture: source 3 of 7 DENIED → 6 sources accepted, 1 reason recorded. | 6 |
 | ING-106-S05 | Check fences: before each source and before each manifest registration, check the epoch and lease via sync-api; a mismatch exits after closing the current file set without a manifest. | cycle | Pause mid-cycle → no manifest after the next check (CON-006-S09 test). | 3 |
 | ING-106-S06 | Enforce budgets: STEADY deadline 45 min; BACKFILL_CHUNK 2 h; remaining due windows stay due; metric `cycle_overrun_total`. | cycle | A synthetic slow source triggers the deadline → the cycle ends cleanly; the next cycle picks up the remainder. | 2 |
 | ING-106-S07 | Suspend the warehouse and clean up: CON-101-S03 suspend-after-cycle; close the session; flush metrics. | cycle | Live: WMH billed ≤ 70 s per steady cycle. | 2 |
@@ -891,25 +891,25 @@ Task acceptance:
 |---|---|---:|---:|
 | ING-001 | R1 | 28 | 40 |
 | ING-002 | R1 | 36 | 52 |
-| ING-003 | R1 | 40 | 60 |
+| ING-003 | R1 | 38 | 55 |
 | ING-004 | R1 | 24 | 36 |
 | ING-005 | R1 | 36 | 52 |
-| ING-006 | R1 | 40 | 56 |
-| ING-007 | R1 | 48 | 72 |
-| ING-008 | R1 | 36 | 52 |
+| ING-006 | R1 | 37 | 54 |
+| ING-007 | R1 | 44 | 64 |
+| ING-008 | R1 | 32 | 46 |
 | ING-009 | R1 | 28 | 40 |
-| ING-010 | R1 | 52 | 76 |
-| ING-011 | R1 | 44 | 64 |
-| ING-012 | R1 | 48 | 72 |
+| ING-010 | R1 | 48 | 70 |
+| ING-011 | R1 | 39 | 57 |
+| ING-012 | R1 | 42 | 61 |
 | ING-101 | R1 | 28 | 40 |
-| ING-102 | R1 | 32 | 48 |
-| ING-103 | R1 | 24 | 36 |
-| ING-104 | R1 | 20 | 32 |
-| ING-106 | R1 | 40 | 60 |
+| ING-102 | R1 | 29 | 42 |
+| ING-103 | R1 | 22 | 32 |
+| ING-104 | R1 | 20 | 30 |
+| ING-106 | R1 | 40 | 58 |
 | ING-107 | R1 | 24 | 36 |
 | ING-105 | R2 | 80 | 140 |
 | ING-112 | R2 | 40 | 60 |
-| **Total R1** | | **628** | **924** |
+| **Total R1** | | **595** | **865** |
 | **Total R2** | | **120** | **200** |
 
 ## 7. Owner questions

@@ -498,7 +498,7 @@ Task acceptance:
 - [ ] Snowpipe hygiene never contributes to potential savings.
 
 ### INS-105 — Detector qualification: backtest and false-positive review
-Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-20 · Closes: G-INS-19
+Release: R1 · Estimate: 25–38 h · Risk: M · Decisions: D-20 · Closes: G-INS-19
 Why/where: The contract mandates a retrospective FP review; no owner exists. Runs in parallel with INS-002..004; gates enabling each R1 detector for customers.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -508,6 +508,8 @@ Why/where: The contract mandates a retrospective FP review; no owner exists. Run
 | INS-105-S04 | Release gate: enable per detector version iff precision ≥ 0.8 on ≥ 10 reviewed candidates or signed owner acceptance; flag stored in manifest | CI/config gate | A detector without a gate record cannot be enabled for customer tenants | 3 |
 | INS-105-S05 | Threshold-change procedure: new version must pass all negative fixtures + rerun backtest diff | procedure + CI job | Diff report attached to the version PR | 3 |
 | INS-105-S06 | Ongoing monitoring: weekly precision alarm < 0.6 over trailing 30 reviewed | alarm | Synthetic dismissals trigger alarm | 3 |
+| INS-105-S07 | Internal reviewer console (operator plane, not customer UI): candidates with evidence, verdict form, reviewer identity; access time-bound and audited per security.md support-access rules | `apps/ops/detector-review/*` | Reviewer without an approved grant → 403; every verdict audited | 3 |
+| INS-105-S08 | Evidence bundle: verdict set and precision per R1 detector version with the backtest publication IDs | `docs/evidence/INS-105/<commit>/` | One bundle per enabled detector version | 2 |
 Task acceptance:
 - [ ] Every enabled R1 detector version has a recorded review verdict set.
 - [ ] Threshold edits always produce a new version with backtest evidence.
@@ -541,12 +543,12 @@ Task acceptance:
 | INS-007 | R1 | 45 | 66 |
 | INS-101 | R1 | 35 | 52 |
 | INS-102 | R1 | 23 | 34 |
-| INS-105 | R1 | 20 | 30 |
+| INS-105 | R1 | 25 | 38 |
 | INS-005 | R2 | 36 | 54 |
 | INS-103 | R2 | 48 | 72 |
 | INS-104 | R2 | 40 | 60 |
 | INS-106 | R2 | 34 | 51 |
-| **Total R1** | | **299** | **442** |
+| **Total R1** | | **304** | **450** |
 | **Total R2** | | **158** | **237** |
 
 ## 7. Owner questions

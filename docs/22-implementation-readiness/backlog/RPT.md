@@ -179,7 +179,7 @@ Affects: RPT-003, RPT-004.
 ## 4. Revised production backlog
 
 ### RPT-001 — Define report schema and reusable component contracts
-Release: R1 · Estimate: 33–50 h · Risk: M · Decisions: D-01, D-02, D-18, D-22 · Closes: G-RPT-13, G-RPT-17 (pre-enqueue)
+Release: R1 · Estimate: 36–54 h · Risk: M · Decisions: D-01, D-02, D-18, D-22 · Closes: G-RPT-13, G-RPT-17 (pre-enqueue)
 Dependency changes: `+CTL-003` (scoped CRUD and optimistic concurrency pattern). Keep API-001, API-004, UX-001.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -320,7 +320,7 @@ Task acceptance:
 - [ ] dbt exact/inferred distinction and AI non-overlap are proven.
 
 ### RPT-102 — External recipients and attachment policy
-Release: R2 · Estimate: 20–30 h · Risk: H · Decisions: D-25 · Closes: G-RPT-04 (external), G-RPT-08
+Release: R2 · Estimate: 22–33 h · Risk: H · Decisions: D-25 · Closes: G-RPT-04 (external), G-RPT-08
 Why/where: External, non-user distribution needs a separate trust model. Deps: RPT-004, RPT-005, GOV-006.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -330,13 +330,14 @@ Why/where: External, non-user distribution needs a separate trust model. Deps: R
 | RPT-102-S04 | Per-recipient redacted render option (scope-class grouping: one render per distinct class) with a cap of 10 classes per occurrence | dispatch | 3 recipients in 2 classes → 2 renders | 4 |
 | RPT-102-S05 | Audit and disclosure in history ("attachment delivered; cannot be revoked") | UI + audit | Visible on the delivery row | 2 |
 | RPT-102-S06 | Security tests (header injection in recipient names, allowlist bypass via subdomain/IDN homograph) | tests | All rejected | 3 |
-| RPT-102-S07 | Evidence | docs | Complete | 2 |
+| RPT-102-S07 | SES bounce/complaint handling for external addresses: suppress the recipient after a hard bounce or complaint and notify the owner | SNS consumer + suppression list | Simulated hard bounce → recipient SUPPRESSED; next occurrence skips it with a reason | 2 |
+| RPT-102-S08 | Evidence | docs | Complete | 2 |
 Task acceptance:
 - [ ] Attachments only under an acknowledged tenant policy and for email only.
 - [ ] External recipients restricted to allowlisted domains.
 
 ### RPT-103 — Dashboards builder and viewer-scoped widgets
-Release: R2 · Estimate: 40–60 h · Risk: M · Decisions: D-02, D-18 · Closes: G-RPT-16
+Release: R2 · Estimate: 38–57 h · Risk: M · Decisions: D-02, D-18 · Closes: G-RPT-16
 Why/where: `/dashboards` and `/dashboard-builder` are in the navigation and UI spec but have no implementing task; CTL-007 only stores configuration. Reuses the RPT-001 component contracts. Deps: RPT-001, CTL-007, UX-004.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -364,10 +365,10 @@ Task acceptance:
 | RPT-004 | R1 | 40 | 60 |
 | RPT-005 | R1 | 29 | 44 |
 | RPT-101 | R2 | 30 | 45 |
-| RPT-102 | R2 | 20 | 30 |
+| RPT-102 | R2 | 22 | 33 |
 | RPT-103 | R2 | 38 | 57 |
 | **Total R1** | | **185** | **278** |
-| **Total R2** | | **88** | **132** |
+| **Total R2** | | **90** | **135** |
 
 ## 7. Owner questions
 

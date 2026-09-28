@@ -40,6 +40,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 | D-30 | Customer invoicing channel | BUSINESS · owner input | Invoices issued by an accounting tool connected to an approved e-invoicing platform; Bridge stores references only | LCH-001 |
 | D-31 | Availability objectives | PRODUCT | Control plane 99.9 %; analytics 99.5 % (bounded by Snowflake's own SLA) | OPS-003 |
 | D-32 | Non-production spend budget | BUSINESS · owner input | Approve Snowflake test estate (~100–150 credits/month) and a one-off benchmark budget | INF-101, OPS-008 |
+| D-33 | Analysis-job execution | ARCH (refines semantic-api.md) | Dedicated analysis-worker service claiming PG jobs; no Dagster in the interactive path | API-004 |
+| D-34 | Workload classification engine | ARCH (refines PRD §53–§54) | Set-based dbt SQL classifier; Python kept as test oracle | WRK-001 |
 
 ## Details
 
@@ -112,6 +114,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-11 · Query-level retention tiering
 
 - **Recommendation.** Query-grain facts hot for 90 days (plan-configurable); query-family × day aggregates keyed by `QUERY_PARAMETERIZED_HASH` for 400 days. UI states which tier a view reads.
+- **Refinements from the API/WRK/INS audits.** A family × day aggregate is not enough on its own: (1) percentiles and distinct counts cannot be re-derived from daily values (fixture: true p95 = 1 s, average of daily p95s = 50.5 s), so aggregates store mergeable sketch states (t-digest / HLL, Snowflake functions VERIFIED) — G-API-04; (2) savings re-measurement after the 90-day purge needs attributed credits, spill and workload identity in the aggregate — G-INS; (3) workload identity (dbt node, Power BI activity) must be extracted for the full 365-day backfill even where SQL text is dropped, by projecting only the trailing dbt comment for older windows — otherwise a year of dbt identity is lost irreversibly (G-WRK-01/15).
 - **Owner check.** Confirm that 90-day query-level drilldown is commercially acceptable.
 - **Blocks.** ING-001, DBT-003, WRK-005, UX-005.
 
@@ -220,4 +223,14 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-32 · Non-production spend budget — owner input
 
 - **Question.** Approve the Snowflake test estate (two test organizations, several accounts, workload generators: ≈ 100–150 credits/month, [backlog/INF.md](backlog/INF.md) G-INF-01) and a one-off capacity-benchmark budget ([backlog/OPS.md](backlog/OPS.md)). Without them, every "live" gate in the plan is untestable.
+
+### D-33 · Analysis-job execution (refines semantic-api.md)
+
+- **Context.** "An outbox schedules Dagster" for heavy interactive analyses puts Dagster run latency and the D-07 run-volume concerns into a user-facing path.
+- **Recommendation.** A dedicated analysis-worker ECS service claims jobs from PostgreSQL with fenced leases, executes through the query broker, writes results to Snowflake and reauthorizes on read; Dagster stays a batch orchestrator. See G-API ([backlog/API.md](backlog/API.md)).
+
+### D-34 · Workload classification engine (refines PRD §53–§54)
+
+- **Context.** The PRD lists workload classification as a Python algorithm. The classifier's rules (query tags, dbt comments, client application, precedence, confidence) are deterministic and must run over up to a million queries per account per day.
+- **Recommendation.** Implement classification as set-based dbt SQL over parsed metadata columns; keep a Python reference implementation as the test oracle. PRD §2.5's golden rule ("deterministic and efficient in SQL → dbt") supports this. See [backlog/WRK.md](backlog/WRK.md) and [backlog/API.md](backlog/API.md).
 

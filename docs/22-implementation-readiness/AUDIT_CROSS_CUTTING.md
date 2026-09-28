@@ -19,7 +19,7 @@ What prevents a production implementation from starting today:
 5. **Delivery shape is a big bang**: the first paying customer transitively requires 147 of 151 tasks through a 73-task serial chain (X-05), with unrealistic 2–6 h task estimates (X-04).
 6. **Business inputs are absent**: pricing model, first-customer profile, team capacity, localization, legal/e-invoicing obligations (X-40…X-45).
 
-None of these require abandoning the design. They require (a) the 25 decisions in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md), (b) the contract-first artifacts listed in [CONTRACT_FIRST_ARTIFACTS.md](CONTRACT_FIRST_ARTIFACTS.md), (c) the revised micro-task backlog in [backlog/](backlog/), and (d) the release re-slicing in [RELEASE_PLAN.md](RELEASE_PLAN.md).
+None of these require abandoning the design. They require (a) the 34 decisions in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md), (b) the contract-first artifacts listed in [CONTRACT_FIRST_ARTIFACTS.md](CONTRACT_FIRST_ARTIFACTS.md), (c) the revised micro-task backlog in [backlog/](backlog/), and (d) the release re-slicing in [RELEASE_PLAN.md](RELEASE_PLAN.md).
 
 ## 2. Findings about the specification set itself
 
@@ -108,11 +108,13 @@ Resolution (D-05/D-06): insert-only revisioned partitions for ledger/allocation/
 
 The ORC contract implies materializations per tenant/account/window; ADR-004 wants extraction on Fargate task roles per account. At the benchmark profile (100 tenants × 5 accounts), with ~15 activated sources on hourly cadence and QUERY_HISTORY every 15 minutes: 500 × 15 × 24 + 500 × 72 ≈ **216,000 runs/day**. Each would be a Dagster run with event-log rows and a Fargate task with tens of seconds of provisioning and a one-minute billing floor. Dagster's metadata database and ECS would be the bottleneck long before Snowflake.
 
-Resolution (D-07): one ECS task per **account-cycle** (all due sources, one customer warehouse resume) with that account's task role → 500 × 24 = 12,000 tasks/day at the benchmark, far fewer for R1; Dagster schedules/sensors enqueue durable work items; a Dagster run/event retention purge policy. Details: [backlog/ORC.md](backlog/ORC.md), [backlog/ING.md](backlog/ING.md).
+A security defect compounds the scale problem: dagster-aws `EcsRunLauncher` sets a per-run task role only through the user-writable `ecs/task_overrides` run tag, and ECS RunTask overrides cannot be constrained by IAM (VERIFIED, G-ORC-03, G-INF-08) — anyone able to launch a run could pick any customer's role.
+
+Resolution (D-07): a dedicated extraction launcher, not Dagster, resolves the role from PostgreSQL; one ECS task per **account-cycle** (all due sources, one customer warehouse resume) with that account's task role → 500 × 24 = 12,000 tasks/day at the benchmark, far fewer for R1; Dagster schedules/sensors enqueue durable work items; a Dagster run/event retention purge policy. Details: [backlog/ORC.md](backlog/ORC.md), [backlog/ING.md](backlog/ING.md).
 
 ### X-13 · Bridge's extraction costs the customer money, and nobody specified it · HIGH → D-08
 
-Querying `SNOWFLAKE.ACCOUNT_USAGE` requires a running warehouse **in the customer account**. Snowflake bills per second with a 60-second minimum per resume. Polling QUERY_HISTORY every 15 minutes on a dedicated XSMALL warehouse (1 credit/hour) costs at least 96 × 60 s = 96 minutes/day ≈ **1.6 credits/day ≈ 48 credits/month per account** before any actual query runtime — roughly USD 100–200/month per account at typical USD 2–4/credit list prices. Batched hourly cycles cut the floor to ~0.4 credits/day. The 365-day backfill of a large account adds a one-off cost. None of this appears in the specs (grep for customer warehouse / extraction warehouse / customer credits: no match), and Bridge's own queries will show up in the customer's QUERY_HISTORY and spend — a FinOps product that silently adds to the bill it reports on.
+Querying `SNOWFLAKE.ACCOUNT_USAGE` requires a running warehouse **in the customer account**. Snowflake bills per second with a 60-second minimum per resume. Polling QUERY_HISTORY every 15 minutes on a dedicated XSMALL warehouse (1 credit/hour) costs at least 96 × 60 s = 96 minutes/day ≈ **1.6 credits/day ≈ 48 credits/month per account** before any actual query runtime — roughly USD 100–200/month per account at typical USD 2–4/credit list prices. Batched hourly cycles cut the floor substantially; the CON audit's detailed model gives ≈ 12.6–13.2 credits/month per account with an explicit suspend after each cycle (requires `OPERATE` on the warehouse) and ≈ 20.6–27.2 with auto-suspend only ([backlog/CON.md](backlog/CON.md) §3.3). The 365-day backfill of a large account adds a one-off cost. None of this appears in the specs (grep for customer warehouse / extraction warehouse / customer credits: no match), and Bridge's own queries will show up in the customer's QUERY_HISTORY and spend — a FinOps product that silently adds to the bill it reports on.
 
 Resolution (D-08): the installation script creates `BRIDGE_FINOPS_WH` (XSMALL, `AUTO_SUSPEND=60`, resource monitor with a customer-chosen quota); every extractor query sets `QUERY_TAG='bridge_finops:<component>'`; the product classifies these as a "Bridge overhead" workload; the connection wizard shows an estimated monthly credit footprint before consent; default cadence is batched hourly.
 
@@ -169,7 +171,7 @@ ING-012 includes "bounded hot history" (PRD §37). INFORMATION_SCHEMA table func
 
 ### X-26 · Central Snowflake and AWS run costs are modelled only at M9 · HIGH
 
-Unit economics (`OPS-009`) is an M9 task, but architecture choices made at M1–M4 fix the cost structure: serving warehouse strategy (an XSMALL kept warm for 12 business hours ≈ 12 credits/day ≈ 360 credits/month before Redis hits), monitor evaluation (e.g. 100 tenants × 20 monitors × 24 hourly evaluations = 48,000 queries/day unless batched per dataset/window), dbt cadence, Snowpipe file counts (500 accounts × 15 sources × 24 hourly files = 180,000 files/day; under Snowflake's historical file-based Snowpipe overhead of 0.06 credits per 1,000 files this alone would be ≈ 10.8 credits/day — **TO VERIFY** against the current Snowpipe pricing model), NAT gateways and interface endpoints per AZ per environment. Resolution: a cost model is a contract-first artifact at M1, refreshed at each milestone ([backlog/OPS.md](backlog/OPS.md), [backlog/INF.md](backlog/INF.md)).
+Unit economics (`OPS-009`) is an M9 task, but architecture choices made at M1–M4 fix the cost structure: serving warehouse strategy (an XSMALL kept warm for 12 business hours ≈ 12 credits/day ≈ 360 credits/month before Redis hits), monitor evaluation (e.g. 100 tenants × 20 monitors × 24 hourly evaluations = 48,000 queries/day unless batched per dataset/window), dbt cadence, NAT gateways and interface endpoints per AZ per environment (the INF audit estimates up to ≈ USD 795/month for interface endpoints alone across environments, and flags AWS Config recording of task network interfaces at D-07 scale as a further trap). Snowpipe file counts are **no longer** a cost driver: since 2025-12-08 Snowpipe bills a flat 0.0037 credits per GB with no per-file charge (VERIFIED by the ING and INS audits), which also removes the savings basis of the tiny-file detectors PI01–PI04. Resolution: a cost model is a contract-first artifact at M1, refreshed at each milestone ([backlog/OPS.md](backlog/OPS.md), [backlog/INF.md](backlog/INF.md)).
 
 ### X-27 · Single EU central region, no residency strategy · MEDIUM → D-23
 
@@ -177,7 +179,7 @@ Unit economics (`OPS-009`) is an M9 task, but architecture choices made at M1–
 
 ### X-28 · Preview-stage Snowflake features sit on the critical path · MEDIUM
 
-Adaptive warehouses (`QUERY_METERING_HISTORY`, FIN-004 on the 73-task chain) and some Cortex usage views are recent and may be preview or edition-gated. Putting FIN-004 on the critical path makes the first release depend on a feature the first customer may not use. Resolution: capability-gated, R2 unless D-20 says the first customer uses it; financial coverage of those charges is guaranteed by the billing-bucket ledger (D-12) and FIN-021 regardless.
+Adaptive warehouses (`QUERY_METERING_HISTORY`, FIN-004 on the 73-task chain) and some Cortex usage views are recent. The FIN audit found Adaptive warehouses generally available on AWS since 2026-06-16 (search snippet; some Azure/GCP regions later), so the issue is not maturity but relevance: the first customer may not use them. The Cortex authority view also changed (CORTEX_AI_FUNCTIONS_USAGE_HISTORY, data from 2026-01-05), making the source catalog's choice outdated (G-FIN-06). Putting FIN-004 on the critical path makes the first release depend on a feature the first customer may not use. Resolution: capability-gated, R2 unless D-20 says the first customer uses it; financial coverage of those charges is guaranteed by the billing-bucket ledger (D-12) and FIN-021 regardless.
 
 ## 4. Logic defects found in the canonical contracts
 
@@ -228,3 +230,20 @@ PRD §87 and API-005 promise lineage from a chargeback line to "source batch/fil
 | X-26 | — | [backlog/OPS.md](backlog/OPS.md), [backlog/INF.md](backlog/INF.md) |
 | X-31, X-32, X-33 | — | [backlog/RPT.md](backlog/RPT.md), [backlog/INS.md](backlog/INS.md), [backlog/API.md](backlog/API.md) |
 | X-40…X-46 | D-17…D-20, D-23, D-25 | [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md), [backlog/LCH.md](backlog/LCH.md), [backlog/ONB.md](backlog/ONB.md) |
+
+## 7. Blocking findings from the domain audits
+
+The nine domain audits recorded 29 BLOCKER and about 150 HIGH findings. The blockers, grouped by theme (details, evidence and resolutions in the linked backlog files):
+
+| Theme | Blocking findings |
+|---|---|
+| Money is computed wrongly or cannot be computed | [G-FIN-01](backlog/FIN.md) estimate replacement impossible as keyed · [G-FIN-02](backlog/FIN.md) / [G-ING-02](backlog/ING.md) the Snowflake Python connector converts scaled NUMBER to float64 unless `arrow_number_to_decimal=True` (VERIFIED in connector source) · [G-ALC-01](backlog/ALC.md) no allocation input grain under billing-bucket charges · [G-API-02](backlog/API.md) `spend` cannot be grouped by warehouse/user without a conserving `attributed_cost` metric |
+| Data is silently lost | [G-ING-01](backlog/ING.md) START_TIME windows lose queries longer than ~75–120 min (QUERY_HISTORY) and ~15 h (QAH) · [G-WRK-01](backlog/WRK.md) dbt/Power BI identity is irreversibly lost unless extracted inside the sanitizer at M1 · [G-INS-01](backlog/INS.md) / [G-INS-02](backlog/INS.md) detector inputs and warehouse settings are never extracted |
+| Tenant isolation / security | [G-SEC-01](backlog/SEC.md) no implementable serving-authorization design; new Snowflake users default to secondary roles `ALL` (VERIFIED) · [G-SEC-02](backlog/SEC.md) scope grammar is prose only · [G-SEC-04](backlog/SEC.md) no capability matrix or maker-checker · [G-SEC-10](backlog/SEC.md) PG RLS mechanics missing (FK checks bypass RLS — VERIFIED) · [G-ALC-03](backlog/ALC.md) team readers can derive sibling spend from shares · [G-ALC-04](backlog/ALC.md) no task turns group grants into Snowflake entitlements · [G-ORC-03](backlog/ORC.md) Dagster launcher role override · [G-INF-02](backlog/INF.md) runtime IAM role creation undefined |
+| Physical design missing | [G-CTL-01](backlog/CTL.md) no control-plane DDL · [G-DBT-01](backlog/DBT.md) dbt `insert_overwrite`/`microbatch` on Snowflake cannot give per-tenant atomic publication (VERIFIED) · [G-ORC-06](backlog/ORC.md) publication transaction under-specified; DDL auto-commits · [G-API-01](backlog/API.md) semantic registry has no format or compile model · [G-ALC-02](backlog/ALC.md) rule engine has no predicate model |
+| Scale | [G-ORC-01](backlog/ORC.md) run/partition model exceeds Dagster limits (182,500 partitions per asset vs ~100k guidance) |
+| Operations and recovery | [G-OPS-01](backlog/OPS.md) operational foundations scheduled after all product work · [G-OPS-06](backlog/OPS.md) analytical snapshot has no physical design · [G-OPS-07](backlog/OPS.md) deletion tombstones are rolled back by restores · [G-INF-01](backlog/INF.md) no Snowflake test estate for live gates |
+| Customer and launch | [G-CON-01](backlog/CON.md) customer-side warehouse/cost absent · [G-LCH-01](backlog/LCH.md) go-live sequenced after the customer is already in production |
+
+Integration of duplicate tasks and cross-domain contradictions: [RECONCILIATION.md](RECONCILIATION.md). Revised dependency graph and critical path: [revised-task-graph.json](revised-task-graph.json), [REVISED_CRITICAL_PATH.md](REVISED_CRITICAL_PATH.md).
+

@@ -24,7 +24,7 @@ This plan replaces the big-bang path to the first paying customer ([AUDIT X-05](
 | ING | ING-001…011; ING-012 Data Health UX | | ING-012 hot path (D-24) |
 | ORC | all | | |
 | DBT | all | | |
-| FIN | 001, 002, 003, 005, 006, 008 (transfer), 009, 010, 011, 013, 014, 015, 016, 021 | 004 Adaptive, 012 Streaming, 017 QAS, 018 Cortex, 019 SPCS, 020 Marketplace, 008 replication | FX display conversion |
+| FIN | 001, 002, 003, 005, 006, 007, 008 (transfer), 009, 010, 011, 013, 014, 015, 016, 021, 101–108 | 004 Adaptive, 012 Streaming, 017 QAS, 018 Cortex, 019 SPCS, 020 Marketplace, 008 replication | FX display conversion |
 | API | 001–005 | 006 (only if the customer integrates via API) | 006 public API credentials, SDK |
 | UX | 001–006, 008 | 007 (AI/Cortex, SPCS pages) | FR localization (D-18) |
 | WRK | 001, 002 (dbt), 004 (tasks/procedures), 005 comparison | 003 (Power BI) | 005 on-demand operator evidence |
@@ -66,7 +66,7 @@ Consolidated from the per-domain backlog files (senior-engineer hours including 
 
 | Phase | Exit evidence (subset of the original milestone gates) | Original milestones covered |
 |---|---|---|
-| P0 Contracts & foundations | Decisions D-01…D-25 recorded; contract-first artifacts reviewed; monorepo, locked runtime matrix (dbt-snowflake ≥ 1.12), CI, AWS accounts/state/guards, cost model v1 | M0, part of M1 |
+| P0 Contracts & foundations | Decisions D-01…D-34 recorded; contract-first artifacts reviewed; monorepo, locked runtime matrix (dbt-snowflake ≥ 1.12), CI, AWS accounts/state/guards, cost model v1 | M0, part of M1 |
 | P1 Secure control plane & connectivity | Cognito/BFF, RBAC, PG FORCE RLS, tenant WIF serving identity + profile roles, audit/outbox/leases, account WIF with install/revoke scripts, capability probes, telemetry + alert routing + PG backup | M1, M2 |
 | P2 Durable ingestion | Account-cycle extraction, Parquet/manifest commit, Snowpipe + receipts, accepted batches, contiguous coverage, backfill/catch-up, replay, Data Health; tenant zero connected | M3 |
 | P3 Financial kernel & serving | Billing-bucket ledger, service families required by D-20, reconciliation controls incl. invoice intake, close/restatement, insert-only publication, serving views with row policies, semantic API; design partner connected | M4, part of M5 |

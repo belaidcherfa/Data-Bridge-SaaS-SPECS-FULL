@@ -335,7 +335,7 @@ Dependency changes: `+CTL-005` (config-publisher, D-04); `+FIN-010` contract onl
 | ALC-003-S04 | Build `sim_preview_summary`: coverage before/after (abs basis), movement matrix, top 50 changed subjects, conflicts with ≤ 20 samples each, untested scope (days/accounts with incomplete coverage) | dbt model + API projection | Fixture: Finance subset coverage 0% → 100%, 1 matched workload, 0 conflicts (UI fixture) | 4 |
 | ALC-003-S05 | Compute access impact per granted (group_set, group) incl. ancestors: entering/leaving subjects and amount, affected profiles and users | dbt model + API | Moving a subject into granted group G flags access_relevant with 1 affected profile | 3 |
 | ALC-003-S06 | Store the window fingerprint and dependency versions on the simulation; approvals reference simulation_id + fingerprint + content hash | PG columns + fingerprint SQL | The fingerprint changes when a charge revision in the window changes and not when data is appended after the window | 2 |
-| ALC-003-S07 | `POST /v1/rulesets/{id}/approvals {kind: FINANCIAL|ACCESS}`: FINANCIAL = FinOps Admin ≠ author (four-eyes default); ACCESS = Org Admin/Owner ≠ author; TTL 7 days; If-Match; audit | API | Self-approval → 403 `SELF_APPROVAL_FORBIDDEN`; FinOps Admin giving ACCESS → 403 | 3 |
+| ALC-003-S07 | `POST /v1/rulesets/{id}/approvals {kind: FINANCIAL or ACCESS}`: FINANCIAL = FinOps Admin ≠ author (four-eyes default); ACCESS = Org Admin/Owner ≠ author; TTL 7 days; If-Match; audit | API | Self-approval → 403 `SELF_APPROVAL_FORBIDDEN`; FinOps Admin giving ACCESS → 403 | 3 |
 | ALC-003-S08 | Evaluate staleness at approve and at publish (fingerprint, dependencies, hash, TTL, recomputed access impact) | API service | Revised in-window charge → 409 `SIMULATION_STALE`; a new grant since review → 409 `ACCESS_REVIEW_STALE` | 3 |
 | ALC-003-S09 | Publish: Idempotency-Key → outbox → config-publisher `INSERT … WHERE NOT EXISTS (config_version)` → mark dirty partitions in the processing ledger → PUBLISHING until the ORC publication with that config_version → PUBLISHED; epoch bump if access-relevant | API + publisher + ORC hook | Duplicate publish → one config_version; state reaches PUBLISHED only after the pointer advance | 4 |
 | ALC-003-S10 | Add the closed-period guard and the `apply_from=FIRST_OPEN_PERIOD` clamp | API validation | valid_from in a CLOSED month → 422 `CLOSED_PERIOD_RETROACTIVE`; the clamp yields the first open date; closed partitions are not in the dirty set | 2 |
@@ -479,7 +479,7 @@ Dependency changes: `−ALC-007` (not needed), `+ALC-006` (UI components), `+ALC
 | ALC-008-S10 | Build the detail/compare UI (version diff, restatement lineage, PDF download) | `apps/web/chargeback/statement` | Compare shows a predecessor with deltas | 3 |
 | ALC-008-S11 | Add tests: duplicate issue, immutability, mixed currencies → separate statements, missing approval, stale ledger (close record ≠ current publication → re-prepare), the "internal cost statement, not a tax invoice" label | `tests/spec/ALC-008/` | All expected outcomes hold | 4 |
 | ALC-008-S12 | Add security: team viewers read only their own group's ISSUED statements; drafts hidden; foreign id → 404; PDF streamed through the API after reauthorization (no raw S3 URL) | API tests | Revoked user mid-download → 403 | 3 |
-| ALC-008-S13 | Add observability (issued/restated counts, rounding-delta invariant alarm |Σ deltas| ≤ n·0.5 unit) and a runbook for restatement and PDF render failure | alarm + runbook | Alarm tested | 2 |
+| ALC-008-S13 | Add observability (issued/restated counts, rounding-delta invariant alarm: abs(Σ deltas) ≤ n·0.5 unit) and a runbook for restatement and PDF render failure | alarm + runbook | Alarm tested | 2 |
 | ALC-008-S14 | Record evidence | evidence | Complete | 1 |
 
 Task acceptance:
@@ -517,6 +517,7 @@ Task acceptance:
 ### ALC-102 — Allocation metrics and group dimensions in the semantic registry
 Release: R1 · Estimate: 13–18 h · Risk: L · Decisions: — · Closes: G-ALC-14 (registry), GOV G-GOV-04 prerequisite
 Why: `semantic-api.md` has no allocated-spend metric, yet team budgets, showback and explorer-by-team need one (and "do not create a separate budget formula"). Plugs in after API-001 and ALC-005.
+Dependency changes: new task; deps `API-001, ALC-005, ALC-101`; new downstream edges `GOV-001 (team scope), ALC-006, ALC-007 → ALC-102`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -535,6 +536,7 @@ Task acceptance:
 ### ALC-103 — Shared pools, residual, manual transfers and D-15 default book
 Release: R1 · Estimate: 24–34 h · Risk: M · Decisions: D-15 · Closes: G-ALC-10 (pools/transfers/seed), G-ALC-14 (fixture)
 Why: split out of ALC-005 (nine methods in one task are unreviewable) and needed by ONB-004 ("verify allocated plus unallocated equals eligible ledger total"). Plugs in after ALC-005; ONB-004 gains `+ALC-103`.
+Dependency changes: new task; deps `ALC-005`; new downstream edges `ALC-008 → ALC-103`, `ONB-004 → ALC-103`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -556,6 +558,7 @@ Task acceptance:
 ### ALC-104 — Allocation scale and cost benchmark
 Release: R1 · Estimate: 16–23 h · Risk: M · Decisions: D-05, D-06, D-08 · Closes: G-ALC-15, G-ALC-16 (live)
 Why: 1M queries/day/account × rules × books is the dominant central-compute risk; targets must be measured before OPS-009 margins. Plugs in after ALC-005 and ALC-003; feeds OPS-009.
+Dependency changes: new task; deps `ALC-003, ALC-005`; new downstream edge `OPS-009 → ALC-104`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|

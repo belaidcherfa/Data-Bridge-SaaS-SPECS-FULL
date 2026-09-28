@@ -11,7 +11,7 @@ The workload contract has the right epistemics: evidence over guesses, UNKNOWN a
 1. The metadata the classifier needs (the dbt comment and the Power BI QUERY_TAG) must be extracted **inside the sanitizer at extraction time** (SEC-007, M1). Raw SQL is never persisted, so that extraction is irreversible beyond the 365-day Account Usage window. Yet the allowlist is owned by WRK-001, which is scheduled ~100 tasks later behind API-001.
 2. The native linkage that WRK-004 relies on exists only in specific views. Stored-procedure parent/root IDs are in QUERY_ATTRIBUTION_HISTORY and ACCESS_HISTORY, not QUERY_HISTORY, and the source catalog does not extract them. Serverless task cost is per task and time window, not per run.
 3. Power BI exposes only mode + ActivityId, and only from the Service with the 1.0 connector. There are no report or dataset identities.
-4. D-11 retention removes query-level rows after 90 days. Invocation- and family-level facts must be designed so the 365-day workload views and comparisons still work. The current ING backfill plan also drops the very text that carries dbt identity for days 91–365 (G-WRK-15).
+4. D-11 retention removes query-level rows after `hot_days` (365 days by default since the owner's decision of 2026-09-28; plans may set fewer). Invocation- and family-level facts must still be designed so 400-day workload views and comparisons work. The ING backfill plan as first written dropped the very text that carries dbt identity for days 91–365 (G-WRK-15); the 365-day default removes that gap.
 
 Author first: the allowlist v1 (§3), the evidence schema, and the precedence table. Then decouple WRK-001 from API-001.
 
@@ -154,18 +154,18 @@ Affects: WRK-001, ALC-001 (workload dimension), DBT-006.
 ### G-WRK-08 · D-11 retention tiering breaks 365-day workload views unless execution-level facts are retained separately
 Severity: HIGH · Type: GAP
 Evidence:
-- D-11: "Query-level detail hot for 90 days … query-family × day aggregates (parameterized hash) for 400 days".
+- D-11: "Query-level detail hot for 90 days … query-family × day aggregates (parameterized hash) for 400 days" (owner decision 2026-09-28: 365 days of query-level detail; aggregates and execution-level facts 400 days).
 - The workload pages show invocation/model histories and p95s (`modelp95`, `runduration`) over periods selectable up to 365 days (`product.md` presets).
 - WRK-005 compares baseline vs current windows.
 - `workloads.md`: "Never promise operator evidence for all one-year-old queries".
 Why it matters:
-- After 90 days, "dbt project → invocation → model" has no queries to aggregate, and family×day aggregates keyed by parameterized hash do not carry invocation or model identity.
-- A comparison whose baseline is older than 90 days cannot compute per-execution unit cost.
+- After `hot_days` (365 by default), "dbt project → invocation → model" has no queries to aggregate, and family×day aggregates keyed by parameterized hash do not carry invocation or model identity.
+- A comparison whose baseline is older than `hot_days` cannot compute per-execution unit cost.
 - Model p95 over a year would require averaging percentiles.
 Resolution:
 - Retain **execution-level facts for 400 days**: dbt model executions, dbt invocations, PBI activities, task graph runs, DT refreshes. These are 2–3 orders of magnitude smaller than queries. Each carries cost, query count, wall time, execution sum and status.
 - Query family × day keeps t-digest and HLL states (API G-API-04).
-- UI tier labels: execution-level exact for 400 days; query-level 90 days.
+- UI tier labels: execution-level exact for 400 days; query-level `hot_days` (365 by default).
 - Operator evidence is 14 days (G-WRK-09).
 - WRK-104 builds these facts and purges.
 Affects: WRK-002…WRK-005, WRK-104, API-001, UX-005, ING-001.
@@ -221,12 +221,12 @@ Affects: WRK-002, WRK-003, WRK-004.
 
 ### G-WRK-12 · Workload tasks are over-serialized behind API-001 and UX-005
 Severity: MEDIUM · Type: GAP
-Evidence: task-index.json: WRK-001 ← API-001 (← FIN-009); WRK-002/003/004 ← UX-005; WRK-005 ← WRK-003 (Power BI, R1* per RELEASE_PLAN) and API-004; ALC-001 ← WRK-001; GOV-002 ← WRK-005.
+Evidence: task-index.json: WRK-001 ← API-001 (← FIN-009); WRK-002/003/004 ← UX-005; WRK-005 ← WRK-003 (Power BI; R1\* then, R1 since D-20) and API-004; ALC-001 ← WRK-001; GOV-002 ← WRK-005.
 Why it matters: WRK-001 is on the 73-task critical path (AUDIT X-05), even though the classifier needs sanitized query records and resource history, not the metric registry. The workload pages need the UX-002 data layer and API-104 records, not the warehouse deep-dive page. WRK-005 would wait for Power BI even when Power BI is out of R1.
 Resolution:
 - WRK-001: −API-001, +WRK-101.
 - WRK-002/003/004: −UX-005, +UX-002, +API-104, +WRK-104.
-- WRK-005: −WRK-003 (unless R1*), keep API-004; operator evidence moves to WRK-103.
+- WRK-005: keep WRK-003 (R1 since D-20; comparisons cover Power BI activities) and API-004; operator evidence moves to WRK-103.
 - GOV-002: −WRK-005 (lead finding).
 - ALC-001 keeps WRK-001, which is now earlier.
 Affects: WRK-001…WRK-005, ALC-001, GOV-002.
@@ -247,6 +247,7 @@ Evidence:
 - G-WRK-08 keeps execution-level facts for 400 days.
 Why it matters: at onboarding, days 91–365 of dbt activity would carry no `node_id`/`invocation_id` evidence. Once those days leave Account Usage's 365-day window, they can never be recovered. dbt project/model history, WRK-005 baselines and the INS-003 pipeline detectors would all start 90 days back instead of a year back. ING's CPU argument is valid for full AST sanitization, not for metadata extraction.
 Resolution:
+- **Default configuration resolved by D-11 (owner decision 2026-09-28):** with `hot_days` = 365 every backfilled day projects sanitized QUERY_TEXT, so dbt identity is extracted for the whole Account Usage window. The COLD projection below stays only as the documented fallback for tenants whose plan sets `hot_days` < 365.
 - For windows older than the hot horizon, the extraction SQL projects only the trailing comment, computed **in the customer warehouse**: `REGEXP_SUBSTR(QUERY_TEXT, '/\\*[^*]*\\*+([^/*][^*]*\\*+)*/\\s*;?\\s*$')` truncated to 4,096 chars as `QUERY_TEXT_TAIL_COMMENT`. Leading comments are removed by Snowflake anyway (G-WRK-02).
 - WRK-101 runs its lexer on that fragment only (no AST, microseconds per row) and persists only `WorkloadMetaV1`. No SQL text is stored.
 - The customer-credit and bytes impact of the regex over ~275 M cold rows is TO VERIFY LIVE in ING-101, and disclosed in the D-08 estimate.
@@ -275,7 +276,7 @@ Affects: WRK-105, FIN-020.
 | Required source projections (to ING) | QAH + `PARENT_QUERY_ID`, `ROOT_QUERY_ID`; QUERY_HISTORY + `COMPILATION_TIME`, `QUEUED_OVERLOAD_TIME`, `QUEUED_PROVISIONING_TIME`, `QUERY_TAG` (sanitized by WRK-101); SESSIONS: `SESSION_ID`, `CREATED_ON`, `USER_NAME` (pseudonymized), `CLIENT_APPLICATION_ID`, `CLIENT_APPLICATION_VERSION`, `CLIENT_ENVIRONMENT:APPLICATION` only; TASK_HISTORY: `QUERY_ID`, `NAME`, `DATABASE_NAME`, `SCHEMA_NAME`, `ROOT_TASK_ID`, `GRAPH_RUN_GROUP_ID`, `RUN_ID`, `STATE`, `SCHEDULED_TIME`, `QUERY_START_TIME`, `COMPLETED_TIME`, `ATTEMPT_NUMBER` (TO VERIFY); DYNAMIC_TABLE_REFRESH_HISTORY: `QUALIFIED_NAME`, `QUERY_ID`, `STATE`, `REFRESH_ACTION`, `REFRESH_TRIGGER`, `DATA_TIMESTAMP`, `REFRESH_START_TIME`, `REFRESH_END_TIME` | WRK-101-S09 (handoff; activated in ING-101 for QH/QAH/AU.SESSIONS and ING-104 for TASK_HISTORY/DT refresh — RECONCILIATION C-10) |
 | Comparison contract | Formula (G-WRK-10), entity matching keys per workload kind, window rules, min sample, output schema `{entity_key, bucket ∈ COMMON\|NEW\|DISAPPEARED, v0, u0, v1, u1, volume_effect, unit_cost_effect, residual}` | WRK-005-S01 |
 | Operator evidence artifact schema | `{tenant, account, query_id, fetched_at, sanitizer_version, operators:[{id, parent_ids, type, stats:{…}, attributes_sanitized}], truncated}` ≤ 1 MB | WRK-103-S01 |
-| Retention contract | Query-level 90 d (plan-configurable); execution-level 400 d; family×day with t-digest/HLL 400 d; operator artifacts 30 d, source limit 14 d | WRK-104-S01 |
+| Retention contract | Query-level `hot_days` = 365 d by default (D-11 owner decision; plan-configurable, maximum bounded by Account Usage retention); execution-level 400 d; family×day with t-digest/HLL 400 d; operator artifacts 30 d, source limit 14 d | WRK-104-S01 |
 
 ## 4. Revised production backlog
 
@@ -328,7 +329,7 @@ Task acceptance:
 - [ ] Missing history never produces a "deleted" claim.
 
 ### WRK-003 — Power BI activity and mode intelligence
-Release: R1* (D-20: only if the first customer uses Power BI on Snowflake) else R2 · Estimate: 24–34 h · Risk: M · Decisions: D-20 · Closes: G-WRK-03
+Release: R1 (D-20, 2026-09-28) · Estimate: 24–34 h · Risk: M · Decisions: D-20 · Closes: G-WRK-03
 Dependency changes: `−UX-005`, `+UX-002`, `+API-104`, `+WRK-104`; keep `WRK-001`.
 
 | Step | Micro-task | Deliverable | Done when | h |
@@ -372,7 +373,7 @@ Task acceptance:
 
 ### WRK-005 — Workload comparison (volume vs unit-cost decomposition)
 Release: R1 · Estimate: 26–36 h · Risk: M · Decisions: D-11 · Closes: G-WRK-10
-Dependency changes: `−WRK-003` (unless R1*), keep `WRK-002`, `WRK-004`, `API-004`. **On-demand operator evidence moves to WRK-103 (R2).** Downstream: `GOV-002 −WRK-005`.
+Dependency changes: keep `WRK-003` (R1 since D-20: comparisons cover Power BI activities), `WRK-002`, `WRK-004`, `API-004`. **On-demand operator evidence moves to WRK-103 (R2).** Downstream: `GOV-002 −WRK-005`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -387,7 +388,7 @@ Dependency changes: `−WRK-003` (unless R1*), keep `WRK-002`, `WRK-004`, `API-0
 
 Task acceptance:
 - [ ] Contributors sum exactly to the total delta under the stated formula.
-- [ ] Comparisons work for baselines older than 90 days, using execution-level facts.
+- [ ] Comparisons work for baselines older than the query-level hot tier (`hot_days`, 365 by default), using execution-level facts.
 - [ ] Missing history never yields "deleted". The copy makes no causal claim.
 
 ## 5. New tasks required
@@ -409,7 +410,7 @@ Dependency changes: new; depends on `SEC-001` (data classification), `FND-004` (
 | WRK-101-S09 | Hand off the required source projections (§3) to the ING owner and the capability probes to CON-005 | ING/CON change requests | Accepted into ING-001/CON-005 backlogs | 1 |
 | WRK-101-S10 | Versioning and irreversibility runbook: `wlmeta_version` bump procedure, re-extraction bounded to 365 days, customer credit estimate (D-08) | `docs/05-ingestion/workload-meta.md` | Reviewed by ING/SEC | 1 |
 | WRK-101-S11 | Metrics: `wlmeta_parse_total{source,status}` with alarms on a MALFORMED rate > 5 % per account/day | instrumentation | Visible in staging | 1 |
-| WRK-101-S12 | Cold-window mode (G-WRK-15): specify the `QUERY_TEXT_TAIL_COMMENT` projection for ING-010 and accept a fragment-only input path (no AST, no text persisted) | ING change request + `extract_fragment()` | On a 200-day-old fixture window, dbt node_id/invocation_id are extracted and no SQL text column is present in the Parquet output | 2 |
+| WRK-101-S12 | Cold-window fallback (G-WRK-15; used only when a plan sets `hot_days` < 365 — D-11): specify the `QUERY_TEXT_TAIL_COMMENT` projection for ING-010 and accept a fragment-only input path (no AST, no text persisted) | ING change request + `extract_fragment()` | On a 200-day-old fixture window of a plan with `hot_days` = 90, dbt node_id/invocation_id are extracted and no SQL text column is present in the Parquet output | 2 |
 
 Task acceptance:
 - [ ] Allowlisted keys are extracted before sanitization, and forbidden keys (emails, commands, meta) never persist.
@@ -457,13 +458,13 @@ Dependency changes: new; depends on `WRK-001`, `DBT-004` (incremental/revision m
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
-| WRK-104-S01 | Write the retention contract (§3) and plan-configurable hot days | doc + config | Reviewed with ING/OPS | 1 |
+| WRK-104-S01 | Write the retention contract (§3): `hot_days` default 365 (D-11 owner decision 2026-09-28), plan-configurable up to Account Usage retention; aggregates and sketches are still built for 400-day ranges and for long-range performance | doc + config | Reviewed with ING/OPS | 1 |
 | WRK-104-S02 | Build `fct_query_family_daily` at grain (tenant, account, warehouse_id, workload_key, query_parameterized_hash, hash_version, usage_date UTC) with the union of columns (RECONCILIATION U-17, C-01): query_count, failed_count, compute_cost, queued_ms_sum, bytes_scanned_sum, `elapsed_tdigest`, `execution_tdigest`, `users_hll`, `hashes_hll` (API), `executions_success`, `executions_attributed`, `attributed_credits` incl. QAS, `spill_remote_exec_count`, `spill_remote_bytes`, dominant identity tuple counts (INS), `credits_used_cloud_services` (D-15), using APPROX_PERCENTILE_ACCUMULATE/HLL_ACCUMULATE | dbt model | Fixture states combine to the same estimate as a direct APPROX_PERCENTILE over all rows | 4 |
 | WRK-104-S03 | Build execution-level facts retention (dbt invocations/model executions, PBI activities, task graph runs, DT refreshes) with 400-day retention | dbt models (shared with WRK-002/003/004) | Execution facts survive the query purge | 3 |
 | WRK-104-S04 | Null-hash handling (queries without a parameterized hash) → `__NO_HASH__` bucket per workload/day | SQL | No query compute is lost from the family totals | 1 |
 | WRK-104-S05 | Declare the query-grain retention policy (rows older than `hot_days`; insert-only revisions per D-05: drop partitions, not row deletes) and the tier marker in the publication manifest; the physical deletion is executed by ORC-105-S04's GC job (the only deleter of revisioned rows) and verified by OPS-005 (RECONCILIATION U-17) | retention policy config + tier marker (ORC-105 GC input) | After ORC-105's purge, family totals still equal the pre-purge query totals for the same days | 4 |
 | WRK-104-S06 | Measure the t-digest error on the fixture and a 1M-row synthetic set (p50/p95/p99) and record it for the UI label | evidence | Error recorded (target relative error < 2 % at p95; measured, not assumed) | 3 |
-| WRK-104-S07 | Serving views for both tiers with registry `exactness` bindings (API-001) | views + YAML | API picks AGGREGATE for ranges beyond hot days | 2 |
+| WRK-104-S07 | Serving views for both tiers with registry `exactness` bindings (API-001) | views + YAML | API picks AGGREGATE for ranges beyond `hot_days` (days 366–400 by default) and may use it for long-range family views for performance, with the exactness label | 2 |
 | WRK-104-S08 | Tests: conservation across the purge; distinct users across 365 days via HLL; tenant isolation on states | tests | All pass | 3 |
 
 Task acceptance:
@@ -497,18 +498,19 @@ Task acceptance:
 | WRK-005 | R1 | 26 | 36 |
 | WRK-102 (new) | R1 | 14 | 20 |
 | WRK-104 (new) | R1 | 22 | 30 |
-| WRK-003 | R1* (D-20) / else R2 | 24 | 34 |
+| WRK-003 | R1 (D-20) | 24 | 34 |
 | WRK-103 (new) | R2 | 24 | 34 |
 | WRK-105 (new) | R2 | 22 | 32 |
-| **Total R1** (excluding R1* WRK-003) | | **198** | **276** |
-| **Total R2** (WRK-103 + WRK-105; + WRK-003 if not R1*) | | **46** | **66** |
+| **Total R1** | | **222** | **310** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
+| **Total R2** (WRK-103 + WRK-105) | | **46** | **66** |
 
 The original plan was 5 tasks × 2–6 h = 10–30 h.
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 
 - **Q-WRK-1** Will the first customer accept adding `invocation_id` to their dbt `query-comment` (a one-line project change)? Without it, dbt run counts are approximate only.
-- **Q-WRK-2** Power BI: is the first customer's traffic from the Power BI Service with the Snowflake connector implementation 1.0, and do they need Power BI in R1 (WRK-003 R1*)?
-- **Q-WRK-3** Is a 90-day query-level drilldown commercially acceptable if execution-level (dbt/PBI/tasks) history is kept 400 days? This extends D-11's owner check.
+- **Q-WRK-2** Power BI: is the first customer's traffic from the Power BI Service with the Snowflake connector implementation 1.0, and can the live signals of WRK-003-S01 be verified on their tenant? (WRK-003 is R1 since D-20.)
+- **Q-WRK-3** Is a 90-day query-level drilldown commercially acceptable if execution-level (dbt/PBI/tasks) history is kept 400 days? This extends D-11's owner check. — Resolved by D-11 (2026-09-28): 365 days of query-level detail by default.
 - **Q-WRK-4** May Bridge run on-demand operator-stats queries on the customer's `BRIDGE_FINOPS_WH` (customer credits) in R2, and at what default monthly cap?
 - **Q-WRK-5** Should customer-declared application rules (custom apps, environments from `target_name`) be editable by tenant admins in R1, or seeded by Bridge support during onboarding?

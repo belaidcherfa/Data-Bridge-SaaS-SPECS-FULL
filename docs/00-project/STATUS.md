@@ -82,7 +82,8 @@ OPEN VALIDATIONS: production APIs, authentication/authorization, WIF/Snowflake/A
 ## Implementation-readiness review — 2026-09-28
 
 DONE: full-specification deep review in [docs/22-implementation-readiness](../22-implementation-readiness/README.md) — cross-cutting audit (X-01…X-47), 317 domain findings (29 BLOCKER, 151 HIGH), 34 decisions with recommended defaults, 233 contract-first artifacts, per-domain production backlogs (249 tasks, 2,792 micro-steps with oracles and hours), reconciliation of cross-domain overlaps/contradictions and a validated revised task graph (critical path 73 → 42 tasks).
-NEXT: owner records the decisions (priority: D-17, D-18, D-19, D-20, D-25, D-30, D-32 owner inputs; ADR amendments for D-02, D-04, D-05/06, D-07, D-26), approves the non-production budget, then P0 contract-first artifacts begin.
-BLOCKED: implementation start is blocked on those decisions; no production task status changes.
-RISKS: R1 estimate 6,779–9,974 senior-engineer hours (R1* 247–366, R2 663–1,036); real-data surprises (mitigated by tenant zero and a design partner); vendor behaviors marked TO VERIFY LIVE.
+DECISIONS: all 38 decisions recorded by the owner on 2026-09-28 ([decision record](../22-implementation-readiness/DECISIONS_REQUIRED.md)); ADRs amended and ADR-014 to ADR-016 added; canonical contracts updated; the revised task graph is the execution plan.
+NEXT: order the Snowflake test estate (INF-101, budget approved), author the P0 contract-first artifacts, write AGENTS.md (FND-006), then start lanes A1 and A2 with coding agents under human review.
+BLOCKED: none for starting P0. Live gates need the test estate; the first customer path needs a contracted pilot customer.
+RISKS: R1 estimate 7,116–10,488 senior-engineer-equivalent hours (R2 614–948) after D-20 put every edition, contract and service family in R1; critical path 42 tasks (1,362–2,006 h); reviewer capacity and live gates bound an agent-driven calendar; real-data surprises (mitigated by tenant zero and a contracted pilot); vendor behaviors marked TO VERIFY LIVE.
 

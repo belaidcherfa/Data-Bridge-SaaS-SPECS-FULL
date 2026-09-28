@@ -1,5 +1,7 @@
 # Cross-cutting implementation-readiness audit
 
+> **Status 2026-09-28.** All decisions referenced below were recorded by the owner (38 decisions, [decision record](DECISIONS_REQUIRED.md)); where the owner chose differently from a recommendation (e.g. D-11: 365-day query detail; D-20: every edition, contract and service in R1), the decision record prevails over this audit's recommendation text.
+
 Review date: 2026-09-27/28 UTC. Scope: every file in this repository (PRD, 13 ADRs, 20 domain contracts, 151 task files, machine index, UI/UX design set, prototype). Method: full read of the PRD, ADRs and domain contracts by the lead reviewer; quantitative analysis of task files and the dependency graph; nine parallel domain audits whose detailed output lives in [backlog/](backlog/); targeted vendor verification where a design decision depends on it.
 
 Domain-specific findings (`G-<DOM>-nn`) are in the per-domain backlog files. This document holds the findings that span domains (`X-nn`). Decisions referenced as `D-nn` are defined in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md).
@@ -19,7 +21,7 @@ What prevents a production implementation from starting today:
 5. **Delivery shape is a big bang**: the first paying customer transitively requires 147 of 151 tasks through a 73-task serial chain (X-05), with unrealistic 2–6 h task estimates (X-04).
 6. **Business inputs are absent**: pricing model, first-customer profile, team capacity, localization, legal/e-invoicing obligations (X-40…X-45).
 
-None of these require abandoning the design. They require (a) the 34 decisions in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md), (b) the contract-first artifacts listed in [CONTRACT_FIRST_ARTIFACTS.md](CONTRACT_FIRST_ARTIFACTS.md), (c) the revised micro-task backlog in [backlog/](backlog/), and (d) the release re-slicing in [RELEASE_PLAN.md](RELEASE_PLAN.md).
+None of these require abandoning the design. They require (a) the decisions in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md), (b) the contract-first artifacts listed in [CONTRACT_FIRST_ARTIFACTS.md](CONTRACT_FIRST_ARTIFACTS.md), (c) the revised micro-task backlog in [backlog/](backlog/), and (d) the release re-slicing in [RELEASE_PLAN.md](RELEASE_PLAN.md).
 
 ## 2. Findings about the specification set itself
 

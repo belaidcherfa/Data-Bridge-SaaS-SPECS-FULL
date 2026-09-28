@@ -6,7 +6,7 @@ Companion file: [CTL.md](CTL.md) owns the control-plane kernel (outbox, idempote
 
 ## 1. Verdict
 
-The security contract states the right invariants (fail-closed RLS, identity-bound Snowflake policies, epoch revocation, sanitize-before-transport) but none of them is implementable as written: there is no scope grammar, no capability matrix, no entitlement DDL or row-policy body, no session model, no revocation mechanism beyond "read durable state", and no pseudonymization design. SEC-004/SEC-005/SEC-006 each hide 2–4 weeks of design-plus-build behind three generic micro-steps. The biggest risks are (1) the Snowflake serving model (D-02) — a wrong choice between `CURRENT_ROLE()` and `IS_ROLE_IN_SESSION()` combined with Snowflake's post-2024_08 default of `DEFAULT_SECONDARY_ROLES=('ALL')` silently turns a restricted profile into the union of every profile in the tenant; (2) hidden totals leaking through account-grain aggregates and percentages; (3) a hidden dependency cycle (SEC-006/SEC-008 need the outbox built by CTL-004, which transitively depends on SEC-008); (4) sqlglot logging raw SQL on unsupported syntax. Author first: the ADR-005 amendment in Appendix A, the scope grammar (Appendix B), the capability/SoD matrix (Appendix C) and the session model (Appendix D). With those, the domain is implementable in ≈520–810 senior hours for R1 (not 8 × 2–6 h).
+The security contract states the right invariants (fail-closed RLS, identity-bound Snowflake policies, epoch revocation, sanitize-before-transport) but none of them is implementable as written: there is no scope grammar, no capability matrix, no entitlement DDL or row-policy body, no session model, no revocation mechanism beyond "read durable state", and no pseudonymization design. SEC-004/SEC-005/SEC-006 each hide 2–4 weeks of design-plus-build behind three generic micro-steps. The biggest risks are (1) the Snowflake serving model (D-02) — a wrong choice between `CURRENT_ROLE()` and `IS_ROLE_IN_SESSION()` combined with Snowflake's post-2024_08 default of `DEFAULT_SECONDARY_ROLES=('ALL')` silently turns a restricted profile into the union of every profile in the tenant; (2) hidden totals leaking through account-grain aggregates and percentages; (3) a hidden dependency cycle (SEC-006/SEC-008 need the outbox built by CTL-004, which transitively depends on SEC-008); (4) sqlglot logging raw SQL on unsupported syntax. Author first: the ADR-005 amendment in Appendix A, the scope grammar (Appendix B), the capability/SoD matrix (Appendix C) and the session model (Appendix D). With those, the domain is implementable in ≈520–810 senior hours for R1 (not 8 × 2–6 h); since D-20 (2026-09-28) R1 also includes SEC-003 SAML/OIDC SSO, and D-11's 365-day sanitized text adds SEC-007-S17 (§6: 567–881 h).
 
 ## 2. Findings
 
@@ -70,7 +70,7 @@ Affects: SEC-002, SEC-003, OPS-009.
 Severity: HIGH · Type: GAP
 Evidence: `SEC-003` — "Test changed email, reused email across IdPs"; `sign-in.md` — "Workspace domain → Continue with SSO". No rule for NameID format, Cognito user identity per (provider, NameID), `email_verified` trust, JIT, or what the domain prompt reveals.
 Why it matters: Cognito creates a distinct user per `(ProviderName, userId)`; a transient NameID (or email-format NameID that changes on rename) yields a new subject and either an orphaned membership or an unsafe email-based auto-link. A domain prompt answering "no such workspace" vs redirecting leaks which companies are customers.
-Resolution: `identity.subject_identities(provider_id, provider_subject)` unique; SAML requires persistent NameID or a configured immutable attribute (Entra `objectidentifier`, Okta `user.id`); OIDC uses `sub`. Linking a federated identity to an existing subject happens only through (a) a pending invitation accepted while authenticated by the tenant's bound IdP, or (b) an authenticated owner-approved "link identity" action; never by email equality. JIT (opt-in per tenant, R1) creates membership with role Viewer and **empty scope** (sees nothing until granted). Discovery endpoint `POST /v1/auth/discover {email}` always returns 200 with either an IdP redirect or the generic Cognito login, same latency envelope; verified domains are discovery hints only and require DNS TXT verification before activation.
+Resolution: `identity.subject_identities(provider_id, provider_subject)` unique; SAML requires persistent NameID or a configured immutable attribute (Entra `objectidentifier`, Okta `user.id`); OIDC uses `sub` (Google: `sub`, and because Google's issuer is shared by every Google customer the binding also requires the `hd` claim to equal a verified tenant domain — SEC-003-S17). Linking a federated identity to an existing subject happens only through (a) a pending invitation accepted while authenticated by the tenant's bound IdP, or (b) an authenticated owner-approved "link identity" action; never by email equality. JIT (opt-in per tenant, R1) creates membership with role Viewer and **empty scope** (sees nothing until granted). Discovery endpoint `POST /v1/auth/discover {email}` always returns 200 with either an IdP redirect or the generic Cognito login, same latency envelope; verified domains are discovery hints only and require DNS TXT verification before activation.
 Affects: SEC-003, CTL-003.
 
 ### G-SEC-10 · PostgreSQL RLS mechanics for global tables, workers, dispatcher, audit and definer paths are missing
@@ -112,7 +112,7 @@ Affects: SEC-007, ING-003, WRK-001.
 Severity: MEDIUM · Type: GAP / VENDOR-FACT
 Evidence: ADR-009 — "remove literals/comments except allowlisted structured workload metadata"; Snowflake removes leading comments from query text, hence dbt's `query-comment: append: true` — VERIFIED (search snippets docs.getdbt.com/reference/project-configs/query-comment and dbt-core PR #2199, 2026-09-28).
 Why it matters: an allowlist that only inspects a leading comment misses every dbt run; caching sanitized text by `(account, QUERY_PARAMETERIZED_HASH)` is a good CPU optimization (1M queries/day × ~3 ms ≈ 50 CPU-min/day/account without cache) but queries differing only in comments share a parameterized hash — if the cached value included comment metadata, one run's `invocation_id`/`node_id` would be attached to another run.
-Resolution: pipeline order: (1) extract trailing and leading block comments and QUERY_TAG, parse JSON (≤4 KB), keep only allowlisted keys (dbt: `app, dbt_version, profile_name, target_name, node_id, invocation_id`; Bridge: `bridge_finops`) with value regex `^[A-Za-z0-9_.:\-/]{1,256}$`; (2) sanitize the SQL body with **all** comments stripped; (3) cache only step 2 output keyed `(tenant_id, account_id, QUERY_PARAMETERIZED_HASH_VERSION, QUERY_PARAMETERIZED_HASH, sanitizer_version)` in the per-account-cycle process (LRU 100k entries). Optional lexical tier (challenges ADR-009 "on sanitizer failure drop SQL"): if AST parse fails but sqlglot tokenization succeeds with no unterminated token, replace every literal/comment token with `?` and mark `sanitizer_mode=LEXICAL`; tenant setting can disable it. Decision recorded in SEC-007-S02.
+Resolution: pipeline order: (1) extract trailing and leading block comments and QUERY_TAG, parse JSON (≤4 KB), keep only allowlisted keys (dbt: `app, dbt_version, profile_name, target_name, node_id, invocation_id`; Bridge: `bridge_finops`) with value regex `^[A-Za-z0-9_.:\-/]{1,256}$`; (2) sanitize the SQL body with **all** comments stripped; (3) cache only step 2 output keyed `(tenant_id, account_id, QUERY_PARAMETERIZED_HASH_VERSION, QUERY_PARAMETERIZED_HASH, sanitizer_version)` in the per-account-cycle process (LRU 100k entries). Optional lexical tier (challenges ADR-009 "on sanitizer failure drop SQL"): if AST parse fails but sqlglot tokenization succeeds with no unterminated token, replace every literal/comment token with `?` and mark `sanitizer_mode=LEXICAL`; tenant setting can disable it. Decision recorded in SEC-007-S02. With D-11's 365 days of sanitized text (owner decision 2026-09-28), the cache is also persisted between backfill chunks of one account (SEC-007-S17), because a per-process LRU never sees the hash repetition across days.
 Affects: SEC-007, WRK-002 (dbt), ING-003.
 
 ### G-SEC-16 · Pseudonymization (D-10) needs a concrete design; the lead's "separately journaled dictionary" would recreate the problem
@@ -260,14 +260,14 @@ Task acceptance:
 - [ ] Pre-auth pages make no `/v1/` data calls and show no tenant name.
 
 ### SEC-003 — Add tenant-bound SAML and OIDC SSO
-Release: R1* (R1 only if the first customer requires SSO; D-20) · Estimate: 56–84 h · Risk: H · Decisions: D-20 · Closes: G-SEC-07 (federated), G-SEC-08, G-SEC-09
+Release: R1 (D-20, 2026-09-28: SSO for every customer; tested IdPs Entra ID, Okta and Google) · Estimate: 60–90 h · Risk: H · Decisions: D-20 · Closes: G-SEC-07 (federated), G-SEC-08, G-SEC-09
 Dependency changes: `+SEC-102` (enforcement requires approval/step-up), `+CTL-003` (invitation linking).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| SEC-003-S01 | Migrate `identity.identity_providers` (tenant_id, id, protocol, cognito_provider_name `t-<short>-<n>`, entity_id/issuer **globally unique**, metadata_sha256, subject_attribute, attribute_mapping, mfa_assertion `REQUIRED_AMR\|TRUSTED_IDP_POLICY`, jit_enabled, state `DRAFT\|TESTED\|ENFORCED\|DISABLED`, tested_at/by, enforced_at, revision) and `identity.idp_domains` (domain, verification_token_hash, verified_at, last_checked_at) | `migrations/versions/00xx_idp.py` | Unique index rejects the same entity_id for a second tenant | 3 |
+| SEC-003-S01 | Migrate `identity.identity_providers` (tenant_id, id, protocol, cognito_provider_name `t-<short>-<n>`, entity_id/issuer **globally unique** (Google OIDC: unique per (issuer, client_id, verified `hd`), S17), metadata_sha256, subject_attribute, attribute_mapping, mfa_assertion `REQUIRED_AMR\|TRUSTED_IDP_POLICY`, jit_enabled, state `DRAFT\|TESTED\|ENFORCED\|DISABLED`, tested_at/by, enforced_at, revision) and `identity.idp_domains` (domain, verification_token_hash, verified_at, last_checked_at) | `migrations/versions/00xx_idp.py` | Unique index rejects the same entity_id for a second tenant | 3 |
 | SEC-003-S02 | Implement IdP draft create/update: SAML metadata ≤256 KB parsed with `defusedxml`, signing cert present, RSA ≥2048, not expired; OIDC discovery fetched through the SSRF-safe egress client (https, public IPs only, 5 s timeout, no redirects to private ranges); call Cognito `CreateIdentityProvider`; same entity_id in another tenant → 409 `IDP_ALREADY_BOUND` without tenant name | `apps/api/identity_providers/` | XXE payload and `http://169.254.169.254` discovery URL both rejected | 5 |
-| SEC-003-S03 | Enforce stable subject: SAML requires persistent NameID or a configured immutable attribute (Entra objectidentifier, Okta user.id); OIDC uses `sub`; store in `subject_identities` | `apps/api/identity_providers/mapping.py` | Email change at IdP maps to the same subject in the test | 3 |
+| SEC-003-S03 | Enforce stable subject: SAML requires persistent NameID or a configured immutable attribute (Entra objectidentifier, Okta user.id); OIDC uses `sub` (Entra, Okta, Google); store in `subject_identities` | `apps/api/identity_providers/mapping.py` | Email change at IdP maps to the same subject in the test | 3 |
 | SEC-003-S04 | Build test mode: `POST /v1/settings/sso/{id}/test` starts an auth transaction flagged `test`, result shows redacted asserted attributes, creates no tenant session; success sets TESTED bound to metadata_sha256; any metadata change resets to DRAFT | `apps/api/identity_providers/test_flow.py` | Enforce attempt on DRAFT → 409 `SSO_NOT_TESTED` | 5 |
 | SEC-003-S05 | Implement domain verification via DNS TXT `_bridge-verify.<domain>`; re-check every 30 days; verified domains are discovery hints only | `apps/api/identity_providers/domains.py` | Unverified domain never triggers IdP redirect | 3 |
 | SEC-003-S06 | Implement `POST /v1/auth/discover {email}`: constant response shape, jittered latency envelope, rate-limited; returns IdP redirect for verified domain else generic login | `apps/api/auth/discover.py` | Response bodies for customer and non-customer domains differ only in redirect target class; timing p50 within ±10 % | 3 |
@@ -277,10 +277,11 @@ Dependency changes: `+SEC-102` (enforcement requires approval/step-up), `+CTL-00
 | SEC-003-S10 | Enforcement lifecycle: TESTED + approval (Appendix C.4 `sso.enforce`) + ≥1 designated break-glass owner (max 2, passkey MFA required); when ENFORCED, password sessions cannot select the tenant except break-glass owners, whose use pages Security | `apps/api/identity_providers/enforce.py` | ATK-22 (password login bypass) denied; break-glass login emits `sso.breakglass.used` + alarm | 5 |
 | SEC-003-S11 | Certificate rotation: accept two signing certs; expiry alarms at 30/7/1 days; cert-only rotation for the same entity_id requires a new test run | `apps/api/identity_providers/certs.py` | Expired-cert fixture blocks login with `AUTH_IDP_CERT_EXPIRED` and alarm | 3 |
 | SEC-003-S12 | Disable/recovery: disabling requires owner step-up; runbook for IdP outage using break-glass owner | `docs/runbooks/sso.md` | Drill restores owner access within 15 min without support involvement | 3 |
-| SEC-003-S13 | Attack tests: changed email (same subject), same email via second IdP (new subject, no link), cross-tenant IdP reuse, enforced-SSO bypass, replayed SAML response, altered assertion (Cognito rejects) | `tests/security/sso/` | All PASS in staging with two real IdPs | 5 |
+| SEC-003-S13 | Attack tests: changed email (same subject), same email via second IdP (new subject, no link), cross-tenant IdP reuse, enforced-SSO bypass, replayed SAML response, altered assertion (Cognito rejects) | `tests/security/sso/` | All PASS in staging with the three tested IdPs (Entra ID, Okta, Google) | 5 |
 | SEC-003-S14 | UI `/settings/sso`: DRAFT/TESTED/ENFORCED/DISABLED visually distinct, test result view, approval banner | `apps/web/settings/sso/` | Playwright covers each state and keyboard path | 5 |
 | SEC-003-S15 | Observability: `sso_login_total{outcome}`, `idp_cert_days_to_expiry`, `idp_quota_used_ratio` (alarm ≥0.9 of verified Cognito IdP quota, G-SEC-08) | `infra/alarms/sso.tf` | Alarms fire in staging with injected values | 2 |
-| SEC-003-S16 | Live evidence with an Entra ID test tenant (SAML) and an Okta developer org (OIDC); record Cognito IdP-per-pool quota from Service Quotas | `docs/evidence/SEC-003/<commit>/` | Evidence includes quota value (VERIFIED LIVE) | 4 |
+| SEC-003-S16 | Live evidence with an Entra ID test tenant (SAML), an Okta developer org (OIDC) and a Google Workspace test domain (OIDC; SAML too if S17 verifies an immutable attribute); record Cognito IdP-per-pool quota from Service Quotas | `docs/evidence/SEC-003/<commit>/` | Evidence per IdP (login, subject stability, cross-tenant denial) and the quota value (VERIFIED LIVE) | 5 |
+| SEC-003-S17 | Google as a tested IdP: Google Workspace via OIDC — issuer `https://accounts.google.com` is shared by all Google customers, so the tenant binding is (issuer, client_id, `hd` claim equal to a DNS-verified tenant domain, S05); subject = `sub`; `email`/`email_verified` never used for linking; Google Workspace SAML custom app only if an immutable attribute can be mapped instead of the primary-email NameID (TO VERIFY LIVE), else OIDC only | `apps/api/identity_providers/google.py` | A valid Google token from another Workspace domain or a consumer account → `AUTH_IDP_TENANT_MISMATCH`; the same Google `sub` after a primary-email rename maps to the same subject | 3 |
 
 Task acceptance:
 - [ ] Changing the IdP email does not create a subject or privilege; the same email via another IdP is not linked.
@@ -288,6 +289,7 @@ Task acceptance:
 - [ ] A tenant's IdP cannot authenticate into another tenant; entity_id reuse across tenants is refused without disclosure.
 - [ ] Missing MFA assertion is denied when the tenant policy requires it.
 - [ ] Cognito IdP quota is recorded and alarmed.
+- [ ] Entra ID, Okta and Google each pass login, subject-stability and cross-tenant denial tests with live evidence.
 
 ### SEC-004 — Implement scoped RBAC and tenant RLS foundation
 Release: R1 · Estimate: 52–80 h · Risk: H · Decisions: D-02 · Closes: G-SEC-02 (PG side), G-SEC-03, G-SEC-04, G-SEC-10, G-SEC-11, G-SEC-25
@@ -379,7 +381,7 @@ Task acceptance:
 - [ ] RB-09 kill switch drill measured.
 
 ### SEC-007 — Sanitize SQL, tags and errors before persistence
-Release: R1 · Estimate: 47–73 h · Risk: H · Decisions: D-10, D-11 · Closes: G-SEC-14, G-SEC-15, G-SEC-23
+Release: R1 · Estimate: 50–78 h · Risk: H · Decisions: D-10, D-11 · Closes: G-SEC-14, G-SEC-15, G-SEC-23
 Dependency changes: `+WRK-101` (workload-metadata library = step (1) of `sanitize()`; requested by WRK, confirmed by RECONCILIATION U-04); SEC-001, FND-004 kept. Step S11 (FULL-mode enablement) additionally needs SEC-102; until SEC-102 lands FULL cannot be enabled (default SANITIZED), so no hard edge is added on the ingestion path. Consumers: `ING-003 +SEC-103` edge added via SEC-103.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -400,11 +402,12 @@ Dependency changes: `+WRK-101` (workload-metadata library = step (1) of `sanitiz
 | SEC-007-S14 | Property tests (hypothesis): inject random literals into corpus statements; output never contains the injected literal | `tests/security/sanitization/test_property.py` | 10k examples pass | 3 |
 | SEC-007-S15 | Observability: `sanitizer_outcome_total{tier,outcome}`, `sanitizer_duration_seconds`, per-account METADATA_ONLY ratio alarm >5 %/24 h; runbook | `docs/runbooks/sanitizer.md` | Alarm test fires | 2 |
 | SEC-007-S16 | Evidence pack | `docs/evidence/SEC-007/<commit>/` | PASS recorded with sqlglot version | 2 |
+| SEC-007-S17 | Backfill throughput for 365 days of sanitized text (D-11 owner decision 2026-09-28): persist the S08 cache (keyed by parameterized hash, version and sanitizer_version) between BACKFILL_CHUNK tasks of one account as an encrypted snapshot (per-tenant KMS key, tenant journal prefix, step-(2) sanitized bodies only — never comment/tag metadata), loaded at chunk start, deleted when the backfill plan completes or `sanitizer_version` changes; publish rows/s per vCPU and CPU-hours per 100 M statements at the measured hit ratio for ING-107-S05, ING-010 and CON-101 | `packages/query_privacy/cache_snapshot.py` | 365-day synthetic corpus with realistic hash repetition: CPU-hours with the snapshot recorded against the uncached figure (target ≤ 50 %); sentinel scan of the snapshot finds no comment/tag metadata and no literal | 3 |
 
 Task acceptance:
 - [ ] Sentinel secrets appear nowhere in Parquet, logs (including third-party library loggers), quarantine or evidence.
 - [ ] Parse failure produces no SQL text; source hashes remain unchanged.
-- [ ] dbt appended comment metadata survives; cached bodies never carry per-run metadata.
+- [ ] dbt appended comment metadata survives; cached bodies (in memory or persisted between backfill chunks) never carry per-run metadata.
 - [ ] Error responses and logs never echo submitted values or database text.
 
 ### SEC-008 — Audit trail, export and early isolation attack suite
@@ -584,11 +587,11 @@ Task acceptance:
 |---|---|---:|---:|
 | SEC-001 | R1 | 24 | 40 |
 | SEC-002 | R1 | 64 | 96 |
-| SEC-003 | R1* (D-20) | 56 | 84 |
+| SEC-003 | R1 (D-20) | 60 | 90 |
 | SEC-004 | R1 | 52 | 80 |
 | SEC-005 | R1 | 60 | 92 |
 | SEC-006 | R1 | 41 | 64 |
-| SEC-007 | R1 | 47 | 73 |
+| SEC-007 | R1 | 50 | 78 |
 | SEC-008 | R1 | 56 | 86 |
 | SEC-101 | R1 | 24 | 38 |
 | SEC-102 | R1 | 36 | 56 |
@@ -596,9 +599,9 @@ Task acceptance:
 | SEC-104 | R1 | 25 | 42 |
 | SEC-105 | R1 | 40 | 63 |
 | SEC-106 | R2 | 40 | 64 |
-| **Total R1** (excl. SEC-003) | \| **504** | **786** |
-| **Total R1\*** (SEC-003 if required) | \| **56** | **84** |
-| **Total R2** | \| **40** | **64** |
+| **Total R1** | | **567** | **881** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
+| **Total R2** | | **40** | **64** |
 
 ## 7. Owner questions
 

@@ -19,7 +19,7 @@ Affects: DBT-002, DBT-004, DBT-006, DBT-101, ORC-005, FIN-001.
 Severity: HIGH · Type: RISK
 Evidence: D-05 "Clustering on (tenant_id, partition date)"; `operations.md` benchmark "up to1M queries/account/day"; D-08 hourly cadence.
 Why it matters: rebuilding a 1M-row (account, day) partition on each of 24 hourly builds writes 24M rows/account/day; with a 2-day overlap 48M; at 500 accounts ≈ **24B rows/day** written for ≈ 0.5B natural rows. Charge-grain datasets (D-12) are tiny per partition and unaffected.
-Resolution: partition grain is declared per dataset in `data/contracts/datasets.yaml`: `fct_query_compute` and query-grain bridges = (account, **hour**), 90-day hot retention (D-11) → with ~3 rebuilds per hour partition ≈ 3M rows/account/day (≈ 1.5B/day at 500 accounts, 3× natural); charges/attribution/allocation/serving = (scope, day); monthly marts = (tenant, month); Python outputs = (tenant, as_of day). Map cardinality check: 500 accounts × 24 × 90 = 1.08M map rows for the hour-grain dataset — acceptable for a small clustered table. Benchmark in DBT-101-S09 (TO VERIFY LIVE).
+Resolution: partition grain is declared per dataset in `data/contracts/datasets.yaml`: `fct_query_compute` and query-grain bridges = (account, **hour**), 365-day hot retention (D-11 owner decision 2026-09-28; 90 days as first recommended) → with ~3 rebuilds per hour partition ≈ 3M rows/account/day (≈ 1.5B/day at 500 accounts, 3× natural), unchanged by retention, while retained query-grain volume grows ≈ 4×; charges/attribution/allocation/serving = (scope, day); monthly marts = (tenant, month); Python outputs = (tenant, as_of day). Map cardinality check: 500 accounts × 24 × 365 = 4.38M map rows for the hour-grain dataset (1.08M at 90 days) — acceptable for a clustered table, measured in DBT-101-S09 (TO VERIFY LIVE).
 Affects: DBT-101, DBT-004, DBT-006, ORC-101.
 
 ### G-DBT-03 · Run-context contract contradicts multi-tenant builds (D-06)
@@ -40,7 +40,7 @@ Affects: FIN-001, DBT-101, DBT-006, API-002.
 Severity: HIGH · Type: CONTRADICTION (challenges ADR-009 default "RAW 90 days")
 Evidence: ADR-009 — "Default S3 replay 90 days, RAW 90 days, canonical 400 days"; `transformation.md` — "Full refresh in production is a controlled shadow rebuild"; PRD §51 full rebuild for "critical bug fix / major ledger algorithm change".
 Why it matters: a ledger algorithm fix cannot be applied to days 91–400 — they can only be carried forward unchanged, contradicting "shadow rebuild followed by comparison".
-Resolution: retention by source class in the registry: financial/metering/billing sources (no personal data) RAW 400 days (these are small); query-level and user-bearing sources 90 days (= D-11 hot detail); staging stays views over RAW. Rebuild horizon per dataset is declared (`rebuild_horizon_days`) and a request beyond it returns `REBUILD_HORIZON_EXCEEDED`; query-family aggregates beyond 90 days are canonical and only carried forward. Needs Security/Privacy sign-off (§7).
+Resolution: retention by source class in the registry: financial/metering/billing sources (no personal data) RAW 400 days (these are small); query-level and user-bearing sources 90 days (D-26; since the owner's D-11 decision query-level facts are kept 365 days, so query facts older than 90 days are rebuilt by re-extraction within Account Usage's 365 days, not from RAW); staging stays views over RAW. Rebuild horizon per dataset is declared (`rebuild_horizon_days`) and a request beyond it returns `REBUILD_HORIZON_EXCEEDED`; query-grain facts and family aggregates beyond the 90-day RAW horizon are canonical and only carried forward (or re-extracted within 365 days). Needs Security/Privacy sign-off (§7).
 Affects: DBT-002, DBT-004, ING-006, OPS-007.
 
 ### G-DBT-06 · Row access policy attachment point and view replacement are unsafe
@@ -275,7 +275,7 @@ Task acceptance:
 ## 5. New tasks required
 
 ### DBT-101 — Physical analytical revision and publication design (ADR-014) with live benchmark
-Release: R1 · Estimate: 32–46 h · Risk: H · Decisions: D-02, D-05, D-06, D-11, D-12 · Closes: G-DBT-01, G-DBT-02, G-DBT-04, G-DBT-06
+Release: R1 · Estimate: 33–47 h · Risk: H · Decisions: D-02, D-05, D-06, D-11, D-12 · Closes: G-DBT-01, G-DBT-02, G-DBT-04, G-DBT-06
 Why/where: no task defines the physical model all of DBT-002/004/006, ORC-005/101/105, FIN-001 and API-002 depend on. Starts after INF-008 and SEC-005 design (M1/M2); blocks DBT-002, ORC-005, ORC-101, FIN-001.
 Dependency changes: `+INF-008, +SEC-005`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -288,7 +288,7 @@ Dependency changes: `+INF-008, +SEC-005`.
 | DBT-101-S06 | Attach RAP to all `*_R` and `PY_REV` tables (D-02 body with transformer/publisher exemption); migration asserts `POLICY_REFERENCES` | migration + gate | Every revision table reports a policy | 3 |
 | DBT-101-S07 | Allocate `revision_id` from PostgreSQL `platform.analytics_revision_seq` per (build, dataset) | interface doc + planner hook | Monotonic ids across builds | 1 |
 | DBT-101-S08 | Write golden pinned-query templates for API-002 | `data/contracts/serving_queries/*.sql` | API-002 contract tests consume them | 2 |
-| DBT-101-S09 | Run live benchmark (budget ≤ 200 credits): 100 tenants × 5 accounts × 100k queries/day × 30 days (~1.5B rows) — hourly partition rebuild cost, pinned-read p95 with 1 vs 3 retained revisions, GC delete cost, MERGE alternative write amplification (partitions rewritten) | `docs/evidence/DBT-101/<commit>/benchmark.md` | Numbers recorded (TO VERIFY LIVE items resolved) | 6 |
+| DBT-101-S09 | Run live benchmark (budget ≤ 200 credits): 100 tenants × 5 accounts × 100k queries/day × 30 days (~1.5B rows) — hourly partition rebuild cost, pinned-read p95 with 1 vs 3 retained revisions, GC delete cost, MERGE alternative write amplification (partitions rewritten); plus pinned-read p95 and map lookup over a synthesized 365-day hour-partition publication map (≈ 4.4M rows, D-11 owner decision) | `docs/evidence/DBT-101/<commit>/benchmark.md` | Numbers recorded (TO VERIFY LIVE items resolved) | 7 |
 | DBT-101-S10 | Compare secure vs plain view latency under RAP and decide with Security | evidence | Decision recorded | 2 |
 | DBT-101-S11 | Sign-off and publish DDL version | ADR status Accepted | Owners' approvals recorded | 1 |
 Task acceptance:
@@ -358,11 +358,11 @@ Task acceptance:
 | DBT-004 | R1 | 34 | 48 |
 | DBT-005 | R1 | 34 | 50 |
 | DBT-006 | R1 | 34 | 48 |
-| DBT-101 | R1 | 32 | 46 |
+| DBT-101 | R1 | 33 | 47 |
 | DBT-102 | R1 | 22 | 32 |
 | DBT-103 | R1 | 14 | 22 |
 | DBT-104 | R2 | 10 | 14 |
-| **Total R1** | | **260** | **374** |
+| **Total R1** | | **261** | **375** |
 | **Total R2** | | **10** | **14** |
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)

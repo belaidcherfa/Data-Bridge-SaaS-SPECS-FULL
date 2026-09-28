@@ -1,6 +1,6 @@
 # Contract-first artifacts to author before coding
 
-The existing specification has canonical *prose* contracts but no executable ones ([AUDIT X-06](AUDIT_CROSS_CUTTING.md)). The domain audits specified **233 contract artifacts** — schemas, DDL, registries, state machines, ADR amendments, catalogs — each with its exact required content and the micro-task that produces it. This page indexes them; the full content requirements are in section 3 of each [backlog](backlog/) file.
+The existing specification has canonical *prose* contracts but no executable ones ([AUDIT X-06](AUDIT_CROSS_CUTTING.md)). The domain audits specified **234 contract artifacts** (234 since the owner decisions of 2026-09-28 added LCH-105's spend-band artifact, D-17) — schemas, DDL, registries, state machines, ADR amendments, catalogs — each with its exact required content and the micro-task that produces it. This page indexes them; the full content requirements are in section 3 of each [backlog](backlog/) file.
 
 Rule: an artifact is authored, reviewed by the owners of every consuming domain and merged **before** the first implementation step that depends on it. Changing a merged artifact follows its versioning rule (schema version bump, ADR amendment or registry version), never an in-place edit.
 
@@ -41,7 +41,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `tools/validation/manifest.schema.json` | FND-005-S01 |
 | `docs/evidence/schema/evidence.schema.json` + index line format | FND-005-S04/S06 |
 | Required-checks list (`docs/development/ci-checks.md`) | FND-006-S01/S03 |
-| `AGENTS.md` | FND-006-S08 |
+| `AGENTS.md` (incl. D-19 agent PR rules, per-PR evidence manifest, review checklist, lane limit, human-only gates) | FND-006-S08, S13, S14 |
 | `docs/development/snowflake-dev-access.md` | FND-101-S01 |
 | `data/fixtures/recorded/meta.schema.json` | FND-102-S01 |
 | `contracts/.spectral.yaml` + API conventions doc | FND-103-S01/S02 (money grammar imported from FIN-106-S04; RECONCILIATION U-20, C-14) |
@@ -95,7 +95,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Expand/contract protocol | CTL-002-S01 |
 | Redis key/value contract | CTL-006-S01 |
 | Config snapshot contract | CTL-005-S01/S02 |
-| Tenant and subscription state machines | CTL-102-S01 (tenant), LCH-001-S02 (subscription) (RECONCILIATION C-08) |
+| Tenant and subscription state machines | CTL-102-S01 (tenant), LCH-001-S02 (subscription; PILOT replaces TRIAL, D-17) (RECONCILIATION C-08) |
 | Control ERD | CTL-001-S10 |
 
 ### CON (10 artifacts) — [details](backlog/CON.md)
@@ -347,7 +347,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `docs/onboarding/first-value.md` | ONB-005-S01 |
 | Export bundle manifest `tenant-export.v1.json` | ONB-102-S01 |
 
-### LCH (10 artifacts) — [details](backlog/LCH.md)
+### LCH (11 artifacts) — [details](backlog/LCH.md)
 
 | Artifact | Produced by |
 |---|---|
@@ -361,3 +361,4 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `docs/legal/dpa-annexes.md`, `docs/legal/subprocessors.md` | LCH-102 |
 | `docs/support/support-policy.md` | LCH-104-S01 |
 | `docs/releases/go-live-plan.md` | LCH-003-S03 |
+| DDL `commercial.spend_band_assignments` + `docs/commercial/spend-bands.md` (D-17) | LCH-105-S01 |

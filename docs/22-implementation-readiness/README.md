@@ -2,11 +2,11 @@
 
 Review date: 2026-09-27/28 UTC. Scope: the entire specification set in this repository (PRD, 13 ADRs, 20 domain contracts, 151 task files, machine index, UI/UX design set, React prototype). Purpose: surface every gap, contradiction, subtlety and missing piece of logic **before** production implementation starts, and replace the thin task files with an implementable, production-grade backlog.
 
-Production implementation remains **NOT_STARTED**. This review changes no accepted ADR or canonical contract by itself: where it recommends a change, it is listed as a decision in [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md) that the owner must accept.
+Production implementation remains **NOT_STARTED**. **Update 2026-09-28: the owner recorded all 38 decisions** ([decision record](DECISIONS_REQUIRED.md)); the ADRs and canonical contracts were amended accordingly (ADR-014 to ADR-016 added), and the revised task graph and domain backlogs are now the execution plan.
 
 ## Verdict
 
-**Keep the architecture; do not start coding from the current task files.**
+**Keep the architecture; execute from the revised backlog, not from the original task files.**
 
 The canonical contracts are rigorous on the things that matter most: one additive charge truth separate from attribution, maturity/reconciliation/close as independent states, manifest-based batch acceptance, tenant keys everywhere with deny-by-default, unknown ≠ zero, exact signed decimals. The published fixtures are arithmetically correct.
 
@@ -23,27 +23,26 @@ All of this is resolvable without changing the product vision. The deliverables 
 
 | Measure | Before review | After review |
 |---|---:|---:|
-| Tasks | 151 | 249 (151 original + 98 new; 1 merged) |
-| Real micro-steps | 453 (+151 identical "checkpoint" steps) | 2,792, each with a deliverable, a verifiable oracle and hours |
-| Contract-first artifacts specified | 0 | 233 |
-| Decisions to record | — | 34 (9 need owner input) |
-| Longest dependency chain | 73 tasks | 42 tasks (1,360–2,003 h) |
-| Breadth gating first payment | everything (41 detectors, 8 templates, public API, AI/SPCS…) | R1 slice only (8 detectors, 4 templates, 3 channels, no public API) |
+| Tasks | 151 | 249 (151 original + 99 new; 1 merged) |
+| Real micro-steps | 453 (+151 identical "checkpoint" steps) | 2,809, each with a deliverable, a verifiable oracle and hours |
+| Contract-first artifacts specified | 0 | 234 |
+| Decisions | — | 38, all recorded on 2026-09-28 |
+| Longest dependency chain | 73 tasks | 42 tasks (1,362–2,006 h) |
+| Breadth gating first payment | everything (41 detectors, 8 templates, public API, AI/SPCS…) | R1: every service family, edition and contract type (D-20), 8 detectors, 4 templates, 4 channels, no public API |
 
-Effort (senior-engineer hours including tests, review fixes and evidence; from [revised-task-graph.json](revised-task-graph.json)):
+Effort after the owner's decisions (senior-engineer-equivalent hours including tests, review fixes and evidence; from [revised-task-graph.json](revised-task-graph.json)):
 
 | Release | Tasks | Hours |
 |---|---:|---:|
-| R1 — first paying customer, production grade | 218 | 6,779–9,974 |
-| R1\* — only if the first customer needs it (D-20) | 9 (+ 1 conditional part) | 247–366 |
-| R2 — breadth | 21 (+ R2 parts of R1 tasks) | 663–1,036 |
+| R1 — first paying customer, production grade, all Snowflake editions/contracts/services (D-20) | 229 | 7,116–10,488 |
+| R2 — breadth | 20 (+ R2 parts of R1 tasks) | 614–948 |
 
-Calendar arithmetic (not a commitment; assumptions in [REVISED_CRITICAL_PATH.md](REVISED_CRITICAL_PATH.md)): about 19–28 months with 3 engineers, 12–18 months with 5, 11–17 months with 8 (beyond ~5 engineers the dependency chain, not headcount, binds). Owner decisions, vendor lead times and customer elapsed time (installation, backfill, month close, payment) come on top.
+Delivery model (D-19): coding agents execute the backlog under 1–2 human reviewers. The dependency chain (42 tasks), review capacity (2–3 agent lanes per reviewer) and human-run live gates bound the calendar; for comparison, a human team would need about 20–29 months with 3 engineers, 12–18 with 5, 11.5–17 with 8 ([RELEASE_PLAN.md §5](RELEASE_PLAN.md#5-estimates)).
 
 ## Reading order
 
 1. [AUDIT_CROSS_CUTTING.md](AUDIT_CROSS_CUTTING.md) — cross-domain findings X-01…X-47 and the 29 blockers by theme.
-2. [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md) — 34 decisions with recommended defaults; answer the owner-input ones first (D-17 pricing model, D-18 localization, D-19 team capacity, D-20 first-customer profile, D-25 compliance, D-30 invoicing channel, D-32 non-production budget).
+2. [DECISIONS_REQUIRED.md](DECISIONS_REQUIRED.md) — the decision record: 38 decisions recorded on 2026-09-28, with the consequences of the owner's choices.
 3. [RELEASE_PLAN.md](RELEASE_PLAN.md) and [REVISED_CRITICAL_PATH.md](REVISED_CRITICAL_PATH.md) — R1/R2 slicing, lanes, tenant zero and design partner, critical path, staffing scenarios.
 4. [CONTRACT_FIRST_ARTIFACTS.md](CONTRACT_FIRST_ARTIFACTS.md) — what to author before the first line of production code, in order.
 5. [backlog/](backlog/) — one file per domain: verdict, findings with evidence, contract artifacts, the revised task decomposition (micro-steps, oracles, hours), new tasks, estimates, owner questions.
@@ -60,11 +59,11 @@ Calendar arithmetic (not a commitment; assumptions in [REVISED_CRITICAL_PATH.md]
 
 ## How to start implementation from here
 
-1. Record the 34 decisions (accept the recommendation or replace it). Turn D-02, D-04, D-05/D-06, D-07 and D-26 into ADR amendments or a new ADR-014.
-2. Approve the non-production budget (D-32) and order the Snowflake test estate (INF-101); it gates every live test.
+1. Decisions are recorded and the ADRs amended (ADR-014 analytical revisions, ADR-015 financial grain/maturity/attribution, ADR-016 customer coverage/residency/reachability). Open questions left for the owner are listed in section 7 of the relevant backlog files (e.g. spend-band tables, whether a paid pilot satisfies M12).
+2. Order the Snowflake test estate (INF-101) within the approved non-production budget (D-32); it gates every live test.
 3. Author the phase-P0 contract artifacts in the order of [CONTRACT_FIRST_ARTIFACTS.md §1](CONTRACT_FIRST_ARTIFACTS.md#1-cross-domain-artifacts-to-author-first-phase-p0). Freeze the widened source projections (ING-101) before any backfill: fields not extracted then are lost for history.
-4. Start lanes A1 (platform) and A2 (identity/control plane) in parallel, then B and C; connect **tenant zero** (Bridge's own Snowflake accounts) as soon as acquisition works, and a design partner by mid-lane C.
-5. Execute tasks from the backlog files, not from the original task files' micro-steps. The original task files keep their IDs, objectives and canonical links; the backlog supersedes their steps, dependencies and acceptance criteria once the decisions are recorded.
+4. Write `AGENTS.md` (FND-006) so coding agents follow the review, evidence and live-gate rules; then start lanes A1 (platform) and A2 (identity/control plane), then B and C. Connect **tenant zero** (Bridge's own Snowflake accounts) as soon as acquisition works, and a contracted pilot customer by mid-lane C.
+5. Execute tasks from the backlog files and the revised graph, not from the original task files' micro-steps ([DELIVERY_METHODOLOGY.md](../../DELIVERY_METHODOLOGY.md) now says so).
 
 ## Method and limits
 

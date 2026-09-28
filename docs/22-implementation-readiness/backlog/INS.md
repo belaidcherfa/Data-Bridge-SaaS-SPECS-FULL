@@ -44,7 +44,7 @@ Author first: (1) the detector input matrix in §2 as a projection change reques
 | PI02 | PIPE_USAGE_HISTORY FILES_INSERTED/hour (req.); median bytes needs COPY_HISTORY | Partial | ING-001 | R2, non-monetary |
 | PI03 | PIPE_USAGE_HISTORY BYTES_INSERTED, FILES_INSERTED (req.) | Yes | — | R2, non-monetary |
 | PI04 | PIPE_USAGE_HISTORY CREDITS_USED / BYTES_INSERTED (req.) | Yes | — | R2 (degenerate under per-GB pricing) |
-| AI01 | CORTEX_AISQL_USAGE_HISTORY (Ext; FIN-018) | Ext | FIN-018 | R2 (R1 only if D-20 says Cortex) |
+| AI01 | CORTEX_AISQL_USAGE_HISTORY (Ext; FIN-018) | Ext | FIN-018 | R2 (detector breadth per D-01; not moved by D-20) |
 | AI02 | + approved quality-equivalence evaluation (**no source**; customer upload) | **No** | New customer-input contract | R2, capability-gated |
 | AI03 | Cortex token + request counts (grain TO VERIFY per view) | Ext | FIN-018 | R2 |
 | AI04 | Cortex user identifier (TO VERIFY per view) + D-10 HMAC | Ext | FIN-018 | R2 |
@@ -177,9 +177,9 @@ Affects: INS-006.
 
 ### G-INS-14 · D-11 hot tier vs. measurement and WH02 horizons
 Severity: MEDIUM · Type: RISK
-Evidence: D-11: "query-level detail hot for 90 days; query-family × day aggregates … 400 days". The INS-007 failure list includes "post-period restatement" and the UI has "request remeasurement".
-Why it matters: A 28 + 1 + 28-day study re-measured after a restatement at day 95 would need query-level rows that are already purged.
-Resolution: All measurement and Q01/Q02/Q03 features read the family × day aggregate (extend the D-11 aggregate with attributed credits, spill counts/bytes and a dominant identity tuple). Query-level data is used only for WH02 busy-interval simulation (≤ 90 days, which is enough for 14-day windows) and for evidence samples.
+Evidence: D-11: "query-level detail hot for 90 days; query-family × day aggregates … 400 days" (owner decision 2026-09-28: 365 days of query-level detail). The INS-007 failure list includes "post-period restatement" and the UI has "request remeasurement".
+Why it matters: A 28 + 1 + 28-day study re-measured after a restatement at day 370 (or at day 95 on a plan with `hot_days` = 90) would need query-level rows that are already purged.
+Resolution: All measurement and Q01/Q02/Q03 features read the family × day aggregate (extend the D-11 aggregate with attributed credits, spill counts/bytes and a dominant identity tuple). Query-level data is used only for WH02 busy-interval simulation (≤ `hot_days`, 365 by default; 14-day windows need far less) and for evidence samples.
 Affects: INS-003, INS-007; DBT (D-11 aggregate owner).
 
 ### G-INS-15 · Query-family identity and counting hazards
@@ -277,7 +277,7 @@ Task acceptance:
 
 ### INS-002 — Implement warehouse optimization detectors (R1: WH01 incl. WH04 tier, WH02)
 Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-08, D-11, D-13 · Closes: G-INS-02 (consumer side), G-INS-07
-Dependency changes: `+FIN-003` (classic idle/attribution ledgers are the actual input), `+INS-102` (warehouse config), `−UX-005` (only a drilldown link; not blocking), `−FIN-004` (FIN-004 is R1*; WH detectors read the Adaptive capability flag from CON-005 — RECONCILIATION C-22); keep INS-001. WH03/WH05–WH08 move to INS-106.
+Dependency changes: `+FIN-003` (classic idle/attribution ledgers are the actual input), `+INS-102` (warehouse config), `−UX-005` (only a drilldown link; not blocking), `−FIN-004` (FIN-004 is R1 since D-20 but stays off this path; WH detectors read the Adaptive capability flag from CON-005 — RECONCILIATION C-22); keep INS-001. WH03/WH05–WH08 move to INS-106.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-002-S01 | Build fixtures: classic 14 d (metered 200, attributed 140, idle 60 USD @ 2 USD/credit), equality (idle exactly 25 %), Adaptive (attributed null), 335/336 hours, attributed>used hours, gap sets (below), config absent, multi-cluster without CLUSTER_NUMBER | `tests/spec/INS-002/fixtures/*.parquet` + expected JSON | Fixture checksums recorded; expected outputs reviewed | 3 |
@@ -345,7 +345,7 @@ Task acceptance:
 - [ ] Exposure uses the FIN-006 storage rate in native currency.
 
 ### INS-005 — Implement Cortex and container optimization detectors
-Release: R2 (AI01/AI04 → R1\* only if D-20 reports Cortex spend at the first customer; carried as a `release_note` in revised-task-graph.json, RELEASE_PLAN §2 follows — RECONCILIATION C-30) · Estimate: 36–54 h · Risk: H · Decisions: D-10, D-20 · Closes: G-INS-06
+Release: R2 (detector breadth follows D-01: 8 detectors in R1; D-20 does not move INS-005, so the former conditional trigger for AI01/AI04 is withdrawn — RECONCILIATION C-30 superseded on 2026-09-28) · Estimate: 36–54 h · Risk: H · Decisions: D-10, D-20 · Closes: G-INS-06
 Dependency changes: none added; SP01/SP03 capability-gated; AI02/AI07 need the new customer-input contracts in S02.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|

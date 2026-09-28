@@ -210,7 +210,7 @@ Affects: all CON tasks.
 | Privilege map | `data/contracts/snowflake_privilege_map.v1.json`: module → sources → view → database role → verification record (account, bundle, date, `SHOW GRANTS` hash) | CON-003-S01 |
 | Credit estimator | `packages/connections/cost_estimate.py` formula and parameters (§3.3), with a unit test that pins the arithmetic | CON-101-S01 |
 | Lifecycle machine | §3.4 transitions, guards and side effects; `connection_epoch` rules | CON-006-S01 |
-| Probe contract | JSON Schema `data/contracts/capability.json` (§3.5 statuses, remediation code, `schema_hash`, `observed_latency_s`, `stage_hosts[]`, `edition`, `bcr_bundles[]`); error classification table | CON-005-S01…S03 |
+| Probe contract | JSON Schema `data/contracts/capability.json` (§3.5 statuses, remediation code, `schema_hash`, `observed_latency_s`, `stage_hosts[]`, `edition`, `bcr_bundles[]`, `adaptive_present`, `trial_account` ∈ {TRUE, FALSE, UNKNOWN} with `trial_signals[]` — D-35); error classification table | CON-005-S01…S03 |
 | OpenAPI | Paths listed below this table. All mutations take `Idempotency-Key` and `If-Match: <revision>`. | CON-001-S07, CON-003-S07, CON-004-S09, CON-005-S11, CON-006-S09…S11, CON-102-S01 |
 | Error codes | `CON_IDENTITY_IMMUTABLE`, `CON_ACCOUNT_MISMATCH`, `CON_AWAITING_SETUP`, `CON_WRONG_PRINCIPAL`, `CON_USER_DISABLED`, `CON_NETWORK_POLICY_BLOCKED`, `CON_PRIVATELINK_R2`, `CON_GRANT_MISSING`, `CON_EXCESS_PRIVILEGE`, `CON_CUSTOMER_QUOTA_EXHAUSTED`, `CON_CAPACITY` (IAM quota), `CON_STALE_SCRIPT`, `CON_REVISION_CONFLICT` | CON-002-S05, CON-005-S03 |
 | Egress IP publication | Versioned static config: `{environment, ips[], effective_from, previous_ips_until}` | INF-002-S03 (allocation, file) + CON-102-S01 (API, change procedure) (RECONCILIATION U-24) |
@@ -362,7 +362,7 @@ Assumptions: XSMALL = 1 credit/hour. The billed time of a resume is max(60 s, ac
 | Org connection, daily cycle (once per organization) | 60–120 s | 0.017–0.033 cr | 0.5–1.0 cr |
 | **Default total per connected account** | | | **≈ 12.6–13.2 cr (explicit suspend) / 20.6–27.2 cr (auto-suspend)** |
 | Catalog 15-min QH cadence (rejected default) | +72 extra resumes/day × 60 s | +1.2 cr | +36 cr |
-| One-time backfill, 1M queries/day account (G-ING-09) | ≈730 day-chunks × 20–60 s | — | 4–12 cr + ≈2 cr other sources |
+| One-time backfill, 1M queries/day account (G-ING-09), 365 days of sanitized text (D-11 owner decision) | ≈730 day-chunks × 20–60 s, plus QUERY_TEXT projection on days 91–365 (+10–30 s per QH day-chunk, ASSUMPTION, measured in ING-101-S04) | — | ≈5–14 cr + ≈2 cr other sources |
 
 At a contract rate of USD 2–4 per credit, the recommended default costs ≈ USD 25–53 per month per account. OPS-103's independent estimate of "≈150 s/h ≈ 30 credits/month" (auto-suspend, no explicit suspend) is consistent with the second row.
 
@@ -507,16 +507,16 @@ Task acceptance:
 - [ ] Manual/standalone enrollment works with explicit `org_visibility=INCOMPLETE`.
 
 ### CON-005 — Probe capabilities, source schemas and permission gaps
-Release: R1 · Estimate: 40–56 h · Risk: H · Decisions: D-08, D-09, D-20 · Closes: G-CON-07, G-CON-08, G-CON-03 (stage hosts)
+Release: R1 · Estimate: 43–60 h · Risk: H · Decisions: D-08, D-09, D-20, D-35 · Closes: G-CON-07, G-CON-08, G-CON-03 (stage hosts)
 Dependency changes: `+ING-001 (registry metadata and query builder)`, `+CON-101 (probes run inside one warehouse resume)`, `+INF-101` (test estate; replaces the requested `+OPS-103`, RECONCILIATION U-03), `+FND-102` (recorded view fixtures; C-29); keep CON-004, SEC-007.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CON-005-S01 | Author `data/contracts/capability.json` (JSON Schema): status enum per §3.5, `remediation_code`, `schema_hash`, `observed_latency_s`, `edition`, `stage_hosts[]`, `bcr_bundles[]`, `probe_version`, `connection_revision`. | contract file | Positive and negative payload fixtures validate or fail as expected. | 2 |
+| CON-005-S01 | Author `data/contracts/capability.json` (JSON Schema): status enum per §3.5, `remediation_code`, `schema_hash`, `observed_latency_s`, `edition`, `stage_hosts[]`, `bcr_bundles[]`, `probe_version`, `connection_revision`, `adaptive_present`, `trial_account` ∈ {TRUE, FALSE, UNKNOWN} with `trial_signals[]` (D-35). | contract file | Positive and negative payload fixtures validate or fail as expected. | 2 |
 | CON-005-S02 | Build the probe from the registry. (a) `DESCRIBE VIEW <fq view>` (schema; TO VERIFY LIVE whether it runs without a warehouse). (b) A bounded data probe using the registry's predicate template over the last 48 h, with required projection only and `LIMIT 1`. (c) For snapshot sources, `SELECT COUNT(*)` with the registry filter. All statements get a 30 s timeout. Probes cover every active registry source, including AU.SESSIONS and AU.TAG_REFERENCES (RECONCILIATION C-10). | `services/extractor/capabilities.py` | No generated SQL contains `SELECT *` or lacks a time/limit bound (static test over all registry sources). | 5 |
 | CON-005-S03 | Classify errors using the table captured in CON-002-S05, adding `DENIED_OR_UNAVAILABLE` and `NOT_SUPPORTED` (edition known from OU.ACCOUNTS, or `UNKNOWN`). | `capabilities.py::classify` | Unit table test covers all §3.5 rows. The live fixture for missing GOVERNANCE_VIEWER yields DENIED or DENIED_OR_UNAVAILABLE with the exact GRANT remediation. | 3 |
 | CON-005-S04 | Compare schemas: required fields present; type family and scale compatible with the registry (NUMBER(38,s) with the same s; TIMESTAMP scale ≥ registry); nullability recorded. Hash = sha256 over sorted `(name_upper, type, scale, nullable)`. | `capabilities.py::compare_schema` | Removing a required column in a fixture view gives SCHEMA_MISMATCH. An added column changes nothing except the stored "observed extra columns" list. | 3 |
 | CON-005-S05 | Implement the canary and latency rule. Record Bridge's verification QUERY_ID and time; later probes look for it in AU.QUERY_HISTORY. Found → `observed_latency_s`. Not found after 3 h → SUSPECT_EMPTY. Emit metric `source_latency_observed_seconds{source}` (bounded label set). | `capabilities.py::canary` | Live: the canary is found and latency recorded (≤ 45 min expected per docs). With the grant removed, the result is DENIED, not EMPTY. | 4 |
-| CON-005-S06 | Capture account facts: edition/region/cloud (OU.ACCOUNTS when visible, else `UNKNOWN`); Adaptive presence (QMH rows > 0 in 7 d → flag D-20 "FIN-004 required", per G-FIN-07); `SYSTEM$ALLOWLIST()` STAGE hosts; BCR bundle statuses (`SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS`, privilege TO VERIFY LIVE). | `capabilities.py::account_facts` | Facts are stored per revision. Stage hosts feed the INF-002 allowlist job (CON-102-S05). | 4 |
+| CON-005-S06 | Capture account facts: edition/region/cloud (OU.ACCOUNTS when visible, else `UNKNOWN`); Adaptive presence (QMH rows > 0 in 7 d → `adaptive_present`, which activates QMH extraction and FIN-004's per-warehouse routing; FIN-004 is R1 regardless since D-20, G-FIN-07); `SYSTEM$ALLOWLIST()` STAGE hosts; BCR bundle statuses (`SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS`, privilege TO VERIFY LIVE). | `capabilities.py::account_facts` | Facts are stored per revision. Stage hosts feed the INF-002 allowlist job (CON-102-S05). | 4 |
 | CON-005-S07 | Define required vs optional per module and the READY guard: identity OK AND ∀ required sources ∈ {AVAILABLE, AVAILABLE_EMPTY} AND no write-class excess privilege. Optional failures disable only the dependent features. | `packages/connections/readiness.py` | Fixture: ACCESS_HISTORY DENIED (optional) plus core OK gives READY with a Governance gap. QH DENIED (QUERIES required) gives no READY. | 3 |
 | CON-005-S08 | Bind probes to revisions: key observations by `(connection_revision, probe_version, source_id)`. A revision or probe_version change marks older observations stale; the scheduler reads only fresh ones. | migration + query | After a revision bump, `GET /capabilities` shows `stale=true` until re-probed. | 2 |
 | CON-005-S09 | Bound probe cost: run all probes in one warehouse resume, sequentially, with a total budget of 90 s. Bridge issues `SUSPEND` at the end (CON-101). Record `probe_active_seconds`. | `capabilities.py::run_all` | Live: WMH for BRIDGE_FINOPS_WH during the probe hour ≤ 0.03 credits. | 2 |
@@ -524,12 +524,13 @@ Dependency changes: `+ING-001 (registry metadata and query builder)`, `+CON-101 
 | CON-005-S11 | Implement the API: `POST /v1/connections/{id}/capabilities` (async, idempotent per revision+probe_version); `GET` returns the matrix with remediation text and never includes SQL, hostnames or query text. | routes + OpenAPI | A response scan for `snowflakecomputing.com`, `SELECT`, ARNs finds 0 matches. Foreign id → 404. | 3 |
 | CON-005-S12 | Add a daily re-probe (in the 03:00 UTC account cycle) and trigger on auth/grant errors; diff against the previous status and emit the event `capability_changed`. | schedule + event | A grant removal detected in the next daily or error-triggered probe updates Data Health. | 2 |
 | CON-005-S13 | Capture live evidence in INF-101 estate accounts. | `docs/evidence/CON-005/<commit>/` | Reviewed. | 2 |
+| CON-005-S14 | Detect the `TRIAL_ACCOUNT` capability flag (D-35: trial accounts are demonstration-only). Evaluate candidate signals — free-usage-only balance in the billing views (`BALANCE_SOURCE`, remaining-balance view), a trial contract item or trial end date in organization/account metadata, no capacity or on-demand billing rows — all TO VERIFY LIVE on a Snowflake trial account; store `trial_account` ∈ {TRUE, FALSE, UNKNOWN} with the matching signals per revision; UNKNOWN needs the customer's attestation (ONB-001-S18) before the account can join the paid path; a re-probe that finds paid signals clears the flag and emits `capability_changed`. | `capabilities.py::trial_account` | Live: a self-registered Snowflake trial account (free trial credits, no estate spend) → TRUE with signal evidence; INF-101 estate accounts → FALSE; a fixture with no visible signal → UNKNOWN. | 3 |
 Task acceptance:
 - [ ] Empty, denied, ambiguous-denied, unsupported, not enabled and suspect-empty are distinct and each has exact remediation.
 - [ ] The QUERY_HISTORY canary proves visibility and measures observed latency.
 - [ ] Missing optional access leaves other sources active; schema mismatch blocks only that source.
 - [ ] Probes cost ≤ 90 s of warehouse time per validation.
-- [ ] Stage hosts, edition, Adaptive presence and BCR status are captured per revision.
+- [ ] Stage hosts, edition, Adaptive presence, trial-account status (D-35) and BCR status are captured per revision.
 
 ### CON-006 — Build connection wizard, pause, revoke and recovery UX
 Release: R1 · Estimate: 64–96 h · Risk: H · Decisions: D-08, D-09, D-17, D-18 · Closes: G-CON-09, G-CON-01 (consent)
@@ -566,7 +567,7 @@ Plugs in after CON-002; feeds CON-003, CON-005, CON-006, ING-106, ING-010. Why: 
 Dependency changes: `+CON-002`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CON-101-S01 | Implement `estimate_monthly_credits(cadence, sources, suspend_mode, backfill_profile)` per §3.3, with parameters in versioned config — the single estimator for steady and backfill credits (ONB-101 consumes it; RECONCILIATION U-13), including the COLD-tier tail-comment regex cost measured in ING-101 (C-01). | `packages/connections/cost_estimate.py` | Unit tests pin: hourly + explicit suspend = 24 × 60 s × 30 / 3600 = 12.0 credits; auto-suspend with 100–130 s = 20.0–26.0; 15-min QH adds 36.0. | 4 |
+| CON-101-S01 | Implement `estimate_monthly_credits(cadence, sources, suspend_mode, backfill_profile)` per §3.3, with parameters in versioned config — the single estimator for steady and backfill credits (ONB-101 consumes it; RECONCILIATION U-13), including the sanitized QUERY_TEXT projection over the whole backfill (`hot_days` from the plan, default 365 — D-11 owner decision; per-day cost measured in ING-101-S04) and, only for plans with `hot_days` < 365, the COLD-tier tail-comment regex (C-01). | `packages/connections/cost_estimate.py` | Unit tests pin: hourly + explicit suspend = 24 × 60 s × 30 / 3600 = 12.0 credits; auto-suspend with 100–130 s = 20.0–26.0; 15-min QH adds 36.0; a 1 M queries/day backfill with `hot_days` = 365 gives ≈ 5–14 + 2 credits (§3.3). | 4 |
 | CON-101-S02 | Implement `GET /v1/connections/{id}/estimate` and include the estimate in `/setup`. | route | Response carries `estimate_version`, credits range and assumptions text. | 2 |
 | CON-101-S03 | Implement suspend-after-cycle: at cycle end, if the account holds no other active Bridge lease (backfill or probe), run `ALTER WAREHOUSE BRIDGE_FINOPS_WH SUSPEND`. If a concurrent lease exists, skip the suspend. | `services/extractor/warehouse.py` | Live: 24 cycles → WMH for BRIDGE_FINOPS_WH ≤ 24 × 70 s. With concurrent backfill, no suspend error or query abort. | 3 |
 | CON-101-S04 | Classify resource-monitor suspension as `CUSTOMER_QUOTA_EXHAUSTED` (exact message/code captured live). Stop retries until month rollover or a quota change (detected by re-probe). Customer notification. | `packages/snowflake_client/errors.py` addition | Live: set quota 1, exhaust it → cycles stop with 0 retries; after raising the quota, the re-probe resumes. | 3 |
@@ -620,12 +621,12 @@ Task acceptance:
 | CON-002 | R1 | 36 | 52 |
 | CON-003 | R1 | 44 | 64 |
 | CON-004 | R1 | 32 | 46 |
-| CON-005 | R1 | 40 | 56 |
+| CON-005 | R1 | 43 | 60 |
 | CON-006 | R1 | 64 | 96 |
 | CON-101 | R1 | 24 | 36 |
 | CON-102 | R1 | 16 | 28 |
 | CON-103 | R2 | 40 | 80 |
-| **Total R1** | | **284** | **418** |
+| **Total R1** | | **287** | **422** |
 | **Total R2** | | **40** | **80** |
 
 ## 7. Owner questions

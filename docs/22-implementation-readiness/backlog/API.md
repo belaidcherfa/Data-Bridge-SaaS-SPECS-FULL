@@ -49,18 +49,18 @@ Evidence: the KPI tables in `docs/21-ui-ux/pages/*.md` contain 176 distinct metr
 - `home.md` `allocation`: "Warehouse allocation 100% = 20,000 allocated / 20,000 absolute source". The registry's `attribution_coverage` says "assigned" without saying assigned to what. Resource attribution, group allocation and tag coverage are three different ratios.
 - The UI keys (`warehouse`, `querycompute`, `potential`, …) are not registry IDs (`warehouse_compute_cost`, `query_compute_cost`, `potential_savings`).
 Why it matters: every missing metric becomes a page-specific formula in a route handler or in React, which PRD §69 and `product.md` ("Avoid duplicate cost formulas") forbid. The p95 label will show one number computed on a different population.
-Resolution: §3.1 is the v1 catalog of 47 metrics (14 existing + 33 new: 28 R1, 4 R1*, 1 declared UNSUPPORTED) and §3.3 maps every screen key. New R1 metrics include: `attributed_cost`, `unattributed_cost`, `allocated_cost`, `unallocated_cost`, `allocation_coverage`, `allocation_share`, `tag_coverage`, `workload_classification_coverage`, `query_count`, `failed_query_count`, `query_execution_p95` (EXECUTION_TIME), `query_queued_time_sum`, `bytes_scanned`, `bytes_spilled_remote`, `warehouse_credits` (metering, pre-adjustment), `execution_count`, `failed_execution_count`, `execution_failure_rate`, `execution_wall_time_sum`, `execution_time_sum`, `execution_duration_p95`, `budget_amount`, `budget_actual_to_date`, `budget_remaining`, `run_rate_daily`, `files_loaded`, `bytes_loaded`, `dynamic_table_lag_p95`. R1* (D-20): `ai_tokens`, `ai_request_count`, `ai_cost_per_million_tokens`, `spcs_node_hours` (source TO VERIFY LIVE). `warehouse_utilization` is declared with capability UNSUPPORTED, because the screen shows "—" and the value is never inferred. Coverage definitions are split:
+Resolution: §3.1 is the v1 catalog of 47 metrics (14 existing + 33 new: 32 R1 — including 4 AI/SPCS metrics, R1 since D-20 — and 1 declared UNSUPPORTED) and §3.3 maps every screen key. New R1 metrics include: `attributed_cost`, `unattributed_cost`, `allocated_cost`, `unallocated_cost`, `allocation_coverage`, `allocation_share`, `tag_coverage`, `workload_classification_coverage`, `query_count`, `failed_query_count`, `query_execution_p95` (EXECUTION_TIME), `query_queued_time_sum`, `bytes_scanned`, `bytes_spilled_remote`, `warehouse_credits` (metering, pre-adjustment), `execution_count`, `failed_execution_count`, `execution_failure_rate`, `execution_wall_time_sum`, `execution_time_sum`, `execution_duration_p95`, `budget_amount`, `budget_actual_to_date`, `budget_remaining`, `run_rate_daily`, `files_loaded`, `bytes_loaded`, `dynamic_table_lag_p95`. R1 since D-20, 2026-09-28 (formerly R1\*): `ai_tokens`, `ai_request_count`, `ai_cost_per_million_tokens`, `spcs_node_hours` (source TO VERIFY LIVE). `warehouse_utilization` is declared with capability UNSUPPORTED, because the screen shows "—" and the value is never inferred. Coverage definitions are split:
 - `attribution_coverage` = Σ|charge amount attributed to a non-residual resource| / Σ|eligible charge|.
 - `allocation_coverage(book)` = Σ|allocated to non-UNALLOCATED groups| / Σ|eligible source in book|.
 - `tag_coverage(tag_key)` = Σ|cost of resources carrying the tag| / Σ|eligible cost|.
 All three have a null denominator → ZERO_DENOMINATOR, and `denominator_scope` is set.
 Affects: API-001, UX-003…UX-007, WRK-002…WRK-005, ALC-006, GOV-001.
 
-### G-API-04 · Exact percentiles and distinct counts beyond the 90-day hot tier (D-11) are impossible without mergeable states
+### G-API-04 · Exact percentiles and distinct counts beyond the query-level hot tier (D-11: `hot_days`, 365 days by default) are impossible without mergeable states
 Severity: HIGH · Type: GAP
-Evidence: `semantic-api.md` says "query_elapsed_p95 | Percentile over individual eligible query elapsed times; not average of daily percentiles". D-11 says "Query-level detail hot for 90 days; query-family × day aggregates … 400 days". The scope-bar presets include 180 and 365 days (`product.md`).
-Why it matters: after 90 days the individual rows are gone, so a 365-day p95 can be computed only by averaging daily p95s, which the contract forbids. Example: day A has 100 queries at 1 s and day B has 5 queries at 100 s. The average of the daily p95s is (1+100)/2 = 50.5 s. The true p95 over 105 queries is PERCENTILE_CONT(0.95) → position 0.95×104 = 98.8, which falls between the 99th and 100th values, both 1 s, so p95 = **1 s**. The same problem applies to "distinct users" or "distinct query hashes" across days.
-Resolution: the aggregate tier stores `APPROX_PERCENTILE_ACCUMULATE(elapsed_ms)` and `APPROX_PERCENTILE_ACCUMULATE(execution_ms)` per (tenant, account, warehouse, query_parameterized_hash, day), plus `HLL_ACCUMULATE` states for distinct counts. These are t-Digest/HLL states, mergeable with APPROX_PERCENTILE_COMBINE/HLL_COMBINE (VERIFIED, search snippets of docs.snowflake.com/en/sql-reference/functions/approx_percentile_accumulate and …/approx_percentile_combine, 2026-09-27). The registry declares `exactness: {HOT: EXACT, AGGREGATE: APPROX_TDIGEST}`. The planner chooses the tier by `period.start ≥ now − hot_days` and returns `meta.retention_tier` and `meta.exactness`. The UI labels "≈ approximate (t-digest)". The error bound is measured on the fixture in WRK-104, not assumed.
+Evidence: `semantic-api.md` says "query_elapsed_p95 | Percentile over individual eligible query elapsed times; not average of daily percentiles". D-11 says "Query-level detail hot for 90 days; query-family × day aggregates … 400 days" (owner decision 2026-09-28: 365 days of query-level detail). The scope-bar presets include 180 and 365 days (`product.md`).
+Why it matters: after `hot_days` the individual rows are gone (from day 366 by default, earlier on plans with fewer hot days), so a 400-day p95 can be computed only by averaging daily p95s, which the contract forbids. Example: day A has 100 queries at 1 s and day B has 5 queries at 100 s. The average of the daily p95s is (1+100)/2 = 50.5 s. The true p95 over 105 queries is PERCENTILE_CONT(0.95) → position 0.95×104 = 98.8, which falls between the 99th and 100th values, both 1 s, so p95 = **1 s**. The same problem applies to "distinct users" or "distinct query hashes" across days.
+Resolution: the aggregate tier stores `APPROX_PERCENTILE_ACCUMULATE(elapsed_ms)` and `APPROX_PERCENTILE_ACCUMULATE(execution_ms)` per (tenant, account, warehouse, query_parameterized_hash, day), plus `HLL_ACCUMULATE` states for distinct counts. These are t-Digest/HLL states, mergeable with APPROX_PERCENTILE_COMBINE/HLL_COMBINE (VERIFIED, search snippets of docs.snowflake.com/en/sql-reference/functions/approx_percentile_accumulate and …/approx_percentile_combine, 2026-09-27). The registry declares `exactness: {HOT: EXACT, AGGREGATE: APPROX_TDIGEST}`. The planner chooses the tier by `period.start ≥ now − hot_days` and returns `meta.retention_tier` and `meta.exactness`. The UI labels "≈ approximate (t-digest)". The error bound is measured on the fixture in WRK-104, not assumed. The sketches also serve long-range family views for performance, with the exactness label.
 Affects: API-001, API-002, WRK-104, UX-005, WRK-005.
 
 ### G-API-05 · The broker session contract is missing: secondary roles, pool keys, session parameters and the post-execution recheck
@@ -258,7 +258,7 @@ Affects: CTL-006, API-003.
 
 ### 3.1 v1 metric catalog (registry content to author)
 
-`R1*` = conditional on D-20. "Tier" = exactness in HOT / AGGREGATE tier.
+All rows are R1 since D-20 (2026-09-28); the former `R1*` rows are the AI/SPCS metrics. "Tier" = exactness in HOT / AGGREGATE tier.
 
 | Metric id | Relation | Measure / population | Additivity | Release |
 |---|---|---|---|---|
@@ -301,9 +301,9 @@ Affects: CTL-006, API-003.
 | realized_savings | v_insight_summary | verified normalized savings; negative allowed | across non-overlapping actions | R1 |
 | files_loaded / bytes_loaded | v_attribution_daily (pipe detail) | Σ from pipe usage detail | all | R1 |
 | dynamic_table_lag_p95 | v_workload_exec (DT refresh) | p95 of (refresh end − data_timestamp) | none | R1 |
-| ai_tokens / ai_request_count | v_attribution_daily (AI detail) | Σ native units by family; null when the unit is not emitted | all | R1* |
-| ai_cost_per_million_tokens | derived | cost / tokens × 1e6 at same grain; null when tokens null | none | R1* |
-| spcs_node_hours | v_attribution_daily (SPCS) | TO VERIFY LIVE source availability; else CAPABILITY_UNSUPPORTED | all | R1* |
+| ai_tokens / ai_request_count | v_attribution_daily (AI detail) | Σ native units by family; null when the unit is not emitted | all | R1 |
+| ai_cost_per_million_tokens | derived | cost / tokens × 1e6 at same grain; null when tokens null | none | R1 |
+| spcs_node_hours | v_attribution_daily (SPCS) | TO VERIFY LIVE source availability; else CAPABILITY_UNSUPPORTED | all | R1 |
 | warehouse_utilization | — | always null CAPABILITY_UNSUPPORTED in R1 | — | R1 (declared) |
 
 ### 3.2 v1 dimension catalog (46)
@@ -332,7 +332,7 @@ Not supported for compute cost in R1: `object`, `schema`, `database` (G-API-02).
 | dbtruns, modelruns, pbiactivities, runmodels, dbtfail, modelfailure, runduration, pbiduration, modelp95, lag | `execution_count`, `failed_execution_count`, `execution_failure_rate`, `execution_wall_time_sum`, `execution_duration_p95`, `dynamic_table_lag_p95` |
 | budget, budgetactual, remaining, burnday, forecast, forecastvariance | `budget_amount`, `budget_actual_to_date`, `budget_remaining`, `run_rate_daily`, `forecast_total`, `forecast_variance` |
 | potential, teamopportunity, verifiedsavings | `potential_savings`, `realized_savings` |
-| aitokens, aicalltokens, aiexecutions, aifunctioncalls, tokenrate, poolhours | `ai_tokens`, `ai_request_count`, `ai_cost_per_million_tokens`, `spcs_node_hours` (R1*) |
+| aitokens, aicalltokens, aiexecutions, aifunctioncalls, tokenrate, poolhours | `ai_tokens`, `ai_request_count`, `ai_cost_per_million_tokens`, `spcs_node_hours` (R1, D-20) |
 | files, ingested, loadfail, utilization | `files_loaded`, `bytes_loaded`, load-failure records (API-104), `warehouse_utilization` (UNSUPPORTED) |
 | dbtmodels, pipelines, poolcount, servicecount, databases, unknown | `GET /v1/dimensions/{id}/values` count semantics (`count_distinct` of a dimension, non-additive) |
 | singlequery, duration, queue, rows, runstatus, aicallcost, aiduration | Entity attributes (API-104 `GET /v1/entities/query/…`, `…/ai_request/…`) |
@@ -360,7 +360,7 @@ Dependency changes: `−FIN-009` (catalog authored from the ledger contract, cer
 | API-001-S03 | Author relation YAMLs for the 11 serving relations in §3 (grain keys, time column, tenant column, policy name, publication dataset id, tier) agreed with DBT-006 owners | `packages/semantic_metrics/relations/*.yaml` | Reviewed by DBT/FIN owners; each relation's grain keys are unique in the DBT-005 golden fixture (dbt `unique_combination_of_columns` test green) | 3 |
 | API-001-S04 | Author financial metrics: spend, billed_credits, warehouse_compute_cost, warehouse_credits, query_compute_cost, idle_cost/credits, attributed_cost, unattributed_cost, attribution_coverage, allocated_cost, unallocated_cost, allocation_coverage, allocation_share, tag_coverage — populations, null policies, denominator_scope, substitution rule | `metrics/finance/*.yaml` | Lint green; each has label/description i18n keys and `required_sources` | 4 |
 | API-001-S05 | Author query/workload metrics: query_count, failed_query_count, query_failure_rate (status taxonomy v1 file), query_elapsed_p95, query_execution_p95, queued/bytes/spill metrics, workload_classification_coverage, execution_* metrics, dynamic_table_lag_p95, files/bytes_loaded, storage_bytes (latest/twa) with `exactness` per tier | `metrics/performance/*.yaml`, `taxonomies/query_status_v1.yaml` | Lint green; percentile metrics declare HOT=EXACT, AGGREGATE=APPROX_TDIGEST | 3 |
-| API-001-S06 | Author governance metrics: budget_amount, budget_actual_to_date, budget_remaining, budget_variance(+pct), forecast_total, forecast_variance(+pct), run_rate_daily, potential_savings, realized_savings; R1* AI/SPCS metrics with capability flags; warehouse_utilization as UNSUPPORTED | `metrics/governance/*.yaml`, `metrics/ai_spcs/*.yaml` | Lint green; forecast/budget pct metrics null on budget 0 | 2 |
+| API-001-S06 | Author governance metrics: budget_amount, budget_actual_to_date, budget_remaining, budget_variance(+pct), forecast_total, forecast_variance(+pct), run_rate_daily, potential_savings, realized_savings; AI/SPCS metrics (R1 since D-20) with capability flags; warehouse_utilization as UNSUPPORTED | `metrics/governance/*.yaml`, `metrics/ai_spcs/*.yaml` | Lint green; forecast/budget pct metrics null on budget 0 | 2 |
 | API-001-S07 | Author 46 dimension YAMLs (§3.2) with type, cardinality class (LOW ≤ 100, MED ≤ 10k, HIGH), entitlement flag (account, organization, group_set, group), pii flag (`user` → pseudonym D-10), hierarchy (organization→account; group_set→group), autocomplete flag | `dimensions/*.yaml` | Lint green; every HIGH dimension has `autocomplete.min_prefix=2` | 3 |
 | API-001-S08 | Implement the compatibility engine: metric×dimension reachability via relation join paths, substitution rewrite (spend→attributed_cost for resource dims), currency policy, grain derivation (day→week/month), filter-op allowlist; expose `compatible_dimensions(metric)` and `explain_incompatibility()` | `packages/semantic_metrics/compat.py` | Matrix snapshot test: spend×warehouse → SUBSTITUTED(attributed_cost); query_compute_cost×database → INCOMPATIBLE with alternatives [warehouse, workload]; storage_bytes×user → INCOMPATIBLE | 4 |
 | API-001-S09 | Implement aggregation builders per measure type (sum, ratio, percentile hot/aggregate, latest/twa, count_distinct exact/HLL) and Top-N+Other that re-aggregates base measures | `packages/semantic_metrics/aggregation.py` | Unit tests: ratio Other = Σnum/Σden of members (not Σ ratios); twa of bytes 10 TB for 20 d + 12 TB for 10 d over 30 d = 10.666… TB; latest = 12 TB | 4 |
@@ -507,7 +507,7 @@ Task acceptance:
 - [ ] Evidence that was purged or retention-expired is labelled explicitly and never fabricated.
 
 ### API-006 — Public API credentials, quotas and contract release tests
-Release: R2 (R1* if the first customer integrates by API — owner question Q-API-1) · Estimate: 32–46 h · Risk: M · Decisions: D-17 · Closes: G-API-11, G-API-15 (API side)
+Release: R2 (public API; not covered by D-20 — moves to R1 only if the owner answers Q-API-1 yes) · Estimate: 32–46 h · Risk: M · Decisions: D-17 · Closes: G-API-11, G-API-15 (API side)
 Dependency changes: `−API-005` (unrelated), keep `API-004`, `SEC-008`. Downstream `GOV-003 −API-006`.
 
 | Step | Micro-task | Deliverable | Done when | h |
@@ -568,7 +568,7 @@ Dependency changes: new; depends on `API-002`, `API-003`, `API-101`. Dependents:
 | API-104-S04 | Implement query detail specifics: timing breakdown (compile/queue/execution), hash + hash_version, parent/root query links (WRK-004), workload, sanitized SQL per privacy mode, D-14 per-hour compute proration rows | route | Fixture q_demo_042: 0.4 + 0.2 + 11.8 = 12.4 s; METADATA_ONLY tenant → sql_text null + PRIVACY_SUPPRESSED | 3 |
 | API-104-S05 | Implement `GET /v1/dimensions/{id}/values` via the broker under row policies: prefix search (≥ 2 chars for HIGH), ≤ 20 values, `has_more` only, pseudonym→display resolution for `user` only with `people.read` (D-10) | route | Finance-only viewer searching "MARK" on group returns nothing and `has_more=false`, byte-identical to a nonexistent prefix | 4 |
 | API-104-S06 | Non-enumeration: unknown/foreign/unauthorized ids take the same broker lookup path; identical 404 bodies; latency difference < 20 % (p50 over 200 trials) | tests | Timing test passes | 2 |
-| API-104-S07 | Retention-tier behavior: records older than hot_days → 410 RETENTION_EXPIRED on detail; list mode refuses ranges beyond the hot tier with guidance to use family aggregates | code + tests | 100-day-old query id → RETENTION_EXPIRED | 2 |
+| API-104-S07 | Retention-tier behavior: records older than hot_days → 410 RETENTION_EXPIRED on detail; list mode refuses ranges beyond the hot tier with guidance to use family aggregates | code + tests | Default `hot_days` = 365: a 100-day-old query id is served, a 370-day-old id → RETENTION_EXPIRED; plan fixture with `hot_days` = 90: the 100-day-old id → RETENTION_EXPIRED | 2 |
 | API-104-S08 | Rate limits for autocomplete (10/s/user) and records (shares the interactive admission) | config + tests | Burst beyond limits → 429 | 1 |
 | API-104-S09 | Security tests: restricted user enumerating warehouse ids by guessing UUIDs, query ids from another account of the same tenant outside scope, SQL text access without capability | `tests/spec/API-104/` | All denied without leakage | 3 |
 | API-104-S10 | Billing ledger dataset for the UX ledger page: bucket-grain rows (D-12) with scope_kind, signed amounts, price basis, maturity, recon status; org-scope rows only with an org-financial grant (G-FIN-25) | dataset + tests | A1-limited viewer's ledger totals 268 (FIN-GOLD-01; 26,800 in the UI fixture) and never lists the organization support (5) or rebate (−3) rows | 3 |
@@ -591,9 +591,10 @@ Task acceptance:
 | API-005 | R1 | 32 | 46 |
 | API-102 (new, CSV/evidence) | R1 | 22 | 31 |
 | API-104 (new) | R1 | 30 | 42 |
-| API-006 | R2 (R1* if customer integrates by API) | 32 | 46 |
+| API-006 | R2 (Q-API-1 open) | 32 | 46 |
 | API-102 (PNG/PDF steps) | R2 | 8 | 12 |
 | **Total R1** | | **262** | **371** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
 | **Total R2** | | **40** | **58** |
 
 The original plan was 6 tasks × 2–6 h = 12–36 h. The realistic figure is roughly 10× higher. Most of the gap is the registry, broker, tokens and Explain designs, which the contract leaves implicit.

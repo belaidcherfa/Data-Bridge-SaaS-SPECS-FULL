@@ -15,7 +15,7 @@ Other gaps:
 - The D-07 account-cycle runner and its trust path to the control plane have no owner (G-ING-08/09).
 - Complete-partition snapshots can wipe billing data on a silent empty read (G-ING-07).
 
-Author first: the registry schema with explicit watermark modes (§3.1 contract table), the key grammar, the manifest v1 schema, and the acceptance / revision / schema-diff / health decision tables (§3.2–§3.6). R1 effort is ≈ 595–865 senior hours. The task files assume 12 × 2–6 h. The INFORMATION_SCHEMA hot path is deferred to R2 (D-24 confirmed, G-ING-14).
+Author first: the registry schema with explicit watermark modes (§3.1 contract table), the key grammar, the manifest v1 schema, and the acceptance / revision / schema-diff / health decision tables (§3.2–§3.6). R1 effort is ≈ 595–865 senior hours (§6 after RECONCILIATION and the owner decisions of 2026-09-28: 657–973 h, including ING-105's R1 part for the D-20 service families). The task files assume 12 × 2–6 h. The INFORMATION_SCHEMA hot path is deferred to R2 (D-24 confirmed, G-ING-14).
 
 ## 2. Findings
 
@@ -201,30 +201,30 @@ Severity: MEDIUM · Type: RISK / challenges PRD §40
 Evidence:
 - PRD §38 — "QUERY_HISTORY 365 daily chunks"; PRD §40 — "365-day backfill ends at T0 … executes T0 → NOW catch-up before … HEALTHY".
 - ING-010 — "catch-up never converges".
-- D-11 — query grain hot 90 days.
+- D-11 — query grain hot 90 days as recommended; owner decision 2026-09-28: 365 days (`hot_days` default 365).
 - G-SEC-15 — ≈3 ms per statement sanitization.
 
 Computation for a 1M queries/day account:
 - **Rows.** QH has 365 M rows. QAH ≈ 60 % of queries (short ones are excluded, VERIFIED ≤ ~100 ms) ≈ 220 M.
 - **Arrow bytes (ASSUMPTION ≈ 350 B/row metadata, 1.5 KB mean text, 120 B/row QAH):**
   - QH metadata: 365 M × 350 B ≈ 128 GB;
-  - text for the 90-day hot window only: 90 M × 1.5 KB ≈ 135 GB;
+  - text for all 365 days (D-11 owner decision): 365 M × 1.5 KB ≈ 548 GB (135 GB under the 90-day recommendation);
   - QAH: 220 M × 120 B ≈ 26 GB.
-- **Parquet ZSTD (ASSUMPTION ratios 10:1 / 5:1 / 8:1):** ≈ 13 + 27 + 3.3 ≈ 43 GB, about 350 files of 128 MiB.
-- **Customer credits:** 730 day-chunks × 20–60 s on XS ≈ 4–12 credits, plus ≈ 2 for the other sources.
-- **Sanitization:** 90 M texts × 1–3 ms ≈ 25–75 CPU-hours before caching. Without the D-11 cut (365 M texts) it would be 100–300 CPU-hours.
+- **Parquet ZSTD (ASSUMPTION ratios 10:1 / 5:1 / 8:1):** ≈ 13 + 110 + 3.3 ≈ 126 GB, about 950 files of 128 MiB (43 GB and ≈ 350 files with 90 days of text).
+- **Customer credits:** 730 day-chunks × 20–60 s on XS ≈ 4–12 credits, plus ≈ 2 for the other sources; projecting QUERY_TEXT on days 91–365 adds ≈ 0.8–2.3 credits (+10–30 s per QH day-chunk, ASSUMPTION, measured in ING-101-S04).
+- **Sanitization:** 365 M texts × 1–3 ms ≈ 100–300 CPU-hours before caching (25–75 under the 90-day recommendation). The parameterized-hash cache, persisted between backfill chunks of one account (SEC-007-S17), is what keeps this tractable.
 
 Why it matters:
 - Throughput is bound by the sanitizer, not by Snowflake.
-- Backfilling QUERY_TEXT beyond the 90-day hot window wastes 75 % of the CPU on text that D-11 discards.
+- With D-11 at 365 days every backfilled day carries sanitized text, so sanitizer CPU is ≈ 4× the 90-day plan and the cache hit ratio decides the backfill duration.
 - Processing QH newest→oldest lets the oldest days expire from the 365-day source *during* a multi-day backfill.
 - A T0→NOW catch-up can chase its own tail.
 
 Resolution (ING-010):
-- (a) **Tier-aware projection.** Windows older than the hot horizon do not project QUERY_TEXT at all (METADATA_ONLY by construction).
+- (a) **Tier-aware projection.** Windows within `hot_days` (default 365 = the whole Account Usage window) project sanitized QUERY_TEXT. Only when a tenant's plan sets `hot_days` < 365 do older windows skip QUERY_TEXT (COLD tail comment only, RECONCILIATION C-01).
 - (b) **Ordering.** OU billing → MDH → WMH/MH → serverless/transfer/storage → QAH → QH. Within each source, the *expiring edge* (days within 7 days of the retention cutoff) goes first, then newest→oldest.
 - (c) **Steady-first.** Steady-state cycles start at SYNCING from the enrollment boundary; the backfill covers `[start, enrollment_boundary)`. There is no separate catch-up phase, and HEALTHY is evaluated per source on union coverage. This challenges PRD §40 sequencing; its intent (no gap between history and now) is preserved.
-- (d) Sanitizer cache per G-SEC-15, plus a process pool sized to task vCPUs.
+- (d) Sanitizer cache per G-SEC-15, persisted between backfill chunks (SEC-007-S17), plus a process pool sized to task vCPUs.
 - (e) The estimate shown before consent (CON-101).
 Affects: ING-010, ING-107, CON-101, ONB-004.
 
@@ -370,9 +370,9 @@ All predicates use bound parameters `:ws/:we` (half-open, UTC session). "first/s
 
 | Source | Scope · role | Mode · exact predicate | Steady window · first/settle | Semantics · key or partition | Backfill chunk · retention clamp | Anti-entropy | Privacy · special |
 |---|---|---|---|---|---|---|---|
-| AU.QUERY_HISTORY | ACCOUNT · GOVERNANCE_VIEWER | END_TIME_SWEEP · `END_TIME >= :ws AND END_TIME < :we AND START_TIME >= DATEADD(day,-8,:ws)` | 1 h · 1 h / 2 h | EVENT_UPSERT · (account, QUERY_ID) | 1 day, bisect 1 h, min 5 min · 365 d | Weekly CHECKSUM over 30 d per END_TIME day: COUNT(*), COUNT(DISTINCT QUERY_ID), SUM(TOTAL_ELAPSED_TIME); re-extract mismatched days (additive) | Tiered projection (D-11, RECONCILIATION C-01): HOT ≤ 90 d sanitized QUERY_TEXT; COLD `QUERY_TEXT_TAIL_COMMENT` only (regex in the customer warehouse, ≤ 4,096 chars, parsed by WRK-101, never persisted as text); NONE otherwise. Projection union (catalog + 16 INS columns + DATABASE_ID/NAME, SCHEMA_ID/NAME) frozen in ING-101 (C-10); QUERY_TAG sanitize; USER_NAME HMAC (SEC-103); `is_bridge_overhead`; horizon alarm > 7 d |
+| AU.QUERY_HISTORY | ACCOUNT · GOVERNANCE_VIEWER | END_TIME_SWEEP · `END_TIME >= :ws AND END_TIME < :we AND START_TIME >= DATEADD(day,-8,:ws)` | 1 h · 1 h / 2 h | EVENT_UPSERT · (account, QUERY_ID) | 1 day, bisect 1 h, min 5 min · 365 d | Weekly CHECKSUM over 30 d per END_TIME day: COUNT(*), COUNT(DISTINCT QUERY_ID), SUM(TOTAL_ELAPSED_TIME); re-extract mismatched days (additive) | Tiered projection (D-11, RECONCILIATION C-01): HOT ≤ `hot_days` (default 365 = full Account Usage retention; owner decision 2026-09-28) sanitized QUERY_TEXT; COLD `QUERY_TEXT_TAIL_COMMENT` only — fallback for plans with `hot_days` < 365 — (regex in the customer warehouse, ≤ 4,096 chars, parsed by WRK-101, never persisted as text); NONE otherwise. Projection union (catalog + 16 INS columns + DATABASE_ID/NAME, SCHEMA_ID/NAME) frozen in ING-101 (C-10); QUERY_TAG sanitize; USER_NAME HMAC (SEC-103); `is_bridge_overhead`; horizon alarm > 7 d |
 | AU.QUERY_ATTRIBUTION_HISTORY | ACCOUNT · USAGE_VIEWER | END_TIME_SWEEP · same predicate shape | 1 h · 1 h / 12 h | EVENT_UPSERT · (account, QUERY_ID) | 1 day · 365 d and availability start (TO VERIFY) | Daily CHECKSUM over 7 d, weekly over 30 d: COUNT, SUM(CREDITS_ATTRIBUTED_COMPUTE), SUM(CREDITS_USED_QUERY_ACCELERATION) | Queries ≤ ~100 ms absent by design (VERIFIED): a missing row means unknown, not zero; projection adds PARENT_QUERY_ID, ROOT_QUERY_ID (ING-101, RECONCILIATION C-10) |
-| AU.QUERY_METERING_HISTORY (R1\* per D-20) | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION + PENDING_REFRESH · `QUERY_METERING_HOUR >= :ws AND QUERY_METERING_HOUR < :we`; pending: hours ≥ oldest pending hour where `QUERY_END_TIME IS NULL`, bounded to 8 d | 1 h · 1 h / 3 h | EVENT_UPSERT · (account, QUERY_ID, QUERY_METERING_HOUR) | 1 day · 365 d | Daily CHECKSUM over 7 d: SUM(CREDITS_USED) per hour | Activated only if Adaptive is detected (CON-005-S06) |
+| AU.QUERY_METERING_HISTORY (R1, D-20) | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION + PENDING_REFRESH · `QUERY_METERING_HOUR >= :ws AND QUERY_METERING_HOUR < :we`; pending: hours ≥ oldest pending hour where `QUERY_END_TIME IS NULL`, bounded to 8 d | 1 h · 1 h / 3 h | EVENT_UPSERT · (account, QUERY_ID, QUERY_METERING_HOUR) | 1 day · 365 d | Daily CHECKSUM over 7 d: SUM(CREDITS_USED) per hour | Extracted per account when Adaptive is detected (CON-005-S06 `adaptive_present`) |
 | AU.WAREHOUSE_METERING_HISTORY | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION · `START_TIME >= :ws AND START_TIME < :we` | 1 h · 4 h / 24 h | COMPLETE_PARTITION · (account, hour); primary measure CREDITS_USED_COMPUTE + CREDITS_USED_CLOUD_SERVICES | 7 d · 365 d | Daily RESNAPSHOT of last 7 d; day 3 of month RESNAPSHOT of previous month | `CREDITS_ATTRIBUTED_COMPUTE_QUERIES` null for Adaptive (VERIFIED via G-FIN-07) |
 | AU.METERING_HISTORY | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION · START_TIME half-open | 1 h · 4 h / 24 h | COMPLETE_PARTITION · (account, hour) incl. null ENTITY_ID rows | 7 d · 365 d (TO VERIFY) | As WMH | Unknown SERVICE_TYPE values are data drift for FIN-021, not schema drift |
 | AU.METERING_DAILY_HISTORY | ACCOUNT · USAGE_VIEWER | DATE_PARTITION · `USAGE_DATE >= :ds AND USAGE_DATE < :de` | 1 d · 4 h / 24 h | COMPLETE_PARTITION · (account, USAGE_DATE); measure CREDITS_BILLED (signed) | 31 d · 365 d | Daily RESNAPSHOT of open month + previous month until month_end + 5 d (D-13 N) | Signed adjustment retained |
@@ -387,7 +387,7 @@ All predicates use bound parameters `:ws/:we` (half-open, UTC session). "first/s
 | AU.SERVERLESS_TASK_HISTORY | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION · START_TIME | 1 h · 4 h / 24 h | COMPLETE_PARTITION · (account, hour) | 7 d · 365 d | as above | CREDITS_USED documented as VARCHAR: transported as `large_utf8`, exact-decimal parse in dbt (R14) |
 | AU.PIPE_USAGE_HISTORY | ACCOUNT · USAGE_VIEWER | HOUR_PARTITION · START_TIME | 1 h · 4 h / 24 h | COMPLETE_PARTITION · (account, hour) incl. null PIPE_ID | 7 d · 365 d | as above | FLOAT/VARIANT fields preserved as-is (G-ING-02 exception list) |
 | AU.DATA_TRANSFER_HISTORY | ACCOUNT · USAGE_VIEWER | DATE_PARTITION on `START_TIME` day | 1 d · 4 h / 24 h | COMPLETE_PARTITION · (account, day) | 31 d · 365 d | Daily RESNAPSHOT of last 7 d | BYTES_TRANSFERRED VARIANT/number normalized in dbt |
-| R2 families (ING-105) | as catalog | ACCESS_HISTORY: long-tail companion (G-ING-01 §4); WAREHOUSE_EVENTS/LOAD_HISTORY: END_TIME_SWEEP where END exists (TASK_HISTORY and DYNAMIC_TABLE_REFRESH_HISTORY moved to R1 ING-104, RECONCILIATION C-10); MV/SOS/QAS/REPLICATION*/SPCS/CORTEX*/SNOWPIPE_STREAMING*/MARKETPLACE/AGGREGATE_QUERY_HISTORY/OU.STORAGE_DAILY_HISTORY: per catalog after live verification | — | — | — | — | Each needs the same activation evidence as R1 |
+| Extension families (ING-105) | as catalog | R1 part (D-20; sources of R1 FIN-006/008/012/015–020): MV/SOS/QAS/REPLICATION*/SPCS/CORTEX*/SNOWPIPE_STREAMING*/MARKETPLACE/OU.STORAGE_DAILY_HISTORY per catalog after live verification. R2 part: ACCESS_HISTORY long-tail companion (G-ING-01 §4); WAREHOUSE_EVENTS/LOAD_HISTORY (END_TIME_SWEEP where END exists); AGGREGATE_QUERY_HISTORY. TASK_HISTORY and DYNAMIC_TABLE_REFRESH_HISTORY moved to R1 ING-104 (RECONCILIATION C-10) | — | — | — | — | Each needs the same activation evidence as R1 |
 
 R1 additions per RECONCILIATION C-10 (rows to be completed with the same columns during activation; roles TO VERIFY LIVE): **AU.SESSIONS** (SESSION_ID, CREATED_ON, pseudonymized USER_NAME, CLIENT_APPLICATION_ID/VERSION, CLIENT_ENVIRONMENT:APPLICATION; ING-101), **AU.TAG_REFERENCES** (daily snapshot, Enterprise-gated; ING-103), **AU.TASK_HISTORY** and **AU.DYNAMIC_TABLE_REFRESH_HISTORY** (END_TIME_SWEEP; ING-104, for WRK-004).
 
@@ -484,7 +484,7 @@ Dependency changes: `−CON-005 (inverted edge; CON-005 now depends on ING-001)`
 | ING-001-S01 | Write the registry JSON Schema with every field in §3 (watermark modes, pass schedule, semantics, suspect guard, anti-entropy, retention_class, health, verification_record). | `data/contracts/sources/_schema.v1.json` | 12 negative fixtures fail (missing key for EVENT_UPSERT, missing partition for COMPLETE_PARTITION, `settle < documented latency`, unknown mode, …). | 4 |
 | ING-001-S02 | Implement the loader and validator (`load_registry()`). Cross-field rules: `first_delay ≤ settle`; the END_TIME_SWEEP projection must include START_TIME and END_TIME; `pruning_horizon ≥ 8 d` for END_TIME_SWEEP; each projected field has a privacy_action; no Bridge technical column name in the projection; source_id unique. | `services/extractor/registry.py` | `make validate-registry` runs in CI. A malformed contract fails before any connection is opened (unit test with a network-guard fixture). | 4 |
 | ING-001-S03 | Define the generic adapter as a Protocol (`probe`, `plan_windows`, `build_query`, `iter_batches`, `normalize_transport`, `validate_schema`) with one data-driven implementation per watermark mode; custom subclasses only via registry `adapter_override`. | `services/extractor/adapters/base.py`, `modes.py` | Adding a new HOUR_PARTITION source requires only a JSON file (test adds a fixture source with no code change). | 4 |
-| ING-001-S04 | Build the query builder: identifiers only from registry constants (quoted); predicate templates per mode with bind variables; `SELECT` list = projection, tier-aware with three tiers (RECONCILIATION C-01): HOT (sanitized `QUERY_TEXT`, ≤ `hot_days` = 90), COLD (`QUERY_TEXT_TAIL_COMMENT` only — trailing-comment regex computed in the customer warehouse, truncated to 4,096 chars, parsed by WRK-101 and never persisted as text) and NONE; never `SELECT *`. | `services/extractor/query_builder.py` | A snapshot test of the generated SQL for all R1 sources. Static scan: 0 `*`, 0 string interpolation of values. | 3 |
+| ING-001-S04 | Build the query builder: identifiers only from registry constants (quoted); predicate templates per mode with bind variables; `SELECT` list = projection, tier-aware with three tiers (RECONCILIATION C-01): HOT (sanitized `QUERY_TEXT`, ≤ `hot_days`, default 365 = the full Account Usage window — D-11 owner decision 2026-09-28), COLD (`QUERY_TEXT_TAIL_COMMENT` only — trailing-comment regex computed in the customer warehouse, truncated to 4,096 chars, parsed by WRK-101 and never persisted as text; documented fallback used only when a tenant's plan sets `hot_days` < 365) and NONE; never `SELECT *`. | `services/extractor/query_builder.py` | A snapshot test of the generated SQL for all R1 sources. Static scan: 0 `*`, 0 string interpolation of values. | 3 |
 | ING-001-S05 | Derive the transport schema from the registry (§3 map) plus technical columns; implement the fingerprint algorithm. | `packages/parquet/transport_schema.py` | Fingerprint is stable across dict ordering; changing the scale of one column changes the fingerprint. | 3 |
 | ING-001-S06 | Define version semantics: `source_schema_version`, `transport_schema_version` (major.minor), `raw_schema_major`; compatibility function `is_compatible(old, new) → NONE/ADDITIVE/TRANSFORMABLE/BREAKING` (feeds ING-009). | `services/extractor/versions.py` | Table-driven tests from §3.5 pass. | 3 |
 | ING-001-S07 | Implement the activation state machine per source per environment (DRAFT→VERIFIED→ACTIVE→QUARANTINED→RETIRED) with the `verification_record` requirement for VERIFIED (account, edition, DESCRIBE hash, latency, retention, key-uniqueness result, evidence ref). | registry field + validator | A contract without a verification_record cannot be ACTIVE (CI fails). | 2 |
@@ -688,7 +688,7 @@ Dependency changes: `−ING-009`, `−CON-006 (the wizard consumes this plan; re
 | ING-010-S01 | Write the `sync.backfill_plans` model plus API: `POST /v1/sync/backfills` (preview: per source requested/available/unavailable ranges with reasons, chunk count, estimated rows, customer credits range, duration range) and `/{id}/approve`, `/pause`, `/resume`, `/cancel` with `If-Match` and idempotency. | `apps/api/sync/backfills.py`, OpenAPI | Preview is side-effect free. Approve twice with the same key → one plan. | 5 |
 | ING-010-S02 | Run source-side sizing (cheap aggregate on BRIDGE_FINOPS_WH): `SELECT DATE_TRUNC('day', END_TIME), COUNT(*) FROM QH WHERE END_TIME >= :start GROUP BY 1` and equivalents for QAH/QMH. Other sources use registry row estimates. | `services/ingestion/backfill_sizing.py` | Live: sizing for 365 d runs in one query ≤ 60 s on XS (TO VERIFY LIVE). | 4 |
 | ING-010-S03 | Chunk: day chunks for QH/QAH, split to hours when estimated rows > 2 M; 7 d chunks for hourly financial sources; 31 d for daily sources. | `backfill.py::chunk` | Fixture of 1 M/day → 365 day chunks; a spike day with 5 M → 24 hour chunks. | 3 |
-| ING-010-S04 | Implement ordering and tiering: source order OU billing → MDH → WMH/MH → serverless/transfer/storage → QAH → QH; within a source, expiring edge (days < retention cutoff + 7 d) first, then newest→oldest; tier-aware projection per ING-001-S04 (D-11, RECONCILIATION C-01): HOT windows ≤ `hot_days` project sanitized QUERY_TEXT, COLD windows project only `QUERY_TEXT_TAIL_COMMENT`. | `backfill.py::order` | Order snapshot test. The generated SQL for a day 200 days old lacks QUERY_TEXT and projects QUERY_TEXT_TAIL_COMMENT. | 3 |
+| ING-010-S04 | Implement ordering and tiering: source order OU billing → MDH → WMH/MH → serverless/transfer/storage → QAH → QH; within a source, expiring edge (days < retention cutoff + 7 d) first, then newest→oldest; tier-aware projection per ING-001-S04 (D-11, RECONCILIATION C-01): HOT windows ≤ `hot_days` (default 365) project sanitized QUERY_TEXT; COLD windows (only when a plan sets `hot_days` < 365) project only `QUERY_TEXT_TAIL_COMMENT`. | `backfill.py::order` | Order snapshot test. With the default `hot_days` = 365 the generated SQL for a day 200 days old projects sanitized QUERY_TEXT; with a plan fixture `hot_days` = 90 the same day lacks QUERY_TEXT and projects QUERY_TEXT_TAIL_COMMENT. | 3 |
 | ING-010-S05 | Implement steady-first: on READY→SYNCING, enable steady cycles with an enrollment boundary `E = floor_hour(now) − settle`; backfill covers `[start, E)`; HEALTHY is evaluated on union coverage (no separate catch-up phase). | `backfill.py::boundaries` | Fixture: backfill finishing after 3 days leaves no gap between history and steady windows (multirange contiguous). | 4 |
 | ING-010-S06 | Implement admission: backfill chunks are separate work items in the ORC-003 backfill lane; max 1 active backfill task per account and 1 per tenant (initial); per-plan customer credit cap; `history_days` entitlement enforced through LCH-101 `entitlements.check()` (U-08); pause automatically when the resource monitor is ≥ 80 % (from CON-101 status). | `backfill.py::admit` + ORC config | Flood test: tenant A with a 365-day plan, tenant B hourly steady → B's queue age p95 ≤ 10 min (ORC-003 target). | 6 |
 | ING-010-S07 | Implement adaptive chunk sizing: measured seconds and bytes per chunk → halve the next chunk if > 10 min or > 2 GiB, double if < 1 min (bounded by registry min/max). | `backfill.py::adapt` | Simulated durations converge within 5 chunks. | 3 |
@@ -752,22 +752,22 @@ Task acceptance:
 ## 5. New tasks required
 
 ### ING-101 — Activate query-family source contracts (QH, QAH, QMH)
-Release: R1 (QMH R1\* per D-20) · Estimate: 32–46 h · Risk: H · Decisions: D-10, D-11, D-15, D-20 · Closes: G-ING-01 (live proof)
+Release: R1 (incl. QMH, D-20) · Estimate: 32–46 h · Risk: H · Decisions: D-10, D-11, D-15, D-20 · Closes: G-ING-01 (live proof)
 Why: the catalog rows are docs-derived; the activation gate (V03) has no owner. The projection union requested by INS/ALC/WRK must be frozen here, before the first 365-day backfill, because fields not extracted then are lost for history (RECONCILIATION C-10). Plugs in after ING-001, CON-005 and INF-101; blocks ING-106 activation of these sources.
 Dependency changes: `+ING-001`, `+CON-005`, `+CON-002`, `+INF-101` (test estate; replaces the requested `+OPS-103`, RECONCILIATION U-03), `+WRK-101` (COLD-tier tail-comment projection handoff WRK-101-S09; C-10), `+ING-107` (S07 validates the live privacy path; U-04).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ING-101-S01 | Author the QH contract per the §3.1 row (projection, privacy actions, END_TIME_SWEEP, pass schedule, anti-entropy CHECKSUM) with the frozen projection union (RECONCILIATION C-10): catalog projection + the 16 INS columns (G-INS-01: hash versions, spill, partitions, compilation/queue times, cluster, warehouse type, CREDITS_USED_CLOUD_SERVICES, rows, error code) + DATABASE_ID/NAME, SCHEMA_ID/NAME + the COLD-tier `QUERY_TEXT_TAIL_COMMENT` (C-01). | `data/contracts/sources/au_query_history.v1.json` | `validate-registry` passes; a CI check lists every INS/ALC/WRK-requested QH field as projected. | 4 |
+| ING-101-S01 | Author the QH contract per the §3.1 row (projection, privacy actions, END_TIME_SWEEP, pass schedule, anti-entropy CHECKSUM) with the frozen projection union (RECONCILIATION C-10): catalog projection + the 16 INS columns (G-INS-01: hash versions, spill, partitions, compilation/queue times, cluster, warehouse type, CREDITS_USED_CLOUD_SERVICES, rows, error code) + DATABASE_ID/NAME, SCHEMA_ID/NAME + the COLD-tier `QUERY_TEXT_TAIL_COMMENT` (C-01; fallback for plans with `hot_days` < 365). | `data/contracts/sources/au_query_history.v1.json` | `validate-registry` passes; a CI check lists every INS/ALC/WRK-requested QH field as projected. | 4 |
 | ING-101-S02 | Author the QAH (+ PARENT_QUERY_ID, ROOT_QUERY_ID) and QMH contracts and the new AU.SESSIONS contract (SESSION_ID, CREATED_ON, pseudonymized USER_NAME, CLIENT_APPLICATION_ID/VERSION, CLIENT_ENVIRONMENT:APPLICATION) (RECONCILIATION C-10). | `au_query_attribution_history.v1.json`, `au_query_metering_history.v1.json`, `au_sessions.v1.json` | Validate. The QMH key includes the hour. USER_NAME in SESSIONS has privacy action `HMAC_USER`. | 5 |
 | ING-101-S03 | Run the long-query probe in an INF-101 estate account: `SELECT COUNT(*) FROM TABLE(GENERATOR(TIMELIMIT => 5400))` on BRIDGE_FINOPS_WH; poll AU.QH/QAH every 15 min; record visibility while running, appearance latency after completion, and START/END values. | evidence | The question "Does AU.QH expose running queries?" is answered with query IDs; registry notes are updated. | 3 |
-| ING-101-S04 | Capture the live DESCRIBE plus type/scale/nullability of the projections (incl. AU.SESSIONS) in Standard and Enterprise accounts; record the fingerprint; measure the customer-credit cost of the COLD-tier tail-comment regex and hand it to CON-101's disclosed estimate (RECONCILIATION C-01, D-08). | verification records | Records attached; mismatches vs catalog resolved in contract; regex cost per backfill day recorded. | 4 |
+| ING-101-S04 | Capture the live DESCRIBE plus type/scale/nullability of the projections (incl. AU.SESSIONS) in Standard and Enterprise accounts; record the fingerprint; measure the customer warehouse seconds and result bytes per backfill day of projecting QUERY_TEXT for sanitization (HOT tier, all 365 days by default — D-11) and of the COLD-tier tail-comment regex (fallback), and hand both to CON-101's disclosed estimate (RECONCILIATION C-01, D-08). | verification records | Records attached; mismatches vs catalog resolved in contract; text-projection and regex cost per backfill day recorded. | 4 |
 | ING-101-S05 | Check key uniqueness: `SELECT QUERY_ID, COUNT(*) FROM AU.QH WHERE END_TIME >= DATEADD(day,-7,CURRENT_TIMESTAMP()) GROUP BY 1 HAVING COUNT(*) > 1` (and the QAH/QMH equivalents with their keys). | evidence | 0 rows, or an explicit dedup rule documented. | 2 |
 | ING-101-S06 | Measure latency and retention: the canary (CON-005-S05) for QH; `MIN(END_TIME)` for retention; QAH lag distribution over 48 h. | evidence | Settle defaults are confirmed or adjusted (settle ≥ p99 observed lag × 1.5). | 3 |
 | ING-101-S07 | Validate the privacy path on live data: sanitizer, HMAC and tier-aware projection on 1 day of QH (ING-107). | evidence | A sentinel secret in a test query's literal is absent from Parquet. | 3 |
 | ING-101-S08 | Run one WIF extraction plus replay fixture per source; complete the source-catalog test matrix rows (empty window, missing grant, missing optional column, decimal edge, duplicate attempt, late data beyond settle via anti-entropy, retention clamp). | `tests/live/sources/query_family/` | Matrix passes; activation state → VERIFIED. | 7 |
 | ING-101-S09 | Activate in production (config) with review sign-off. | registry state change | State ACTIVE with evidence links. | 1 |
 Task acceptance:
-- [ ] QH, QAH (and QMH if Adaptive) and AU.SESSIONS contracts are live-verified with types, keys, latency and retention; the QH/QAH projection union of RECONCILIATION C-10 is frozen before the first backfill.
+- [ ] QH, QAH, QMH (D-20; live-verified on an estate account with an Adaptive warehouse) and AU.SESSIONS contracts are live-verified with types, keys, latency and retention; the QH/QAH projection union of RECONCILIATION C-10 is frozen before the first backfill.
 - [ ] Long-query behaviour is measured and the END_TIME sweep captures a 90-minute query exactly once.
 - [ ] The privacy path is proven on live data.
 
@@ -819,18 +819,20 @@ Dependency changes: `+ING-001`, `+CON-005`, `+INF-101` (test estate; replaces th
 Task acceptance:
 - [ ] All six sources (incl. TASK_HISTORY and DYNAMIC_TABLE_REFRESH_HISTORY for WRK-004) are live-verified with explicit non-NUMBER exceptions and documented interval bucketing.
 
-### ING-105 — Activate R2 extension source families
-Release: R2 · Estimate: 70–125 h · Risk: M · Decisions: D-01, D-20 · Closes: G-ING-17
-Why: ACCESS_HISTORY (long-tail companion), WAREHOUSE_EVENTS/LOAD, MV/SOS/QAS, replication, SPCS, Cortex (AISQL cut-over), Snowpipe Streaming, marketplace, AGGREGATE_QUERY_HISTORY and OU.STORAGE_DAILY_HISTORY each need the same activation evidence. A D-20 first-customer profile can pull individual families into R1. TASK/DT history moved to R1 ING-104 (RECONCILIATION C-10).
-Dependency changes: `+ING-101…104` (pattern), `+ING-106`.
+### ING-105 — Activate extension source families (R1 part per D-20, R2 remainder)
+Release: R1 (S01, S03, S04: sources of the R1 service-detail tasks, D-20 2026-09-28) · R2 (S02, S05) · Estimate: 70–125 h (R1 part 49–88 h; R2 part 21–37 h) · Risk: M · Decisions: D-01, D-20 · Closes: G-ING-17
+Why: ACCESS_HISTORY (long-tail companion), WAREHOUSE_EVENTS/LOAD, MV/SOS/QAS, replication, SPCS, Cortex (AISQL cut-over), Snowpipe Streaming, marketplace, AGGREGATE_QUERY_HISTORY and OU.STORAGE_DAILY_HISTORY each need the same activation evidence. D-20 (2026-09-28) puts every service family in R1, so the families behind R1 FIN tasks — MV (FIN-016), SOS (FIN-015), QAS (FIN-017), replication (FIN-008), SPCS (FIN-019), Cortex (FIN-018), Snowpipe Streaming (FIN-012), marketplace (FIN-020) and OU.STORAGE_DAILY_HISTORY (FIN-006 estimate) — are activated in R1 (S01, S03, S04); this also closes the earlier gap where R1 FIN-006/015/016 read sources activated only in R2. The R2 remainder (S02, S05) serves R2 consumers only: ACCESS_HISTORY (INS-104, ALC table-access attribute), WAREHOUSE_EVENTS/LOAD (INS-106) and AGGREGATE_QUERY_HISTORY. TASK/DT history moved to R1 ING-104 (RECONCILIATION C-10).
+Dependency changes: `+ING-101…104` (pattern), `+ING-106`. FIN-006, FIN-008, FIN-012 and FIN-015…FIN-020 need the R1 part before their live evidence (edge proposal for the task graph).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ING-105-S01 | Inventory the current Account Usage / Org Usage catalog vs the registry (script over `SHOW VIEWS IN SCHEMA SNOWFLAKE.ACCOUNT_USAGE` in the INF-101 estate); produce the gap list. | inventory report | Gap list reviewed. | 4 |
-| ING-105-S02 | Implement the ACCESS_HISTORY long-tail companion predicate using QH long-query IDs. | contract + adapter override | A 3-hour query's access row is captured exactly once. | 10 |
-| ING-105-S03 | Author contracts plus live verification per family (≈ 6–10 h each × 9 families; TASK_HISTORY/DT refresh moved to ING-104 per RECONCILIATION C-10). | contracts + evidence | Each family VERIFIED. | 50 |
-| ING-105-S04 | Resolve the Cortex old/new view authority rule (effective-dated) with FIN-018. | contract notes | No UNION ALL of amounts. | 6 |
+| ING-105-S01 | (R1) Inventory the current Account Usage / Org Usage catalog vs the registry (script over `SHOW VIEWS IN SCHEMA SNOWFLAKE.ACCOUNT_USAGE` in the INF-101 estate); produce the gap list. | inventory report | Gap list reviewed. | 4 |
+| ING-105-S02 | (R2) Implement the ACCESS_HISTORY long-tail companion predicate using QH long-query IDs. | contract + adapter override | A 3-hour query's access row is captured exactly once. | 10 |
+| ING-105-S03 | (R1, D-20) Author contracts plus live verification for the 7 R1 families: MV, SOS and QAS, replication, SPCS, Cortex, Snowpipe Streaming, marketplace, OU.STORAGE_DAILY_HISTORY (≈ 6–10 h each, budgeted at the low end as before; TASK_HISTORY/DT refresh moved to ING-104 per RECONCILIATION C-10); the INF-101 workload generator creates activity for each family it can. | contracts + evidence | Each R1 family VERIFIED, or NOT_RUN with a recorded reason where the estate cannot generate activity (e.g. marketplace purchases). | 39 |
+| ING-105-S04 | (R1) Resolve the Cortex old/new view authority rule (effective-dated) with FIN-018. | contract notes | No UNION ALL of amounts. | 6 |
+| ING-105-S05 | (R2) Author contracts plus live verification for WAREHOUSE_EVENTS/LOAD_HISTORY (INS-106) and AGGREGATE_QUERY_HISTORY. | contracts + evidence | Each family VERIFIED. | 11 |
 Task acceptance:
 - [ ] Each activated family has live verification evidence equivalent to R1 sources.
+- [ ] Every source family consumed by an R1 FIN task is ACTIVE before that task's live evidence (D-20).
 
 ### ING-106 — Account-cycle runner and extractor ↔ control-plane trust path (D-07)
 Release: R1 · Estimate: 37–54 h · Risk: H · Decisions: D-07, D-08 · Closes: G-ING-08, G-ING-09
@@ -865,7 +867,7 @@ Dependency changes: `+SEC-007`, `+SEC-103 (pseudonym scheme, G-SEC-16)`, `+ING-0
 | ING-107-S02 | Order the operations: (1) compute `is_bridge_overhead` on plaintext; (2) extract allowlisted comment and tag metadata (WRK-101 library, step (1) of SEC-007 `sanitize()`; U-04); (3) sanitize the SQL body; (4) HMAC user names; (5) drop plaintext columns. Plaintext never leaves process memory. | hook | The sentinel test covers USER_NAME, QUERY_TEXT literal and QUERY_TAG secret; all are absent from Parquet and logs. | 4 |
 | ING-107-S03 | Manage the per-tenant HMAC key (in-extractor part of SEC-103-S04; RECONCILIATION U-04): decrypt once per task via KMS with encryption context `tenant_id`; hold in memory only; never logged; wrong-context decrypt → hard fail. | key loader | A test with a mismatched tenant context fails closed. | 3 |
 | ING-107-S04 | Use SEC-007-S08's sanitized-body cache (single cache, RECONCILIATION U-04) and size the sanitizer process pool to vCPUs − 1. | hook | Cache correctness: two queries differing only in comments keep their own allowlisted metadata. | 2 |
-| ING-107-S05 | Run the throughput benchmark on a 1M-row synthetic corpus with realistic repetition; record rows/s per vCPU and cache hit rate; set the backfill task size accordingly. | evidence | Result feeds ING-010 estimates (G-ING-10). | 4 |
+| ING-107-S05 | Run the throughput benchmark on a 1M-row synthetic corpus with realistic repetition; record rows/s per vCPU and cache hit rate (in-process and with SEC-007-S17's persisted cache); size the backfill task for 365 days of sanitized text (D-11: ≈ 365 M statements for a 1 M/day account). | evidence | Result feeds ING-010 estimates (G-ING-10) and CON-101. | 4 |
 | ING-107-S06 | Handle failures: sanitizer error → text null + `privacy_mode_effective=METADATA_ONLY` for that row; no exception message with SQL; metric `sanitizer_failures_total`. | hook | A malformed SQL fixture gives a null text and a flag, with no log line containing the input. | 2 |
 | ING-107-S07 | Record the privacy policy version in the manifest and the technical column; replay uses the original version (ING-011). | manifest field | Replay with a newer sanitizer does not re-sanitize journaled text (asserted). | 2 |
 | ING-107-S08 | Capture evidence. | `docs/evidence/ING-107/<commit>/` | Reviewed. | 2 |
@@ -909,10 +911,11 @@ Task acceptance:
 | ING-104 | R1 | 30 | 45 |
 | ING-106 | R1 | 37 | 54 |
 | ING-107 | R1 | 22 | 33 |
-| ING-105 | R2 | 70 | 125 |
+| ING-105 R1 part (S01, S03, S04; D-20) | R1 | 49 | 88 |
+| ING-105 R2 part (S02, S05) | R2 | 21 | 37 |
 | ING-112 | R2 | 40 | 60 |
-| **Total R1** | | **608** | **885** |
-| **Total R2** | | **110** | **185** |
+| **Total R1** | | **657** | **973** |
+| **Total R2** | | **61** | **97** |
 
 ## 7. Owner questions
 

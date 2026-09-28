@@ -312,7 +312,7 @@ Task acceptance:
 - [ ] Purging run history cannot cause a duplicate extraction.
 
 ### ORC-103 — Python output landing and lineage contract
-Release: R1 (moves to R2 with forecasts/insights if D-01/D-20 defer them) · Estimate: 22–32 h · Risk: M · Decisions: D-05 · Closes: G-ORC-09
+Release: R1 (forecasts and the R1 insight detectors stay R1 under D-01/D-20) · Estimate: 22–32 h · Risk: M · Decisions: D-05 · Closes: G-ORC-09
 Why/where: no task defines how Python results land; plugs after DBT-101, before GOV forecast tasks and INS-001.
 Dependency changes: `+DBT-101, +CON-002`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |

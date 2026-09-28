@@ -560,7 +560,7 @@ On db.r6g.large (`max_connections` ≈1,716, secondary source; formula VERIFIED)
 4. Errors: unknown/expired/revoked/rotated token → uniform 410 `INVITE_INVALID`; email mismatch → 403 `INVITE_EMAIL_MISMATCH`; inviter lost rights → 409 `INVITE_INVALIDATED`; already member → 409 `ALREADY_MEMBER`; same subject re-accepting → 200 with the existing membership. Rate limit 5 accept attempts/min/subject.
 
 ## Appendix F — Subscription and entitlement model (launch.md canonical)
-**Superseded by RECONCILIATION U-08/C-08:** plans, entitlements and admission are LCH-101's; the canonical subscription state machine and effect matrix are LCH-001's (`LCH.md` G-LCH-03). Kept for reference only; CTL-007 implements none of it.
+**Superseded by RECONCILIATION U-08/C-08:** plans, entitlements and admission are LCH-101's; the canonical subscription state machine and effect matrix are LCH-001's (`LCH.md` G-LCH-03). Kept for reference only; CTL-007 implements none of it. Since D-17 (2026-09-28) the canonical machine has `PILOT` (contracted pilot) instead of `TRIAL` — see `LCH.md` G-LCH-03.
 
 States: `TRIAL → ACTIVE_PENDING_PAYMENT → ACTIVE_PAID`; `ACTIVE_PAID → PAST_DUE → ACTIVE_PAID | SUSPENDED`; `SUSPENDED → ACTIVE_PAID`; any → `CANCELLED` (effective date). Transitions only by internal console roles (`finance_operator`), with payment-event evidence for `ACTIVE_PAID`; corrections need a second operator.
 

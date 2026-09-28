@@ -57,7 +57,7 @@ Affects: ONB-001, ONB-101.
 Severity: MEDIUM · Type: CONTRADICTION
 Evidence: PRD §158 — "without Bridge Data manually intervening"; `ONB-003` — "Have customer execute reviewed scripts"; `ONB-005` — "first-value workshop".
 Why it matters: an assisted first customer can hide product gaps (a CS engineer silently fixes grants, re-runs a backfill), so the self-serve claim is never tested.
-Resolution: assistance is allowed; every operator action on a tenant during onboarding is recorded as `onboarding.manual_interventions` (reason code, step, ops API call id) and becomes a product backlog item; ONB-002 clean-room rehearsal proves the unassisted path on synthetic accounts; the acceptance record lists interventions.
+Resolution (confirmed by D-38, 2026-09-28: complete self-service wizard, fully usable without Bridge staff per PRD §158, plus a Bridge-led first-value workshop for the first customer in ONB-005): assistance is allowed; every operator action on a tenant during onboarding is recorded as `onboarding.manual_interventions` (reason code, step, ops API call id) and becomes a product backlog item; ONB-002 clean-room rehearsal proves the unassisted path on synthetic accounts; the acceptance record lists interventions.
 Affects: ONB-001, ONB-002, ONB-005.
 
 ### G-ONB-06 · Offboarding export and reconnection have no owning task
@@ -95,7 +95,7 @@ Affects: ONB-005.
 | `docs/onboarding/state-machine.md` | Steps (key, prerequisites, completion predicate over domain facts, acknowledgement type): S01 ORG_CREATED; S02 SNOWFLAKE_ORG_CONNECTED (optional → SKIPPED_OPTIONAL with ack "standalone coverage limited"); S03 ACCOUNTS_DISCOVERED; S04 ACCOUNTS_SELECTED (≤ entitlement); S05 ACCOUNT_WIF_INSTALLED (per account); S06 CAPABILITIES_VERIFIED (per account, required/optional); S07 HISTORY_PLAN_ACCEPTED (ack bound to plan revision + estimate version); S08 HISTORY_SYNCED (contiguous coverage of accepted available ranges); S09 RECONCILED (run status RECONCILED, or WARNING/FAILED/UNAVAILABLE + limitation ack → COMPLETED_WITH_LIMITATIONS, status text preserved); S10 OWNERSHIP_CLASSIFIED; S11 ALLOCATION_SIMULATED (conservation PASS); S12 BUDGET_CREATED; S13 MONITORS_CREATED (dry run done); S14 INSIGHT_REVIEWED (disposition or no-candidate ack); S15 FIRST_VALUE_PACK (restricted member invited, report delivered). Statuses: BLOCKED_BY_PREREQ, READY, IN_PROGRESS, WAITING_ON_CUSTOMER, WAITING_ON_SYSTEM, COMPLETED, COMPLETED_WITH_LIMITATIONS, FAILED, BLOCKED(code), SKIPPED_OPTIONAL. Run: ACTIVE, PAUSED, FV1_ACCEPTED, ABANDONED | ONB-001-S01 |
 | DDL `onboarding.*` (PG) | `runs(tenant_id, run_id, status, revision, created_by, created_at)`; `step_acknowledgements(tenant_id, run_id, step_key, account_id NULL, ack_type, bound_ref, bound_revision, payload_hash, actor, created_at)` append-only; `step_projection(tenant_id, run_id, step_key, account_id NULL, status, blocked_code NULL, source_versions JSONB, computed_at)`; `manual_interventions(tenant_id, run_id, step_key, operator, reason_code, ops_call_id, created_at)` | ONB-001-S02 |
 | OpenAPI onboarding paths | `GET /v1/onboarding`; `POST /v1/onboarding/runs` (idempotent, one ACTIVE per tenant); `POST /v1/onboarding/steps/{step_key}/acknowledgements` (If-Match revision, Idempotency-Key; body `{ack_type, bound_ref, bound_revision}`); `POST /v1/onboarding/pause`, `/resume` (delegate to sync) | ONB-001-S06 |
-| `docs/onboarding/blockers.yaml` | Code → detection → customer message → consequence: PRIVATELINK_ONLY (R2 message), RESELLER_NO_ORG_USAGE (credits only, invoice via reseller), STANDALONE_ACCOUNT (no organization coverage), ORG_ACCESS_UNAVAILABLE (organization view privilege/organization account missing — TO VERIFY LIVE), NETWORK_POLICY_BLOCKED (show NAT IPs), MISSING_GRANT_<source>, ACCOUNT_ALREADY_BOUND, ENTITLEMENT_ACCOUNT_LIMIT, ENTITLEMENT_HISTORY_LIMIT, WAREHOUSE_QUOTA_EXHAUSTED (customer resource monitor suspended), SOURCE_RETENTION_SHORTER, CROSS_CLOUD_ACCOUNT (non-AWS egress disclosure) | ONB-001-S07 |
+| `docs/onboarding/blockers.yaml` | Code → detection → customer message → consequence: PRIVATELINK_ONLY (R2 message), RESELLER_NO_ORG_USAGE (credits only, invoice via reseller), STANDALONE_ACCOUNT (no organization coverage), ORG_ACCESS_UNAVAILABLE (organization view privilege/organization account missing — TO VERIFY LIVE), NETWORK_POLICY_BLOCKED (show NAT IPs), MISSING_GRANT_<source>, ACCOUNT_ALREADY_BOUND, ENTITLEMENT_ACCOUNT_LIMIT, ENTITLEMENT_HISTORY_LIMIT, WAREHOUSE_QUOTA_EXHAUSTED (customer resource monitor suspended), SOURCE_RETENTION_SHORTER, CROSS_CLOUD_ACCOUNT (non-AWS egress disclosure), TRIAL_ACCOUNT_DEMO_ONLY (Snowflake trial account, D-35: demonstration only — labelled, outside paid entitlements, reconciliation, close, chargeback and FV-1) | ONB-001-S07 |
 | `data/estimates/onboarding-estimate.v1.json` | Inputs (accounts, sources, available ranges, 7-day query volume, coefficients version); outputs (backfill credits range, steady credits/month range, duration p50–p90, rows) | ONB-101-S01 |
 | `docs/onboarding/first-value.md` | FV-1 and FV-2 content lists from G-ONB-03, period-selection rule, acceptance fields | ONB-005-S01 |
 | Export bundle manifest `tenant-export.v1.json` | datasets, period, publication id, files with SHA-256, row counts, currency totals | ONB-102-S01 |
@@ -115,7 +115,7 @@ Affects: ONB-005.
 | ONB-005 | M11 | ONB-004, ALC-008, GOV-008, INS-007, RPT-005 → −INS-007, +INS-006, +RPT-003, +UX-004 (RECONCILIATION C-29) |
 
 ### ONB-001 — Build resumable onboarding checklist as a projection of domain state
-Release: R1 · Estimate: 52–78 h · Risk: H · Decisions: D-08, D-09, D-13, D-17, D-18 · Closes: G-ONB-01, G-ONB-04, G-ONB-05, G-ONB-07, G-ONB-08
+Release: R1 · Estimate: 55–82 h · Risk: H · Decisions: D-08, D-09, D-13, D-17, D-18, D-35, D-38 · Closes: G-ONB-01, G-ONB-04, G-ONB-05, G-ONB-07, G-ONB-08
 Dependency changes: `+LCH-101`, `+ONB-101`.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -137,6 +137,7 @@ Dependency changes: `+LCH-101`, `+ONB-101`.
 | ONB-001-S15 | Isolation tests: foreign run id, foreign step acknowledgement, Analyst acknowledging a financial limitation. | `tests/isolation/test_onboarding.py` | 404 for foreign ids; 403 for Analyst (FinOps Admin only). | 2 |
 | ONB-001-S16 | Funnel metrics without tenant dimensions (steps reached, time in step, blocker code counts) and per-tenant ops facts. | metrics registry entries | Dashboard shows funnel from synthetic runs. | 2 |
 | ONB-001-S17 | Docs and evidence. | `docs/evidence/ONB-001/<commit>/` | – | 2 |
+| ONB-001-S18 | Snowflake trial accounts (D-35): a connection whose CON-005 `trial_account` is TRUE — or UNKNOWN until an Owner attests paid status here (acknowledgement bound to the probe revision) — is labelled "Demonstration — Snowflake trial account" on every step card, figure and export header; it stays outside the paid path (LCH-101 paid entitlements) and cannot complete S09 RECONCILED or count toward FV-1 (BLOCKED(TRIAL_ACCOUNT_DEMO_ONLY)); a tenant whose only accounts are trial accounts stays in demonstration mode and never reaches FV1_ACCEPTED. | `services/onboarding/trial.py`, blocker entry | Fixture tenant with one paid and one trial account: trial cards labelled, trial S09 BLOCKED(TRIAL_ACCOUNT_DEMO_ONLY), FV-1 evaluated on the paid account only; trial-only tenant never FV1_ACCEPTED; the UNKNOWN attestation is audited. | 3 |
 
 Task acceptance:
 - [ ] Reload, double submission and worker restart resume the same run without duplicate pipelines.
@@ -144,6 +145,7 @@ Task acceptance:
 - [ ] Acknowledgements are bound to the domain revision they accept and are invalidated by a new revision.
 - [ ] No blended coverage percentage or unsupported ETA is displayed.
 - [ ] Connection success alone never completes onboarding.
+- [ ] The wizard completes without Bridge staff (D-38); a Snowflake trial account is labelled demonstration and can never start the paid or first-value path (D-35).
 
 ### ONB-002 — Prepare customer and support documentation with clean-room rehearsal
 Release: R1 · Estimate: 36–54 h · Risk: M · Decisions: D-08, D-09, D-13, D-18 · Closes: G-ONB-05
@@ -175,7 +177,7 @@ Dependency changes: `+LCH-003` (production go-live precedes the first real tenan
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ONB-003-S01 | Create the private customer record: authorization, order form and DPA references, region (EU, D-23), privacy mode, requested history, named organization owner, Snowflake admin, finance approver, support contacts. | private system record; public template `docs/customer-records/onboarding-template.md` | All fields filled; public repo contains template only (lint). | 2 |
+| ONB-003-S01 | Create the private customer record: authorization, order form (contracted pilot or commercial order — no unpaid trial, D-17) and DPA references, region (EU, D-23), privacy mode, requested history, named organization owner, Snowflake admin, finance approver, support contacts. | private system record; public template `docs/customer-records/onboarding-template.md` | All fields filled; public repo contains template only (lint). | 2 |
 | ONB-003-S02 | Run the pre-flight questionnaire: editions, account count, clouds/regions, reseller, PrivateLink-only, network policies, IdP/SSO, organization-view access. | questionnaire record | Every blocker code resolved or accepted before scheduling P3. | 2 |
 | ONB-003-S03 | Provision the tenant with the approved entitlement revision (LCH-001) and invite the Owner through the invitation workflow (explicit acceptance; SSO binding if contracted). | tenant id in private record | Owner logs in with MFA; no other members. | 2 |
 | ONB-003-S04 | Generate organization-level and per-account installation packages tied to the configuration revision; deliver through the authenticated portal, not e-mail attachments. | packages | Package hash recorded; download audited. | 2 |
@@ -219,12 +221,12 @@ Task acceptance:
 - [ ] Customer credit burn is within the disclosed estimate or re-consented.
 
 ### ONB-005 — Complete FV-1 workshop and customer acceptance
-Release: R1 · Estimate: 20–32 h · Risk: M · Decisions: D-11, D-15, D-16 · Closes: G-ONB-03, G-ONB-05, G-ONB-09
+Release: R1 · Estimate: 20–32 h · Risk: M · Decisions: D-11, D-15, D-16, D-38 · Closes: G-ONB-03, G-ONB-05, G-ONB-09
 Dependency changes: `−INS-007`, `+INS-006`, `+RPT-003`, `+UX-004` (S05 generates a report and checks parity with the Explorer; RPT-004 no longer depends on RPT-003 — RECONCILIATION C-29).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ONB-005-S01 | Prepare the workshop pack from the FV-1 list using the customer's own publication (normal APIs only). | `docs/onboarding/first-value.md` (template) + private pack | No customer-specific pipeline or data copy. | 3 |
+| ONB-005-S01 | Prepare the Bridge-led first-value workshop pack (D-38: guided workshop on top of the self-service wizard) from the FV-1 list using the customer's own publication (normal APIs only). | `docs/onboarding/first-value.md` (template) + private pack | No customer-specific pipeline or data copy. | 3 |
 | ONB-005-S02 | Invite a restricted member and verify denial of an unassigned account/team live with the customer. | access review record | Restricted user sees only assigned scope. | 2 |
 | ONB-005-S03 | Review the D-15 default allocation book, adjust ownership dimensions, simulate; show allocated + unallocated = eligible. | simulation id | Conservation PASS per currency. | 3 |
 | ONB-005-S04 | Create budget and monitor (dry run on history, then live); deliver one authorized notification to a customer destination. | ids + delivery receipt | Receipt recorded. | 3 |
@@ -266,7 +268,7 @@ Task acceptance:
 - [ ] No ETA without throughput evidence.
 
 ### ONB-102 — Offboarding export, disconnect/pause semantics and reconnection
-Release: R1 · Estimate: 26–40 h · Risk: M · Decisions: D-10, D-11 · Closes: G-ONB-06
+Release: R1 · Estimate: 21–32 h · Risk: M · Decisions: D-10, D-11 · Closes: G-ONB-06
 Why / where: DPA return-or-delete obligation and duplicate-free reconnection; plugs in at M9 after OPS-005, API-004, ALC-008, CON-006, API-102, CTL-102; ONB-002 depends on it. ONB-102 owns the customer-facing offboarding request, the export bundle and reconnection; pause/disconnect/revoke semantics are CON-006's, the tenant state machine CTL-102's and deletion OPS-005's (RECONCILIATION U-11).
 Dependency changes: new; deps OPS-005, API-004, ALC-008, CON-006, API-102 (tenant export bundle = an API-102 export kind; RECONCILIATION U-10), CTL-102 (offboarding state transitions; U-11).
 
@@ -290,14 +292,14 @@ Task acceptance:
 
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
-| ONB-001 | R1 | 52 | 78 |
+| ONB-001 | R1 | 55 | 82 |
 | ONB-002 | R1 | 36 | 54 |
 | ONB-003 | R1 | 18 | 30 |
 | ONB-004 | R1 | 26 | 42 |
 | ONB-005 | R1 | 20 | 32 |
 | ONB-101 | R1 | 22 | 34 |
 | ONB-102 | R1 | 21 | 32 |
-| **Total R1** | | **195** | **302** |
+| **Total R1** | | **198** | **306** |
 | **Total R2** | | **0** | **0** |
 
 Customer elapsed time (P0–P12) is not engineering effort and is excluded.

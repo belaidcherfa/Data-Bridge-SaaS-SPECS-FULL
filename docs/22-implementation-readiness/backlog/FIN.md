@@ -13,7 +13,7 @@ Not implementable as specified, although the *principles* are right (one additiv
 5. **Reconciliation and close.** Controls, the invoice-reference intake and the close/restatement workflow have no precise definitions or screens (G-FIN-09…12).
 6. **Maturity numbers (D-13).** QAH attribution maturity must be tied to the statement timeout, not to hour end + 24 h (G-FIN-08).
 
-Per-service tasks FIN-011…020 become small **attribution** models. The money for those services comes from one billing normalizer plus one estimator, which cuts risk and reconciliation surface (G-FIN-18). Realistic effort: **R1 ≈ 669–981 h**, **R1\* (D-20-conditional) ≈ 139–208 h** and **R2 ≈ 24–36 h**. For comparison, "2–6 h per task" gives 42–126 h for the 21 original tasks.
+Per-service tasks FIN-011…020 become small **attribution** models. The money for those services comes from one billing normalizer plus one estimator, which cuts risk and reconciliation surface (G-FIN-18). Realistic effort (§6, after RECONCILIATION de-duplication and the owner decisions of 2026-09-28): **R1 = 808–1,189 h** — D-20 moved every former R1\* task (FIN-004, FIN-008 replication, FIN-012, FIN-017…FIN-020; 139–208 h) into R1 — and **R2 = 24–36 h**. Capability degradation remains mandatory R1 behavior: Standard edition (no ACCESS_HISTORY or native tags → explicit attribution-coverage reasons, never zero), standalone accounts (no ORGANIZATION_USAGE → METERING_DAILY_HISTORY credits priced with a customer-approved rate, or money NULL with a reason; never labelled billed) and reseller contracts (FIN-105 customer-approved rates). Snowflake trial accounts are demonstration-only (D-35): no reconciliation claim, close or chargeback (FIN-009-S20, FIN-010-S16). For comparison, "2–6 h per task" gives 42–126 h for the 21 original tasks.
 
 ## 2. Findings
 
@@ -110,8 +110,8 @@ Severity: MEDIUM · Type: VENDOR-FACT (contradicts AUDIT X-28 "may be preview")
 Evidence: snowflake.com/en/blog/adaptive-compute-generally-available (search snippet, 2026-09-27): "Adaptive Compute reached general availability on AWS on June 16, 2026 … select Azure and Google Cloud regions on July 28, 2026". It is billed per query. `CREDITS_ATTRIBUTED_COMPUTE_QUERIES` is NULL for Adaptive warehouses, and QMH latency is about 1 h. VERIFIED (snippet).
 Why it matters: Adaptive usage by the first customer is now likely, not exotic. Without FIN-004, Adaptive spend still appears in the bucket but has 0 % query attribution and "idle unknown".
 Resolution:
-- Keep FIN-004 as **R1\*** (D-20), but take it off the critical path: FIN-009 must not depend on it.
-- CON-005 capability probe must detect Adaptive warehouses and flag D-20 automatically ("customer uses Adaptive → FIN-004 required before go-live").
+- FIN-004 is **R1** (D-20, 2026-09-28: every workload and service family in R1), but stays off the critical path: FIN-009 must not depend on it.
+- The CON-005 capability probe detects Adaptive warehouses per account (`adaptive_present`); the flag activates QMH extraction and FIN-004's per-warehouse routing. It no longer decides release scope.
 - Money coverage stays R1 through the bucket.
 Affects: FIN-004, FIN-009, CON-005, INS-002, UX-005.
 
@@ -164,7 +164,7 @@ Severity: HIGH · Type: GAP
 Evidence:
 - `security.md` role matrix: "FinOps Admin — Prices, tags, allocation, budgets, close/restate chargeback" (one role, no second approver).
 - FIN-010 — "Close record pins charge/publication/reference/rules/rates/check versions" (no list, no storage mechanism).
-- D-05 garbage-collects revisions, and D-11 purges query-level detail after 90 days. Neither excludes pinned periods.
+- D-05 garbage-collects revisions, and D-11 purges query-level detail after `hot_days` (365 days by default since the owner's D-11 decision; plans may set fewer). Neither excludes pinned periods.
 Why it matters: one person can close and restate a financial period. Explain This Number on a 6-month-old closed statement breaks once pinned revisions or query rows are purged. A "closed" PDF in a mutable bucket is not immutable.
 Resolution:
 - Split capabilities: `finance.period.close.request`, `finance.period.close.approve`, `finance.period.restate.request` and `finance.period.restate.approve`. Maker ≠ checker is enforced server-side (tenant policy default ON; owner Q3).
@@ -326,13 +326,13 @@ Affects: FIN-012, FIN-018, FIN-021.
 Severity: MEDIUM · Type: RISK
 Evidence:
 - FIN-001 depends on DBT-005 and ING-001, but DBT-005 "Wire signed-adjustment, idle and allocation fixture families into CI" consumes FIN-001's fixtures.
-- FIN-009 waits for R1\* tasks FIN-004/018/019/020.
+- FIN-009 waits for FIN-004/018/019/020 (then R1\*; R1 since D-20, 2026-09-28).
 - FIN-004 waits for FIN-003.
 - FIN-008 waits for FIN-006.
 - FIN-020 waits for FIN-019.
 - Downstream: API-001 waits for FIN-009, ALC-001 for FIN-009, ALC-005 for FIN-010, and INS-002/UX-005 for FIN-004.
-Why it matters: the FIN chain adds about 8 serial tasks to the critical path and makes Adaptive/Cortex/SPCS/Marketplace mandatory for launch.
-Resolution: see per-task "Dependency changes" and the summary in §6 (reverse FIN-001→DBT-005; capability plug-ins for R1\*). Downstream:
+Why it matters: the FIN chain adds about 8 serial tasks to the critical path and puts Adaptive/Cortex/SPCS/Marketplace in front of reconciliation. Since D-20 these tasks are R1 anyway; they stay parallel capability plug-ins rather than prerequisites of FIN-009.
+Resolution: see per-task "Dependency changes" and the summary in §6 (reverse FIN-001→DBT-005; capability plug-ins for the service-detail tasks). Downstream:
 - API-001 → FIN-001 (+FIN-102) instead of FIN-009.
 - ALC-001 → FIN-001 + FIN-103.
 - ALC-005 → FIN-009 (not FIN-010).
@@ -380,7 +380,7 @@ Affects: FIN-009, FIN-010, GOV.
 | `data/contracts/ledger/fct_charge.schema.json` + dbt contract `fct_charge.yml` | Columns/types/enums/nullability of §3.1, including the fine bucket key and the family bucket key; no FLOAT anywhere | FIN-001-S01/S02 |
 | `data/contracts/ledger/supersession.md` | Decision table §3.1 (8 cases) with fixture IDs | FIN-001-S03 |
 | `data/contracts/ledger/bridge_charge_attribution.schema.json` | Grain, residual kinds, exact-conservation invariant, attribution_status | FIN-001-S04 |
-| `data/contracts/service-authority.json` | §3.2 per family: charge authority, estimator, attribution sets with effective_from/to, exclusions, R1/R1\*/R2 | FIN-001-S05 |
+| `data/contracts/service-authority.json` | §3.2 per family: charge authority, estimator, attribution sets with effective_from/to, exclusions, R1/R2 (no R1\* after D-20) | FIN-001-S05 |
 | `data/dbt/seeds/ref_service_crosswalk.csv` (versioned) | UICD `(service_type, usage_type, rating_type, billing_type, is_adjustment)` and MDH `service_type` mapped to `service_family, entry_kind, native_unit`; unknown → UNMAPPED | FIN-001-S06 (v0), FIN-108 (v1 from live evidence) |
 | `data/dbt/seeds/ref_source_maturity_policy.csv` (versioned) | §3.3 numbers per source: charge horizon, attribution horizon, month stability N, anti-entropy window | FIN-104-S01 |
 | `data/contracts/reconciliation/controls.yaml` | §3.4 C1–C9: inputs, grain, tolerance rule, required flag, outcome mapping, classification enum | FIN-009-S01 |
@@ -468,21 +468,21 @@ Hour-level money (FIN-103):
 | Family (service_family) | Money authority (CHARGE) | Provisional estimate (same family bucket) | Attribution source → grain (ATTRIBUTION) | Overlap trap / exclusion | Charge FINAL | Detail release · task |
 |---|---|---|---|---|---|---|
 | WAREHOUSE_COMPUTE (classic Gen1/Gen2) | UICD WAREHOUSE_METERING compute rows | MDH WAREHOUSE_METERING CREDITS_USED_COMPUTE × rate; intraday MH hourly | WMH → warehouse×hour; QAH prorated (D-14) → query×hour; idle = WMH.compute − WMH.attributed | Query + idle are subdivisions; QAH short queries → PRORATION_RESIDUAL | +72 h (UICD) | R1 · FIN-003 |
-| WAREHOUSE_COMPUTE (Adaptive) | Same family bucket | Same | WMH → warehouse×hour; QMH → query×metering_hour | No idle (attributed column NULL, VERIFIED snippet); never union QAH+QMH | +72 h | R1\* · FIN-004 |
+| WAREHOUSE_COMPUTE (Adaptive) | Same family bucket | Same | WMH → warehouse×hour; QMH → query×metering_hour | No idle (attributed column NULL, VERIFIED snippet); never union QAH+QMH | +72 h | R1 · FIN-004 |
 | CLOUD_SERVICES | UICD cloud-services rows including IS_ADJUSTMENT rows (representation TO VERIFY) | MDH Σ(CS gross + CREDITS_ADJUSTMENT_CLOUD_SERVICES) per account/day × rate | D-15: ∝ gross CS by warehouse-hour (WMH), serverless service type (MDH), query (QUERY_HISTORY) | Adjustment only at account/UTC day; serverless compute excluded from the 10 % base (VERIFIED snippet); no per-query 10 % | +72 h | R1 · FIN-005 |
 | STORAGE (database, stage, fail-safe, hybrid, archive tiers) | UICD storage rows (daily accrual vs month-end TO VERIFY) | OU.STORAGE_DAILY_HISTORY avg bytes / tb_unit × rate per TB-month / days_in_month | DSUH → database×day (365 d backfill); STAGE_STORAGE_USAGE_HISTORY → stage; TSM → table×snapshot (from enrollment) | DSUH does not reconcile (VERIFIED snippet) → UNATTRIBUTED residual; clone logical bytes never summed | +72 h | R1 · FIN-006 |
 | SNOWPIPE_FILE | UICD PIPE rows | MDH PIPE × rate | PIPE_USAGE_HISTORY → pipe×interval; NULL PIPE_ID → HIDDEN_PIPE | MH summary is reference only; pricing model changed to 0.0037 cr/GB (VERIFIED snippet) | +72 h | R1 · FIN-011 |
-| SNOWPIPE_STREAMING | UICD SNOWPIPE_STREAMING rows | MDH SNOWPIPE_STREAMING × rate | Classic: CLIENT/CHANNEL history → client/channel×interval; HP: per-GB (source TO VERIFY) | Never reuse file-Snowpipe unit economics; migration component distinct | +72 h | R1\* · FIN-012 |
+| SNOWPIPE_STREAMING | UICD SNOWPIPE_STREAMING rows | MDH SNOWPIPE_STREAMING × rate | Classic: CLIENT/CHANNEL history → client/channel×interval; HP: per-GB (source TO VERIFY) | Never reuse file-Snowpipe unit economics; migration component distinct | +72 h | R1 · FIN-012 |
 | SERVERLESS_TASK / SERVERLESS_ALERT | UICD SERVERLESS_TASK (alerts service type TO VERIFY) | MDH × rate | SERVERLESS_TASK_HISTORY (CREDITS_USED VARCHAR → exact decimal) → task×instance×interval; SERVERLESS_ALERT_HISTORY | Warehouse-executed tasks/dynamic tables are warehouse workload (WRK), never serverless | +72 h | R1 · FIN-013 |
 | AUTO_CLUSTERING | UICD AUTO_CLUSTERING | MDH × rate | AUTOMATIC_CLUSTERING_HISTORY → table×interval | Summary MH not additive | +72 h | R1 · FIN-014 |
 | SEARCH_OPTIMIZATION | UICD SEARCH_OPTIMIZATION | MDH × rate | SEARCH_OPTIMIZATION_HISTORY → table×interval | Benefit ≠ saving | +72 h | R1 · FIN-015 |
 | MATERIALIZED_VIEW | UICD MATERIALIZED_VIEW | MDH × rate | MATERIALIZED_VIEW_REFRESH_HISTORY → view×interval | Reads of the view are warehouse workload | +72 h | R1 · FIN-016 |
-| QUERY_ACCELERATION | UICD QUERY_ACCELERATION | MDH × rate | QUERY_ACCELERATION_HISTORY → warehouse×interval; QAH.CREDITS_USED_QUERY_ACCELERATION → query | QAH QAS column is decomposition, not a second bill | +72 h | R1\* · FIN-017 |
-| AI_SERVICES (Cortex) | UICD AI_SERVICES (sub-types TO VERIFY) | MDH AI_SERVICES × rate | Effective-dated: CORTEX_AISQL_USAGE_HISTORY (≤ 2026-01-04) → CORTEX_AI_FUNCTIONS_USAGE_HISTORY (≥ 2026-01-05, hourly); Search/Analyst/Agent views as separate sets | Retired functions view: history only; agent parent includes child tools; warehouse credits of the calling query stay WAREHOUSE_COMPUTE | +72 h | R1\* · FIN-018 |
-| SPCS (compute pools; block storage/transfer as separate rating types TO VERIFY) | UICD SNOWPARK_CONTAINER_SERVICES | MDH × rate | SNOWPARK_CONTAINER_SERVICES_HISTORY → pool×hour, app_id | Two services on one pool: one charge; utilization never inferred from credits | +72 h | R1\* · FIN-019 |
+| QUERY_ACCELERATION | UICD QUERY_ACCELERATION | MDH × rate | QUERY_ACCELERATION_HISTORY → warehouse×interval; QAH.CREDITS_USED_QUERY_ACCELERATION → query | QAH QAS column is decomposition, not a second bill | +72 h | R1 · FIN-017 |
+| AI_SERVICES (Cortex) | UICD AI_SERVICES (sub-types TO VERIFY) | MDH AI_SERVICES × rate | Effective-dated: CORTEX_AISQL_USAGE_HISTORY (≤ 2026-01-04) → CORTEX_AI_FUNCTIONS_USAGE_HISTORY (≥ 2026-01-05, hourly); Search/Analyst/Agent views as separate sets | Retired functions view: history only; agent parent includes child tools; warehouse credits of the calling query stay WAREHOUSE_COMPUTE | +72 h | R1 · FIN-018 |
+| SPCS (compute pools; block storage/transfer as separate rating types TO VERIFY) | UICD SNOWPARK_CONTAINER_SERVICES | MDH × rate | SNOWPARK_CONTAINER_SERVICES_HISTORY → pool×hour, app_id | Two services on one pool: one charge; utilization never inferred from credits | +72 h | R1 · FIN-019 |
 | DATA_TRANSFER | UICD data-transfer rows (currency per TB) | DATA_TRANSFER_HISTORY bytes / tb_unit × directional rate | DATA_TRANSFER_HISTORY → direction×type×day | Bytes × credit price forbidden; replication transfer is a link | +72 h | R1 · FIN-008 |
-| REPLICATION (compute) | UICD REPLICATION | MDH × rate | REPLICATION_GROUP_USAGE_HISTORY (current) / DATABASE_REPLICATION_USAGE_HISTORY (legacy), effective-dated | No old/new union; transfer counted in DATA_TRANSFER only | +72 h | R1\* · FIN-008 |
-| MARKETPLACE | UICD marketplace rows if present; else DATA_SHARING_USAGE.MARKETPLACE_PAID_USAGE_DAILY (separate invoice) | None (billed source only) | MPUD listing detail; APPLICATION_DAILY_USAGE_HISTORY app consumption links (non-additive) | MONETIZED_USAGE_DAILY = provider revenue, blocked from CHARGE; MCD double count | +72 h (UICD) / +72 h (MPUD 48 h latency) | R1\* · FIN-020 |
+| REPLICATION (compute) | UICD REPLICATION | MDH × rate | REPLICATION_GROUP_USAGE_HISTORY (current) / DATABASE_REPLICATION_USAGE_HISTORY (legacy), effective-dated | No old/new union; transfer counted in DATA_TRANSFER only | +72 h | R1 · FIN-008 |
+| MARKETPLACE | UICD marketplace rows if present; else DATA_SHARING_USAGE.MARKETPLACE_PAID_USAGE_DAILY (separate invoice) | None (billed source only) | MPUD listing detail; APPLICATION_DAILY_USAGE_HISTORY app consumption links (non-additive) | MONETIZED_USAGE_DAILY = provider revenue, blocked from CHARGE; MCD double count | +72 h (UICD) / +72 h (MPUD 48 h latency) | R1 · FIN-020 |
 | ORGANIZATION_FEES (support, VPS, private connectivity, …) | UICD rows with ACCOUNT NULL → scope ORGANIZATION | None | None; D-15 platform bucket | Never assigned to an invented account | +72 h | R1 · FIN-021 |
 | ADJUSTMENTS / CREDITS | UICD IS_ADJUSTMENT = TRUE (signed) | None | Follow family of service_type when present; else unallocated | Balance source REBATE is funding, not a negative charge | +72 h | R1 · FIN-005/021 |
 | HYBRID_TABLE_REQUESTS (historic) | UICD rows ≤ 2026-02-28 | MDH × rate ≤ 2026-02-28 | None | Not billed from 2026-03-01 (VERIFIED snippet) | +72 h | R1 · FIN-021 |
@@ -713,7 +713,7 @@ Dependency changes: `+FIN-102` (estimates and supersession), `+FIN-103` (allocat
 | FIN-003-S09 | Short queries absent from QAH (≤ ~100 ms, VERIFIED snippet) end up in PRORATION_RESIDUAL; document in the model docs | same | Fixture WMH attributed 70, QAH Σ 69.5 → residual 0.5 cr | 2 |
 | FIN-003-S10 | Set attribution maturity from FIN-104: hour split FINAL at hour_end + T + 24 h (default 72 h); a late QAH row rebuilds the affected hours as a new revision | `attribution_status` column | Late 40 h query fixture changes hour split at +44 h; status PROVISIONAL until +72 h | 3 |
 | FIN-003-S11 | Resize and multi-cluster: no model reads WAREHOUSE_SIZE for money (lint test); resized-within-hour fixture | `tests/no_size_based_money.sql` | Lint fails if WAREHOUSE_SIZE appears in ledger/bridge SQL | 2 |
-| FIN-003-S12 | D-11 tiering: query-level bridge rows hot 90 d; aggregate `bridge_query_family_daily` (parameterized hash × warehouse × day) kept 400 d; pinned closed periods retain family aggregates | `bridge_query_family_daily.sql`, purge job spec | Purging query rows leaves family and day totals unchanged (checksum) | 3 |
+| FIN-003-S12 | D-11 tiering: query-level bridge rows hot for `hot_days` (365 d by default, owner decision 2026-09-28); aggregate `bridge_query_family_daily` (parameterized hash × warehouse × day) kept 400 d; pinned closed periods retain family aggregates | `bridge_query_family_daily.sql`, purge job spec | Purging query rows leaves family and day totals unchanged (checksum) | 3 |
 | FIN-003-S13 | Label queries with QUERY_TAG prefix `bridge_finops:` as workload BRIDGE_OVERHEAD (D-08) | same | Fixture shows Bridge overhead as a separate workload, still inside warehouse 200 | 1 |
 | FIN-003-S14 | Tenant isolation: identical query_id and warehouse_id in tenants A and B | `tests/spec/FIN-003/isolation/` | Zero cross-tenant rows; composite key enforced | 2 |
 | FIN-003-S15 | Observability: `fin_wh_idle_negative_hours`, `fin_wh_unattributed_ratio`; alert if unattributed > 20 % on FINAL days for 3 consecutive days per tenant | alarms | Injected fixture triggers alert in staging | 2 |
@@ -723,10 +723,10 @@ Task acceptance:
 - [ ] A cross-midnight query is prorated (0.5 / 1.5 by day) and no day shows negative idle due to allocation.
 - [ ] The proration residual is an explicit signed row; there is no fabricated scaling of query costs.
 - [ ] Attribution is not FINAL before hour_end + 72 h (default policy).
-- [ ] Query-level purge after 90 d preserves family and day totals.
+- [ ] Query-level purge after `hot_days` (365 d by default) preserves family and day totals.
 
 ### FIN-004 — Implement Adaptive query-hour compute and maturity
-Release: R1\* (D-20; Adaptive GA since 2026-06-16) · Estimate: 24–36 h · Risk: M · Decisions: D-12, D-13, D-20 · Closes: G-FIN-07
+Release: R1 (D-20, 2026-09-28; Adaptive GA since 2026-06-16) · Estimate: 24–36 h · Risk: M · Decisions: D-12, D-13, D-20 · Closes: G-FIN-07
 Dependency changes: `−FIN-003` (independent attribution model; shares only WMH staging), `+FIN-103`, `+FIN-104`, `+FIN-002` (keeps the billing-normalizer ordering previously implied via FIN-003; RECONCILIATION C-22). FIN-009 no longer depends on FIN-004; it plugs in via capability; INS-002 reads the Adaptive capability flag from CON-005 instead of depending on FIN-004 (C-22).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -792,7 +792,7 @@ Task acceptance:
 
 ### FIN-007 — Validate independent serverless service inclusion and totals
 Release: R1 · Estimate: 13–18 h · Risk: L · Decisions: D-12 · Closes: G-FIN-18 (conformance)
-Dependency changes: `−FIN-012`, `−FIN-017` (R1\*, validated when enabled via capability flag); keep FIN-011/013/014/015/016; `+FIN-103`. (FIN-007 is missing from RELEASE_PLAN R1 lists; tagged R1 here.)
+Dependency changes: `−FIN-012`, `−FIN-017` (R1 since D-20; validated when enabled via capability flag, S06); keep FIN-011/013/014/015/016; `+FIN-103`. (FIN-007 is missing from RELEASE_PLAN R1 lists; tagged R1 here.)
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-007-S01 | Graph test: each `bridge_<serverless family>` model's upstream set (`dbt ls --select +model`) contains staging/seeds only, never another ledger or bridge model | `tests/spec/FIN-007/test_independence.py` | Fails when a fixture model references `bridge_pipe` | 2 |
@@ -809,7 +809,7 @@ Task acceptance:
 - [ ] No attribution model depends on another ledger or bridge model.
 
 ### FIN-008 — Implement directional transfer and replication charges
-Release: R1 (transfer S01–S05, S08–S09) · R1\* (replication S06–S07, D-20) · Estimate: 24–36 h (transfer 16–24 h, replication 8–12 h) · Risk: M · Decisions: D-12, D-15 · Closes: —
+Release: R1 (transfer S01–S05, S08–S09; replication S06–S07 — R1 since D-20, 2026-09-28) · Estimate: 24–36 h (transfer 16–24 h, replication 8–12 h) · Risk: M · Decisions: D-12, D-15 · Closes: —
 Dependency changes: `−FIN-006` (no storage dependency), `+FIN-102`, `+FIN-103`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -818,8 +818,8 @@ Dependency changes: `−FIN-006` (no storage dependency), `+FIN-102`, `+FIN-103`
 | FIN-008-S03 | Authoritative DATA_TRANSFER family buckets from UICD (currency, not credits) | crosswalk | F-270 transfer 4.00 once | 1 |
 | FIN-008-S04 | Attribution: bucket money → (transfer_type, direction) by bytes; REPLICATION-type transfer tagged `caused_by=REPLICATION` (link only) | `bridge_data_transfer.sql` | Σ = 4.00 exactly | 3 |
 | FIN-008-S05 | Lint test: no model multiplies bytes by a credit rate (`native_unit=TB` requires a rate with unit TB) | `tests/no_bytes_times_credit_rate.sql` | Crafted bad model fails | 2 |
-| FIN-008-S06 | (R1\*) Replication compute: REPLICATION family bucket; attribution from REPLICATION_GROUP_USAGE_HISTORY (current) and DATABASE_REPLICATION_USAGE_HISTORY (legacy), effective-dated authority (no union) | `bridge_replication.sql` | Overlap-day fixture counts once | 4 |
-| FIN-008-S07 | (R1\*) Link replication groups to their transfer attribution rows; totals count transfer only in DATA_TRANSFER | same | Replication 6.00 + transfer 4.00 = 10.00, never 14.00 | 2 |
+| FIN-008-S06 | (D-20) Replication compute: REPLICATION family bucket; attribution from REPLICATION_GROUP_USAGE_HISTORY (current) and DATABASE_REPLICATION_USAGE_HISTORY (legacy), effective-dated authority (no union) | `bridge_replication.sql` | Overlap-day fixture counts once | 4 |
+| FIN-008-S07 | (D-20) Link replication groups to their transfer attribution rows; totals count transfer only in DATA_TRANSFER | same | Replication 6.00 + transfer 4.00 = 10.00, never 14.00 | 2 |
 | FIN-008-S08 | NULL target metadata → UNATTRIBUTED transfer row | fixture | Explicit residual | 1 |
 | FIN-008-S09 | Isolation, observability, evidence | `docs/evidence/FIN-008/` | Recorded | 2 |
 Task acceptance:
@@ -828,8 +828,8 @@ Task acceptance:
 - [ ] A missing directional rate leaves money NULL with a reason, while bytes remain visible.
 
 ### FIN-009 — Build reconciliation controls and financial health UX
-Release: R1 · Estimate: 70–100 h · Risk: H · Decisions: D-02, D-12, D-13, D-22 · Closes: G-FIN-10, G-FIN-21 (route), G-FIN-25, G-FIN-26
-Dependency changes: `−FIN-004`, `−FIN-018`, `−FIN-019`, `−FIN-020` (R1\* plug in by capability; they are not required edges); `+FIN-003`, `+FIN-101` (C5 references), `+FIN-104`, `+FIN-106`; keep FIN-005/006/007/008/021. Downstream: `API-001` and `ALC-001` should depend on FIN-001/FIN-102/FIN-103 instead of FIN-009.
+Release: R1 · Estimate: 72–103 h · Risk: H · Decisions: D-02, D-12, D-13, D-22, D-35 · Closes: G-FIN-10, G-FIN-21 (route), G-FIN-25, G-FIN-26
+Dependency changes: `−FIN-004`, `−FIN-018`, `−FIN-019`, `−FIN-020` (R1 since D-20, but they plug in by capability; they are not required edges); `+FIN-003`, `+FIN-101` (C5 references), `+FIN-104`, `+FIN-106`; keep FIN-005/006/007/008/021. Downstream: `API-001` and `ALC-001` should depend on FIN-001/FIN-102/FIN-103 instead of FIN-009.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-009-S01 | Author the control catalog (§3.4, C1–C9) with inputs, grain, tolerance expression, required flag, outcome mapping and classification enum (TIMING, TAX_SCOPE, CAPACITY_PURCHASE, RATE_MISMATCH, OVERAGE_PRICING, ADJUSTMENT, UNMAPPED_SERVICE, MISSING_SOURCE, MARKETPLACE_SEPARATE_INVOICE, OTHER) | `data/contracts/reconciliation/controls.yaml` + schema | Schema validation green; reviewer sign-off by FinOps | 3 |
@@ -851,15 +851,17 @@ Dependency changes: `−FIN-004`, `−FIN-018`, `−FIN-019`, `−FIN-020` (R1\*
 | FIN-009-S17 | Observability: `fin_recon_status_total{control,status}` (no tenant label); alarm on FAILED in a CLOSE_PREVIEWED or CLOSED period → RB-06 | alarms | Injected FAILED pages on-call in staging | 2 |
 | FIN-009-S18 | Performance: 12 months × 20 accounts control run ≤ 2 min on the central warehouse (target TO VERIFY; record actual) | `tests/perf/FIN-009/` | Recorded runtime/credits | 2 |
 | FIN-009-S19 | Evidence: 270 vs 271, replay stays 270, missing invoice PENDING, USD and EUR controls independent | `docs/evidence/FIN-009/` | All PASS | 2 |
+| FIN-009-S20 | Trial-account exclusion (D-35): accounts whose connection carries the CON-005 `TRIAL_ACCOUNT` flag (TRUE, or UNKNOWN until attested) are removed from every control scope and period roll-up; their controls return NOT_APPLICABLE with reason `TRIAL_ACCOUNT_DEMO_ONLY`; a scope made only of trial accounts can never be RECONCILED; API meta `demo_reason` and the UI label "Demonstration data — Snowflake trial account" | `ctl_scope_eligibility.sql`, API meta field | Fixture org with one paid and one trial account: roll-up covers the paid account only; trial-only fixture shows NOT_APPLICABLE, never MATCHED or RECONCILED | 2 |
 Task acceptance:
 - [ ] 270 vs 271 stays visible as −1.00 FAILED until an approved classified explanation makes it WARNING (never MATCHED).
 - [ ] A duplicate or replayed run stays 270.00; a missing invoice is PENDING, not RECONCILED.
 - [ ] Per-currency controls are independent; no USD+EUR aggregate exists.
 - [ ] No control or explanation can write a balancing row to fct_charge.
 - [ ] An account-limited principal cannot infer org-scope amounts from totals or percentages.
+- [ ] A Snowflake trial account (D-35) is labelled demonstration data and never carries a reconciliation claim.
 
 ### FIN-010 — Implement period close, statements and financial evidence retention
-Release: R1 · Estimate: 50–70 h · Risk: H · Decisions: D-05, D-11, D-04, D-25 · Closes: G-FIN-11, G-FIN-21 (close screen)
+Release: R1 · Estimate: 52–73 h · Risk: H · Decisions: D-05, D-11, D-04, D-25, D-35 · Closes: G-FIN-11, G-FIN-21 (close screen)
 Dependency changes: keep FIN-009, SEC-006; `+FIN-106` (statement rounding), `+FIN-101` (reference pins), `+INF evidence bucket with S3 Object Lock` (INF backlog). Corrections and restatement move to new FIN-107. Downstream: `ALC-005` should depend on FIN-009, not FIN-010; ALC-008 keeps FIN-010.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -878,12 +880,14 @@ Dependency changes: keep FIN-009, SEC-006; `+FIN-106` (statement rounding), `+FI
 | FIN-010-S13 | Security negative tests: Analyst close → 403; foreign period_id → 404; requester = approver → 409; stale If-Match → 412; statement download after revocation → 403 | `tests/spec/FIN-010/security/` | All pass | 2 |
 | FIN-010-S14 | Audit events (request, approve, reject, pins, hashes) to the SEC audit stream; metric `fin_period_close_total{outcome}` | audit schema entries | Audit rows present for every transition | 2 |
 | FIN-010-S15 | Runbook `financial-close.md` (blocked close, stale preview, artifact upload failure), then evidence | `docs/runbooks/financial-close.md`, `docs/evidence/FIN-010/` | Closed 270.00 statement re-downloads byte-identical (sha256) | 2 |
+| FIN-010-S16 | Trial-account exclusion (D-35): the precondition evaluator drops `TRIAL_ACCOUNT`-flagged accounts from the freeze set and statement lines (listed as "excluded — demonstration account"); a close request whose scope holds only trial accounts → 409 `TRIAL_ACCOUNT_DEMO_ONLY`; chargeback (ALC-008 reads closed statements) therefore never contains trial-account amounts | `apps/api/finance/close/preconditions.py` + test | Mixed fixture: statement lists only the paid account plus the exclusion note; trial-only close → 409; chargeback preview for the closed period has no trial amount | 2 |
 Task acceptance:
 - [ ] The closed 270.00 statement remains 270.00 byte-identical after later corrections.
 - [ ] Close requires two distinct authorized users (unless tenant policy explicitly disables it, which is audited).
 - [ ] A duplicate close returns the same record; concurrent closes produce one record.
 - [ ] Every pinned version listed in the freeze set is retrievable 13 months later (GC test).
 - [ ] An unauthorized or revoked user cannot close or download.
+- [ ] No closed period, statement or chargeback includes a Snowflake trial account (D-35).
 
 ### FIN-011 — Implement file Snowpipe and hidden pipe attribution
 Release: R1 · Estimate: 12–18 h · Risk: L · Decisions: D-12 · Closes: G-FIN-17 (file)
@@ -904,7 +908,7 @@ Task acceptance:
 - [ ] Every row preserves source lineage (batch, revision).
 
 ### FIN-012 — Implement Snowpipe Streaming channel and client components
-Release: R1\* (D-20) · Estimate: 17–26 h · Risk: M · Decisions: D-12 · Closes: G-FIN-17 (streaming), G-FIN-22 (fixture)
+Release: R1 (D-20, 2026-09-28) · Estimate: 17–26 h · Risk: M · Decisions: D-12 · Closes: G-FIN-17 (streaming), G-FIN-22 (fixture)
 Dependency changes: `+FIN-103`; not a dependency of FIN-009.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -986,7 +990,7 @@ Task acceptance:
 - [ ] 2.00 conserved; view reads are never charged as MV maintenance.
 
 ### FIN-017 — Implement query acceleration
-Release: R1\* (D-20) · Estimate: 12–18 h · Risk: L · Decisions: D-12, D-14 · Closes: —
+Release: R1 (D-20, 2026-09-28) · Estimate: 12–18 h · Risk: L · Decisions: D-12, D-14 · Closes: —
 Dependency changes: `+FIN-103`, `+FIN-003` (QAH proration shared macro); not a dependency of FIN-009.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -1002,7 +1006,7 @@ Task acceptance:
 - [ ] 3.00 service total with 2.00 query detail and 1.00 unattributed; QAS is not billed twice.
 
 ### FIN-018 — Implement current Cortex services and non-overlapping AI attribution
-Release: R1\* (D-20) · Estimate: 36–54 h · Risk: H · Decisions: D-12, D-20 · Closes: G-FIN-06, G-FIN-22 (AI fixture)
+Release: R1 (D-20, 2026-09-28) · Estimate: 36–54 h · Risk: H · Decisions: D-12, D-20 · Closes: G-FIN-06, G-FIN-22 (AI fixture)
 Dependency changes: `+FIN-103`, `+FIN-108` (live source inventory); not a dependency of FIN-009.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -1023,7 +1027,7 @@ Task acceptance:
 - [ ] No warehouse credits appear in the AI metric.
 
 ### FIN-019 — Implement SPCS compute-pool and application attribution
-Release: R1\* (D-20) · Estimate: 22–32 h · Risk: M · Decisions: D-12 · Closes: —
+Release: R1 (D-20, 2026-09-28) · Estimate: 22–32 h · Risk: M · Decisions: D-12 · Closes: —
 Dependency changes: `+FIN-103`; not a dependency of FIN-009 or FIN-020.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -1040,7 +1044,7 @@ Task acceptance:
 - [ ] Idle/utilization show "unavailable" without telemetry.
 
 ### FIN-020 — Implement marketplace purchase and native-app cost separation
-Release: R1\* (D-20) · Estimate: 20–30 h · Risk: M · Decisions: D-12 · Closes: G-FIN-05
+Release: R1 (D-20, 2026-09-28) · Estimate: 20–30 h · Risk: M · Decisions: D-12 · Closes: G-FIN-05
 Dependency changes: `−FIN-019` (optional link only), `+FIN-103`, `+FIN-108` (MCD/UICD evidence), `+ING-001` (correct schema DATA_SHARING_USAGE).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -1282,7 +1286,7 @@ Task acceptance:
 | `FIN-108` after `CON-005`, `ING-007`; `FIN-108 → FIN-002 (DONE)`, `→ FIN-104`, `→ FIN-006`, `→ FIN-018`, `→ FIN-020`, `→ FIN-021` | Vendor semantics verified before money SQL is frozen |
 | `FIN-001 → FIN-104 → FIN-102`; `FIN-002 → FIN-102`; `FIN-106 → FIN-103`; `FIN-102, FIN-103 → FIN-003…FIN-021` | Estimator, supersession and exact attribution are shared cores |
 | Drop `FIN-003 → FIN-004`, `FIN-006 → FIN-008`, `FIN-019 → FIN-020` | Independent attribution models (PRD §49) |
-| `FIN-009` depends on 003, 005, 006, 007, 008, 021, 101, 104, 106; **not** on 004, 018, 019, 020 (capability plug-ins) | Removes R1\* features from the launch critical path |
+| `FIN-009` depends on 003, 005, 006, 007, 008, 021, 101, 104, 106; **not** on 004, 018, 019, 020 (capability plug-ins) | Keeps the service-detail plug-ins (R1 since D-20) off the FIN-009 critical path |
 | `FIN-007` depends on 011, 013–016 (not 012, 017) | Same |
 | `FIN-101 → FIN-009 → FIN-010 → FIN-107 → ALC-008, ONB-004` | Invoice intake and corrections precede close and chargeback |
 | Downstream: `API-001` → FIN-001 + FIN-102 (not FIN-009); `ALC-001` → FIN-001 + FIN-103 (not FIN-009); `ALC-005` → FIN-009 (not FIN-010); `INS-002`, `UX-005` → FIN-003 (FIN-004 optional) | Allows lanes D/E to start on contracts |
@@ -1294,24 +1298,24 @@ Task acceptance:
 | FIN-001 Charge schema, authority, fixtures | R1 | 40 | 60 |
 | FIN-002 Billing, rates normalization | R1 | 45 | 65 |
 | FIN-003 Classic warehouse, query, idle | R1 | 50 | 75 |
-| FIN-004 Adaptive query-hour | R1\* | 24 | 36 |
+| FIN-004 Adaptive query-hour | R1 | 24 | 36 |
 | FIN-005 Cloud services, signed entries | R1 | 28 | 40 |
 | FIN-006 Storage | R1 | 36 | 54 |
 | FIN-007 Serverless conformance | R1 | 13 | 18 |
 | FIN-008 Transfer (S01–S05, S08–S09) | R1 | 16 | 24 |
-| FIN-008 Replication (S06–S07) | R1\* | 8 | 12 |
-| FIN-009 Reconciliation controls + UX | R1 | 70 | 100 |
-| FIN-010 Period close, statements | R1 | 50 | 70 |
+| FIN-008 Replication (S06–S07) | R1 | 8 | 12 |
+| FIN-009 Reconciliation controls + UX | R1 | 72 | 103 |
+| FIN-010 Period close, statements | R1 | 52 | 73 |
 | FIN-011 File Snowpipe | R1 | 12 | 18 |
-| FIN-012 Snowpipe Streaming | R1\* | 17 | 26 |
+| FIN-012 Snowpipe Streaming | R1 | 17 | 26 |
 | FIN-013 Serverless tasks, alerts | R1 | 14 | 22 |
 | FIN-014 Automatic clustering | R1 | 10 | 14 |
 | FIN-015 Search optimization | R1 | 10 | 14 |
 | FIN-016 Materialized views | R1 | 10 | 14 |
-| FIN-017 Query acceleration | R1\* | 12 | 18 |
-| FIN-018 Cortex / AI services | R1\* | 36 | 54 |
-| FIN-019 SPCS | R1\* | 22 | 32 |
-| FIN-020 Marketplace, native apps | R1\* | 20 | 30 |
+| FIN-017 Query acceleration | R1 | 12 | 18 |
+| FIN-018 Cortex / AI services | R1 | 36 | 54 |
+| FIN-019 SPCS | R1 | 22 | 32 |
+| FIN-020 Marketplace, native apps | R1 | 20 | 30 |
 | FIN-021 New/unmapped services, org fees | R1 | 24 | 36 |
 | FIN-101 Billing reference intake (new) | R1 | 45 | 65 |
 | FIN-102 Estimator + supersession (new) | R1 | 36 | 52 |
@@ -1322,11 +1326,11 @@ Task acceptance:
 | FIN-107 Corrections, restatement (new) | R1 | 36 | 52 |
 | FIN-108 Tenant-zero billing verification (new) | R1 | 25 | 39 |
 | FIN-109 FX display conversion (new) | R2 | 24 | 36 |
-| **Total R1** | | **665** | **975** |
-| **Total R1\* (in R1 only if D-20 requires; otherwise R2)** | | **139** | **208** |
+| **Total R1** | | **808** | **1189** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
 | **Total R2** | | **24** | **36** |
 
-Hours are one senior engineer-hour including tests, review fixes and evidence (D-19). They exclude UX screen-spec authoring by the UX owner (three screens, see §3) and the ING-side fix for G-FIN-02.
+Hours are one senior engineer-hour including tests, review fixes and evidence (D-19). They exclude UX screen-spec authoring by the UX owner (three screens, see §3) and the ING-side fix for G-FIN-02. Owner decisions of 2026-09-28: D-20 moved the former R1\* rows (139–208 h) into R1; D-35 added FIN-009-S20 and FIN-010-S16 (+4/+6 h). The source activation behind the service-detail tasks is ING-105's R1 part (ING.md).
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 

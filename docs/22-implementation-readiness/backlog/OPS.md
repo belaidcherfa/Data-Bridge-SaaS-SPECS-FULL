@@ -100,7 +100,7 @@ Affects: OPS-009, new OPS-109.
 Severity: HIGH · Type: GAP
 Evidence: `operations.md` — "Gross margin=(recognized revenue−allocated COGS)/recognized revenue"; D-17 — "OWNER INPUT"; fixture revenue 1000, COGS 100+120+80 = 300 → margin 700/1000 = 70 % (arithmetic checked, correct).
 Why it matters: at R1 scale the fixed platform cost dominates; if the owner prices below the floor, every added tenant still loses money until N grows.
-Resolution: OPS-009 carries the R1 cost model below (all unit prices ASSUMPTION, eu-west-1 list prices, TO VERIFY LIVE with AWS Pricing Calculator and the Snowflake order form; London Enterprise credit USD 4.00 per search snippet 2026-09-27). Monthly: production AWS ≈ USD 1.2–1.5 k (NAT 2 AZ ≈ 85, interface endpoints 8×2 AZ ≈ 130, Fargate ≈ 270, Aurora 2 instances ≈ 140–430, Redis ≈ 55, CloudWatch logs/metrics/Synthetics/X-Ray ≈ 295, security services ≈ 70, other ≈ 110); staging ≈ 0.65–0.8 k; dev ≈ 0.25–0.4 k. Central Snowflake production ≈ 280–400 credits (transform XS every 15 min ≈ 243 credits; every 30 min ≈ 122; serving XS ≈ 130; ops ≈ 30; Snowpipe < 1) ≈ USD 1.1–1.6 k; staging+dev ≈ 0.4–0.6 k; canary accounts ≈ 0.4 k. Fixed production COGS F ≈ USD 3.1 k/month; variable per 5-account tenant v ≈ USD 80–200 (mid 140). Price floor P ≥ (F/N + v)/(1 − GM): at GM 75 % → N=1: USD 12,960; N=3: 4,693; N=10: 1,800; N=30: 973 per tenant-month (support staff excluded; 0.25 FTE at ≈ USD 2.2 k/month raises N=10 to 2,680). This is an input to D-17, not a pricing decision. Biggest lever: dbt cadence (15 → 30 min halves transform credits but needs the FRESH-1 target at 45 min).
+Resolution: OPS-009 carries the R1 cost model below (all unit prices ASSUMPTION, eu-west-1 list prices, TO VERIFY LIVE with AWS Pricing Calculator and the Snowflake order form; London Enterprise credit USD 4.00 per search snippet 2026-09-27). Monthly: production AWS ≈ USD 1.2–1.5 k (NAT 2 AZ ≈ 85, interface endpoints 8×2 AZ ≈ 130, Fargate ≈ 270, Aurora 2 instances ≈ 140–430, Redis ≈ 55, CloudWatch logs/metrics/Synthetics/X-Ray ≈ 295, security services ≈ 70, other ≈ 110); staging ≈ 0.65–0.8 k; dev ≈ 0.25–0.4 k. Central Snowflake production ≈ 280–400 credits (transform XS every 15 min ≈ 243 credits; every 30 min ≈ 122; serving XS ≈ 130; ops ≈ 30; Snowpipe < 1) ≈ USD 1.1–1.6 k; staging+dev ≈ 0.4–0.6 k; canary accounts ≈ 0.4 k. Fixed production COGS F ≈ USD 3.1 k/month; variable per 5-account tenant v ≈ USD 80–200 (mid 140). Price floor P ≥ (F/N + v)/(1 − GM): at GM 75 % → N=1: USD 12,960; N=3: 4,693; N=10: 1,800; N=30: 973 per tenant-month (support staff excluded; 0.25 FTE at ≈ USD 2.2 k/month raises N=10 to 2,680). This is an input to D-17 (decided 2026-09-28: USD platform fee + managed-spend band), not a pricing decision. With D-11's 365-day query-level detail, query-grain storage per tenant is ≈ 4× the 90-day figure (measured in OPS-008-S14 and carried into v by OPS-009). Biggest lever: dbt cadence (15 → 30 min halves transform credits but needs the FRESH-1 target at 45 min).
 Affects: OPS-009, LCH-001; D-17.
 
 ### G-OPS-14 · Security qualification lacks an external test, a disclosure channel and SOC 2 evidence generation
@@ -121,7 +121,7 @@ Affects: OPS-010, OPS-004; new OPS-106.
 Severity: MEDIUM · Type: GAP / VENDOR-FACT
 Evidence: `RUNBOOKS.md` — "never promise24×7 response without a staffed rota"; `CHECKLIST.md` — "named on-call"; no task configures paging.
 Why it matters: a sustainable 24×7 primary/secondary rota needs roughly 5–6 engineers (one week in six); with 2–3 engineers it burns out or is fictional. Tool choice matters: Atlassian ended Opsgenie sales on 2025-06-04 and ends support 2027-04-05 — VERIFIED (support.atlassian.com / hyperping.com snippets 2026-09-27) — a new integration on it would be migrated within months.
-Resolution: OPS-102: business-hours coverage (e.g. 08:00–19:00 Europe/Paris, Mon–Fri; primary + secondary), out-of-hours paging only for SEV1 classes (suspected disclosure, total outage, broadly served financial corruption) with best-effort 60-min acknowledgment, paging tool chosen from those with a future (not Opsgenie), CloudWatch alarm → SNS → paging integration, every alarm carries `owner`, `severity`, `runbook_url`, `impact` tags (policy test rejects alarms without them). Contract/support policy must match (LCH-104).
+Resolution: OPS-102: business-hours coverage (D-37: Mon–Fri 09:00–18:00 CET; primary + secondary), out-of-hours paging only for SEV1 classes (suspected disclosure, total outage, broadly served financial corruption) with best-effort 60-min acknowledgment, paging tool chosen from those with a future (not Opsgenie), CloudWatch alarm → SNS → paging integration, every alarm carries `owner`, `severity`, `runbook_url`, `impact` tags (policy test rejects alarms without them). Contract/support policy must match (LCH-104).
 Affects: OPS-003, OPS-010; new OPS-102, LCH-104.
 
 ### G-OPS-17 · Quality gates have no catalogue; "required vs advisory" and stale-success reuse are undefined
@@ -285,7 +285,7 @@ Task acceptance:
 
 ### OPS-004 — Run adversarial tenant isolation and internal security qualification
 Release: R1 · Estimate: 56–84 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-14 (internal part), G-OPS-15 (tests)
-Dependency changes: `+OPS-106` (ops API and `bridge-admin` must be in the attack surface), `+SEC-104` (support access; RECONCILIATION U-05), `−API-006` (API-006 is R2: its public-API attack cases run in API-006 when it is enabled; if API-006 becomes R1\*, OPS-004 regains the edge — C-22). Milestone M9 unchanged (SEC-008 early suite runs from M1).
+Dependency changes: `+OPS-106` (ops API and `bridge-admin` must be in the attack surface), `+SEC-104` (support access; RECONCILIATION U-05), `−API-006` (API-006 is R2: its public-API attack cases run in API-006 when it is enabled; if API-006 moves to R1 — owner question Q-API-1, not covered by D-20 — OPS-004 regains the edge; C-22). Milestone M9 unchanged (SEC-008 early suite runs from M1).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -326,7 +326,7 @@ Retention matrix (normative for S02; defaults from ADR-009/D-11, per-class journ
 | Snowflake RAW | per `retention_class` from acceptance (D-26): FINANCIAL 400 d; QUERY_GRAIN 90 d | daily task per class `DELETE … WHERE _accepted_at < DATEADD(day,-<class days>,CURRENT_TIMESTAMP())`; `DATA_RETENTION_TIME_IN_DAYS=1` | `DELETE WHERE tenant_id=…` on every RAW table | Time Travel 1 d + Fail-safe 7 d (Snowflake-internal) |
 | Snowflake staging / intermediate | rebuildable | TRANSIENT tables (no Fail-safe, ≤ 1 d Time Travel) | delete | ≤ 1 d |
 | Canonical facts, allocation, statements | 400 d (+ closed-statement evidence per contract) | partition expiry and revision GC (not in any publication map, not pinned by a closed statement, not referenced by an active job, older than 7 d) executed by ORC-105-S04, the only physical deleter, and verified here (RECONCILIATION U-17); `DATA_RETENTION_TIME_IN_DAYS=1` on revisioned fact tables (rollback uses retained superseded revisions ≥ 7 d, recovery uses OPS-007 snapshots — C-02) | publication-map rows first, then facts | Time Travel 1 d + Fail-safe 7 d |
-| Query-level detail (D-11) | 90 d hot (`hot_days`) | policy declared by WRK-104, expiry executed by ORC-105 (U-17) | delete | as above |
+| Query-level detail (D-11) | 365 d hot by default (`hot_days`, plan-configurable; owner decision 2026-09-28); query-grain journal/RAW stay 90 d (D-26), so older query facts are rebuilt only by re-extraction within Account Usage's 365 days | policy declared by WRK-104, expiry executed by ORC-105 (U-17) | delete | as above |
 | Query-family × day aggregates | 400 d | expiry executed by ORC-105 (U-17) | delete | as above |
 | Snowflake Backups (Tier 1) | 35 d | backup policy expiry | not editable; restore path reapplies tombstones | ≤ 35 d |
 | Recovery export bucket (Tier 2) | manifests 35 d; revisions while referenced | OPS-007 GC | delete tenant prefixes, all versions (break-glass governance bypass) | none |
@@ -435,19 +435,19 @@ Task acceptance:
 - [ ] Measured Tier 1 and Tier 2 RTO/RPO and cost recorded.
 
 ### OPS-008 — Qualify capacity (staged C1), noisy-neighbor protection and admission quotas
-Release: R1 · Estimate: 56–90 h (+ approved benchmark spend, ASSUMPTION ≤ 300 credits) · Risk: H · Decisions: D-02, D-06, D-07, D-08, D-11 · Closes: G-OPS-11
+Release: R1 · Estimate: 58–93 h (+ approved benchmark spend ≤ 300 credits within D-32's one-off ceiling; D-11's 365-day text raises generation and storage credits — TO VERIFY) · Risk: H · Decisions: D-02, D-06, D-07, D-08, D-11 · Closes: G-OPS-11
 Dependency changes: `+OPS-105` (early probes and simulator), `+ORC-102` (capacity qualification includes the Dagster metadata guardrails; RECONCILIATION C-29). Milestone M9 unchanged.
 
-Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k queries/account/day, p90 1 M, one skew account 3 M/day; 2 tenants backfilling 365 d concurrently while 8 are steady; 30 concurrent interactive users, peak 5 req/s; 50 report runs/day. Volume check: 50 accounts × ≈ 500 k mean × 2 query-grain sources (QUERY_HISTORY, QUERY_ATTRIBUTION_HISTORY) ≈ 50 M rows/day steady; backfill 2 × 5 × 365 × 500 k × 2 ≈ 3.65 B rows. C2 (R2) = 50 × 5 with 10 % at 1 M/day. C3 = PRD profile by extrapolation + one live bottleneck test.
+Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k queries/account/day, p90 1 M, one skew account 3 M/day; 2 tenants backfilling 365 d concurrently while 8 are steady; 30 concurrent interactive users, peak 5 req/s; 50 report runs/day. Volume check: 50 accounts × ≈ 500 k mean × 2 query-grain sources (QUERY_HISTORY, QUERY_ATTRIBUTION_HISTORY) ≈ 50 M rows/day steady; backfill 2 × 5 × 365 × 500 k × 2 ≈ 3.65 B rows. With D-11's 365-day query detail (owner decision 2026-09-28) the steady C1 central store holds ≈ 25 M QUERY_HISTORY rows/day × 365 ≈ 9.1 B query-level rows plus sanitized text for every backfilled day (≈ 4× the 90-day figure). C2 (R2) = 50 × 5 with 10 % at 1 M/day. C3 = PRD profile by extrapolation + one live bottleneck test.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-008-S01 | Write the benchmark manifest schema (profile, dataset size/skew, versions, spend cap, measured distributions) and get spend approval. | `tests/performance/benchmark-manifest.v1.json`, approval record | Owner approval with credit cap recorded. | 3 |
 | OPS-008-S02 | Build the source simulator: tables/views in a synthetic account with the exact ACCOUNT_USAGE projections, selected by a registry override that is rejected by configuration validation in production. | `tests/performance/simulator/` | Adapter extracts from simulator with identical schema fingerprints; production config with override fails validation. | 6 |
-| OPS-008-S03 | Generate C1 data with `GENERATOR()` (50 accounts × 365 days, skew account 3 M/day). | `tests/performance/simulator/generate_c1.sql` | Row counts per account/day match profile ± 1 %. | 4 |
+| OPS-008-S03 | Generate C1 data with `GENERATOR()` (50 accounts × 365 days, skew account 3 M/day), including synthetic QUERY_TEXT with realistic parameterized-hash repetition for all 365 days (D-11: sanitized text is kept for the whole window). | `tests/performance/simulator/generate_c1.sql` | Row counts per account/day match profile ± 1 %; hash-repetition profile recorded. | 5 |
 | OPS-008-S04 | Extraction lane test: measure per account-cycle duration, rows/s, peak RSS (< 70 % of task memory), files/day and size histogram, customer-warehouse seconds per cycle and per backfill day. | `docs/operations/capacity.md#extraction` | Distributions p50/p95/p99 recorded; any OOM is a blocking defect. | 6 |
 | OPS-008-S05 | Load/transform test: file landed → receipt latency, multi-tenant dbt run duration vs pending batches, FRESH-1 distribution under C1 steady + 2 backfills. | same doc | FRESH-1 ≥ 95 % ≤ 30 min, or a stated reduced target with cause. | 5 |
-| OPS-008-S06 | Serving load (k6 or Locust): 70 % cacheable dashboard queries, 30 % ad hoc; 30 users, 5 req/s peak; record warm/cold p50/p95/p99 and Snowflake `QUEUED_OVERLOAD_TIME`. | `tests/performance/serving/` | LAT-WARM/LAT-COLD met or serving warehouse size/multi-cluster decision recorded with cost. | 5 |
+| OPS-008-S06 | Serving load (k6 or Locust): 70 % cacheable dashboard queries, 30 % ad hoc incl. query-explorer ranges up to 365 days on the hot tier (D-11); 30 users, 5 req/s peak; record warm/cold p50/p95/p99 and Snowflake `QUEUED_OVERLOAD_TIME`. | `tests/performance/serving/` | LAT-WARM/LAT-COLD met or serving warehouse size/multi-cluster decision recorded with cost. | 6 |
 | OPS-008-S07 | Report lane: 50 renders with concurrency 2; record peak memory and duration. | `tests/performance/reports/` | No OOM; p95 render time recorded. | 3 |
 | OPS-008-S08 | Noisy-neighbor test: one tenant at 10× steady rate plus a 365-day backfill plus 4 heavy analysis jobs. | `tests/performance/noisy_neighbor/` | Other tenants keep FRESH-1 and LAT-COLD within target; weighted-fair admission logs show steady lane reserved. | 5 |
 | OPS-008-S09 | Overload and cancellation: exceed tenant quotas and platform capacity. | `tests/performance/overload/` | 429 with `Retry-After` and `reason ∈ {tenant_quota, platform_capacity}`; cancelled heavy job frees warehouse within 30 s; 15 s statement timeout enforced. | 4 |
@@ -455,7 +455,7 @@ Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k
 | OPS-008-S11 | Tune only measured bottlenecks; each change has before/after numbers. | `docs/operations/capacity.md#tuning-log` | No tuning entry without measurements. | 6 |
 | OPS-008-S12 | Publish measured C1 limits, derived admission quotas (accounts per tenant, concurrent backfills, heavy jobs, API rate) and C2/C3 extrapolation with assumptions separated from measurements. | `docs/operations/capacity.md` | Quotas loaded into LCH-101 entitlement defaults; extrapolated values labelled. | 4 |
 | OPS-008-S13 | C3 bottleneck live test: one 1 M/day account × 365 d end-to-end within the approved budget. | evidence | Duration and credits recorded; bottleneck identified. | 4 |
-| OPS-008-S14 | Compute unit costs (credits per million extracted/transformed rows; USD per tenant-month at C1). | input file for OPS-009 | Values reproducible from evidence. | 2 |
+| OPS-008-S14 | Compute unit costs (credits per million extracted/transformed rows; storage of 365 days of query-level facts, D-11; USD per tenant-month at C1). | input file for OPS-009 | Values reproducible from evidence. | 2 |
 | OPS-008-S15 | Capacity dashboard and evidence. | `dashboards/capacity`, `docs/evidence/OPS-008/<commit>/` | Dashboard shows lane queue ages and quotas. | 2 |
 
 Task acceptance:
@@ -465,7 +465,7 @@ Task acceptance:
 - [ ] Extrapolated C2/C3 numbers are labelled as such.
 
 ### OPS-009 — Measure Bridge unit economics and internal cost allocation
-Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-02, D-06, D-08, D-17 · Closes: G-OPS-12, G-OPS-13
+Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-02, D-06, D-08, D-11, D-17 · Closes: G-OPS-12, G-OPS-13
 Dependency changes: `+OPS-109` (tags, QUERY_TAG format, serving-user registry), `+ORC-104` (per-build capture and per-tenant build rows — replaces OPS-109's former processing ledger; RECONCILIATION U-06, U-25), `+ALC-104`, `+GOV-103`, `+LCH-001` (revenue references live in `commercial.invoice_refs`, created by LCH-001-S04; OPS asked LCH-101 — U-06/U-08), `+INF-105` (CUR export, INF-105-S05; U-06). Milestone M9 unchanged. OPS-009 owns ingestion into `INTERNAL_COST`, allocation (absorbs ORC-104-S04…S06) and margin.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -474,10 +474,10 @@ Dependency changes: `+OPS-109` (tags, QUERY_TAG format, serving-user registry), 
 | OPS-009-S02 | Ingest AWS CUR 2.0/Data Exports (daily Parquet; export configured by INF-105-S05, RECONCILIATION U-06) through a dedicated internal source contract. | `services/platform-cost/aws_cur.py` | A fixture month loads with line count and total equal to the export. | 4 |
 | OPS-009-S03 | Ingest Bridge's own Snowflake usage (METERING_DAILY_HISTORY, WAREHOUSE_METERING_HISTORY, QUERY_ATTRIBUTION_HISTORY, PIPE_USAGE_HISTORY, TABLE_STORAGE_METRICS, USAGE_IN_CURRENCY_DAILY) with the product's own adapters into `INTERNAL_COST`. | `services/platform-cost/snowflake_own.py` | Month total equals Bridge's USAGE_IN_CURRENCY_DAILY total. | 4 |
 | OPS-009-S04 | Control totals: Σ cost lines per provider/month vs provider invoice; signed delta recorded, no plug. | `internal_cost.control_totals` | Fixture invoice 1,000.00 vs lines 999.40 → delta −0.60 shown. | 3 |
-| OPS-009-S05 | Build driver facts per G-OPS-12 (serving by tenant service user; transform by ORC-104-S02's per-tenant build rows (U-06); Snowpipe by bytes; storage by row share; ECS task-seconds; NAT bytes; API requests; active users). | `internal_cost.cost_driver_fact` | Every driver has a source query and unit; no NULL tenant except explicit `UNALLOCATED`. | 5 |
+| OPS-009-S05 | Build driver facts per G-OPS-12 (serving by tenant service user; transform by ORC-104-S02's per-tenant build rows (U-06); Snowpipe by bytes; storage by row share, incl. 365 days of query-level facts under D-11; ECS task-seconds; NAT bytes; API requests; active users). | `internal_cost.cost_driver_fact` | Every driver has a source query and unit; no NULL tenant except explicit `UNALLOCATED`. | 5 |
 | OPS-009-S06 | Allocate per component with exact decimal and largest-remainder at cent level (absorbs ORC-104-S04…S06: central credits by rows written per tenant, idle → UNALLOCATED_IDLE, Snowpipe by bytes, broker queries by tag tenant; RECONCILIATION U-06); allocated + unallocated = source total; version the allocation method. | `data/dbt/models/internal_cost/tenant_platform_cost.sql` | Σ allocated + unallocated = provider total to the cent for fixture months. | 4 |
 | OPS-009-S07 | Mark months PROVISIONAL until month end + 5 days and after CUR finalization; recompute on revisions. | same | A CUR revision changes the provisional month only. | 2 |
-| OPS-009-S08 | Read revenue references from `commercial.invoice_refs` (LCH-001-S04) and recognize straight-line over service period, labelled "estimate — finance approval required". | `internal_cost.revenue_estimate` | Annual invoice 12,000 for 12 months → 1,000/month. | 3 |
+| OPS-009-S08 | Read revenue references (D-17: platform fee + managed-spend band fee, LCH-105) from `commercial.invoice_refs` (LCH-001-S04) and recognize straight-line over service period, labelled "estimate — finance approval required". | `internal_cost.revenue_estimate` | Annual invoice 12,000 for 12 months → 1,000/month. | 3 |
 | OPS-009-S09 | Compute margin = (revenue − COGS)/revenue; revenue 0 → NULL. | `internal_cost.gross_margin` | Fixture 1000/100/120/80 → COGS 300, margin 70 %; zero revenue → NULL. | 2 |
 | OPS-009-S10 | Encode COGS scope: production + canary + production share of observability = COGS; staging/dev = R&D; support staff cost entered monthly by finance. | `docs/operations/cogs-policy.md` | Staging costs never appear in `tenant_platform_cost`. | 2 |
 | OPS-009-S11 | Report customer-side Bridge overhead credits (D-08, from customer QUERY_TAG/BRIDGE_FINOPS_WH) separately as `customer_borne_cost`, excluded from COGS. | `internal_cost.customer_borne_cost` | Test: customer overhead 12 credits does not change COGS. | 2 |
@@ -493,7 +493,7 @@ Task acceptance:
 - [ ] No customer or serving role can read internal economics.
 
 ### OPS-010 — Publish runbooks, incident process and run incident exercises
-Release: R1 · Estimate: 46–70 h · Risk: M · Decisions: D-25 · Closes: G-OPS-15 (process part), G-OPS-16 (process part)
+Release: R1 · Estimate: 46–70 h · Risk: M · Decisions: D-25, D-37 · Closes: G-OPS-15 (process part), G-OPS-16 (process part)
 Dependency changes: `+OPS-106` (`bridge-admin`), `+OPS-110`, `+OPS-102`. Milestone M9 unchanged.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -503,7 +503,7 @@ Dependency changes: `+OPS-106` (`bridge-admin`), `+OPS-110`, `+OPS-102`. Milesto
 | OPS-010-S03 | Write RB-06..RB-08 (financial mismatch, bad publication, notification/report DLQ). | `docs/runbooks/RB-06..08-*.md` | Same. | 5 |
 | OPS-010-S04 | Write RB-09 (tenant exposure): IC checklist, evidence preservation (CloudTrail/Logs export to evidence bucket), containment switches (REL-102 kill switches), communication templates, regulatory clock note (controller 72 h under GDPR Art. 33; processor informs controller without undue delay — contractual target 48 h, TO VERIFY with counsel). | `docs/runbooks/RB-09-tenant-exposure.md` | Tabletop completes with all checklist items owned. | 4 |
 | OPS-010-S05 | Link RB-10..RB-15 to OPS-006/007/005/REL-002 procedures; write RB-15 noisy tenant with quota commands. | `docs/runbooks/RB-10..15-*.md` | Links resolve; commands present. | 4 |
-| OPS-010-S06 | Write the incident process: SEV1–3 definitions, roles (incident commander, communications, scribe), update cadence (SEV1 every 30 min), blameless postmortem template with action items. | `docs/incidents/process.md`, `docs/incidents/postmortem-template.md` | Reviewed by on-call members. | 3 |
+| OPS-010-S06 | Write the incident process: SEV1–3 definitions; support hours per D-37 (EU business hours Mon–Fri 09:00–18:00 CET, SEV1 best effort outside those hours through the OPS-102 paging path, no contractual 24×7); roles (incident commander, communications, scribe); update cadence (SEV1 every 30 min while staffed); blameless postmortem template with action items. | `docs/incidents/process.md`, `docs/incidents/postmortem-template.md` | Reviewed by on-call members. | 3 |
 | OPS-010-S07 | Write support intake form and customer update templates (initial, update, resolved) with the "never ask for passwords/keys" rule. | `docs/support/intake.md`, `docs/support/templates/` | Templates contain no speculative-cause wording. | 2 |
 | OPS-010-S08 | Drill: WIF revocation on SYN_A (RB-01). | `docs/evidence/OPS-010/<commit>/drill-rb01.md` | Detection time, containment and resume from checkpoint recorded; no RSA fallback attempted. | 3 |
 | OPS-010-S09 | Drill: Snowpipe backlog by disabling notifications (RB-02). | `drill-rb02.md` | Manifests reconcile; no FORCE load; watermark contiguous. | 3 |
@@ -571,13 +571,13 @@ Task acceptance:
 - [ ] No pipeline metric carries a tenant/account dimension.
 
 ### OPS-102 — Alert routing, on-call rota, incident tooling and status page
-Release: R1 · Estimate: 18–28 h · Risk: M · Decisions: D-25 · Closes: G-OPS-16
+Release: R1 · Estimate: 18–28 h · Risk: M · Decisions: D-25, D-37 · Closes: G-OPS-16
 Why / where: CHECKLIST requires "named on-call" and "Working alert routes" but no task configures them; staging carries live synthetic Snowflake data from M2. Plugs in at M1 after OPS-001 and INF-006.
 Dependency changes: new; deps OPS-001, INF-006.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| OPS-102-S01 | Write the on-call policy: coverage 08:00–19:00 Europe/Paris Mon–Fri (primary + secondary), out-of-hours pages only for SEV1 classes with best-effort 60-min ack, escalation primary → secondary (15 min) → engineering lead (30 min), handover template. Hours are placeholders until D-19 staffing is known. | `docs/operations/oncall-policy.md` | Owner approval recorded. | 2 |
+| OPS-102-S01 | Write the on-call policy: coverage Mon–Fri 09:00–18:00 CET (D-37; primary + secondary drawn from the D-19 human reviewers), out-of-hours pages only for SEV1 classes with best-effort 60-min ack, escalation primary → secondary (15 min) → engineering lead (30 min), handover template. No contractual 24×7 until a staffed rota exists (D-37). | `docs/operations/oncall-policy.md` | Owner approval recorded. | 2 |
 | OPS-102-S02 | Select the paging tool with a decision record (criteria: EU data handling, SNS/CloudWatch integration, schedules, escalation, API; excluded: Opsgenie, end of support 2027-04-05). | `docs/decisions/paging-tool.md` | Record lists ≥ 2 evaluated tools and the choice. | 2 |
 | OPS-102-S03 | Create SNS topics per env × severity (KMS-encrypted) and subscriptions to the paging tool and a non-paging Slack channel. | `infra/observability/routing.tf` | Test message reaches paging tool and Slack. | 2 |
 | OPS-102-S04 | Enforce alarm tag policy (`owner`, `severity`, `runbook_url`, `impact`) and route by severity. | `infra/policy/alarm-tags.rego` (shared with OPS-003-S12) | Untagged alarm fails CI. | 2 |
@@ -802,7 +802,7 @@ Task acceptance:
 | OPS-005 | R1 | 56 | 84 |
 | OPS-006 | R1 | 34 | 50 |
 | OPS-007 | R1 | 56 | 84 |
-| OPS-008 | R1 | 56 | 90 |
+| OPS-008 | R1 | 58 | 93 |
 | OPS-009 | R1 | 38 | 56 |
 | OPS-010 | R1 | 46 | 70 |
 | OPS-011 | R1 | 44 | 66 |
@@ -816,7 +816,7 @@ Task acceptance:
 | OPS-108 | R1 | 32 | 48 |
 | OPS-109 | R1 | 13 | 19 |
 | OPS-110 | R1 | 11 | 17 |
-| **Total R1** | | **690** | **1047** |
+| **Total R1** | | **692** | **1050** |
 | OPS-111 | R2 | 22 | 36 |
 | **Total R2** | | **22** | **36** |
 
@@ -824,7 +824,7 @@ Excluded from hours: benchmark credits (≤ 300 + ≤ 100), canary estate (insid
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 
-1. Support coverage hours and out-of-hours SEV1 commitment (drives OPS-102 rota and contract wording); how many engineers join the rota?
+1. Support coverage hours and out-of-hours SEV1 commitment (drives OPS-102 rota and contract wording); how many engineers join the rota? — Hours resolved by D-37 (EU business hours, SEV1 best effort); rota membership follows D-19 (1–2 human reviewers).
 2. Budget approval: synthetic canary estate (~100 credits/month), benchmark spend (≤ 400 credits one-off), external pentest (EUR 12–25 k), SOC 2 platform/auditor (if pursued).
 3. Is central Snowflake Enterprise (needed for row access policies) or Business Critical? BC changes Tier 1 (retention lock available but still not recommended) and makes failover groups available for OPS-111.
 4. Paging and status-page vendors (must accept EU data handling; not Opsgenie).

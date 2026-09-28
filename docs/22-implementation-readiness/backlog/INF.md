@@ -24,7 +24,7 @@ Why it matters: CON-002..005, ING-001 ("every enabled source has a live verified
 - An organization account requires Enterprise edition, and CREATE ORGANIZATION ACCOUNT needs ADMIN_PASSWORD or ADMIN_RSA_PUBLIC_KEY at creation. VERIFIED via search snippet of docs.snowflake.com/en/user-guide/organization-accounts and /sql-reference/sql/create-organization-account, 2026-09-28.
 - If synthetic customer accounts lived in Bridge's own Snowflake org, ORGANIZATION_USAGE would mix Bridge's central spend into "customer" fixtures. The test ORGADMIN would also sit in the production org.
 Resolution: New task INF-101 builds three things:
-- **Org T-A** (separate on-demand org): an organization account (Enterprise), A1 (Enterprise, AWS eu-west-1), A2 (Enterprise, Azure westeurope, for the non-AWS/NAT path; R1 conditional on D-20), and A3 (Enterprise, idle, "discovered but not connected").
+- **Org T-A** (separate on-demand org): an organization account (Enterprise), A1 (Enterprise, AWS eu-west-1), A2 (Enterprise, Azure westeurope, for the non-AWS/NAT path; R1 — unconditional since D-20, 2026-09-28), and A3 (Enterprise, idle, "discovered but not connected").
 - **Org T-B**: B1 (Standard, standalone enrollment, colliding names).
 - A continuous workload generator with deterministic QUERY_TAGs and a RUN_LOG table.
 
@@ -445,7 +445,7 @@ Credit arithmetic (XSMALL = 1 credit/h, 60 s minimum per resume; TO VERIFY serve
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | INF-101-S01 | Write test-estate specification: orgs/accounts/editions/clouds/regions, purpose per account, consuming tasks, caps, owner approvals | `docs/testing/snowflake-test-estate.md` | Owner approval of commercial setup recorded | 3 |
-| INF-101-S02 | Provision org T-A (human, ORGADMIN): organization account (Enterprise, GLOBALORGADMIN; tenant zero for FIN-108, U-03), A1 (Enterprise, AWS eu-west-1), A2 (Enterprise, Azure westeurope; R1 conditional on D-20), A3 (Enterprise, idle, never connected) | `infra/environments/test-estate.json` | Identifiers recorded; `ORGANIZATION_USAGE.ACCOUNTS` lists A1–A3 from the org account | 3 |
+| INF-101-S02 | Provision org T-A (human, ORGADMIN): organization account (Enterprise, GLOBALORGADMIN; tenant zero for FIN-108, U-03), A1 (Enterprise, AWS eu-west-1), A2 (Enterprise, Azure westeurope; R1, unconditional since D-20), A3 (Enterprise, idle, never connected) | `infra/environments/test-estate.json` | Identifiers recorded; `ORGANIZATION_USAGE.ACCOUNTS` lists A1–A3 from the org account | 3 |
 | INF-101-S03 | Provision org T-B: B1 Standard, standalone | same file | B1 has no visibility of T-A | 2 |
 | INF-101-S04 | Human SSO and authentication policies in all test accounts; disable the creation-time admin password/RSA key after SSO works | `infra/snowflake-test-estate/bootstrap/*.sql` | Password login fails; SSO login works | 3 |
 | INF-101-S05 | IaC stack `test-estate`: provider alias per account; WIF service user `SVC_TESTESTATE_IAC` per account bound to STAGING AWS role `bridge-staging-testestate-iac` | `infra/terraform/stacks/test-estate/` | Plan via WIF from in-VPC STAGING runner | 4 |
@@ -606,7 +606,7 @@ The INF-internal longest chain drops from 8 to 4 tasks (INF-001 → INF-102 → 
 1. Is there an existing AWS Organization, or is a new one created? Who owns the management account and billing? Is Control Tower required by any customer or auditor? (R1 assumes plain Organizations.)
 2. What is the product domain name and registrar, and which team owns DMARC/SES sender reputation?
 3. What are the approved monthly ceilings per AWS account and for Snowflake non-production credits? Proposed: DEV $450, STAGING $1,000, PROD $2,500 AWS; 500 Snowflake non-production credits.
-4. Snowflake commercial: capacity or on-demand for Bridge's org? Is opening two separate test orgs approved (on-demand, card billing), or will a partner/ISV arrangement provide them? Is an Azure account (A2) approved before D-20 is known?
+4. Snowflake commercial: capacity or on-demand for Bridge's org? Is opening two separate test orgs approved (on-demand, card billing), or will a partner/ISV arrangement provide them? The Azure account (A2) is required since D-20 (2026-09-28); is its cost approved within the D-32 non-production ceiling?
 5. Which AWS Support plan applies for PROD (Business or higher recommended for quota and incident escalation)?
 6. Who are the named Snowflake PROD break-glass holders (two humans), and who approves break-glass use?
 7. Is ECS runtime monitoring in GuardDuty (per-vCPU charge) required for R1 PROD, or deferred until SOC 2 timing (D-25)?

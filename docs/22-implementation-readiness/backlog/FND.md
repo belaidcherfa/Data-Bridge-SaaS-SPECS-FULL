@@ -112,10 +112,10 @@ Affects: FND-001, FND-006, UX-001.
 | `docs/development/versions.md` + `infra/images.lock.json` | Matrix per G-FND-04: exact version, sha256/digest, license, upstream URL, evidence URL, review date, V01 status | FND-002-S01/S05 |
 | `compose.yaml` topology + `docs/development/ports.md` | Services, images by digest, health checks, host ports (55432 PG, 56379 Valkey, 55000 moto, 58080 mock-OIDC, 53000 Dagster, 58000 API, 55173 web, 58025 mail), volumes, reset guard rules | FND-003-S01/S02 |
 | `data/fixtures/manifest.schema.json` (fixture v1) | fixture_id, version, clock_utc, tenants/orgs/accounts/users/grants with UUIDv5 derivation rule, source rows per source, expected values as decimal strings with currency, privacy cases, variant catalog, canonical checksum algorithm | FND-004-S01 |
-| `tools/validation/manifest.schema.json` | Per task: gates[{id, level, env ∈ {local, ci, dev, staging}, argv[], requires{aws_account?, snowflake_identity?}, required, timeout_s, min_tests}], watch_paths[] | FND-005-S01 |
+| `tools/validation/manifest.schema.json` | Per task: gates[{id, level, env ∈ {local, ci, dev, staging}, argv[], requires{aws_account?, snowflake_identity?, human_witness? (D-19; gate list from FND-006-S14)}, required, timeout_s, min_tests}], watch_paths[] | FND-005-S01 |
 | `docs/evidence/schema/evidence.schema.json` + index line format | Fields from engineering.md, plus status enum and aggregate rule, freshness rule (G-FND-05), redaction version | FND-005-S04/S06 |
 | Required-checks list (`docs/development/ci-checks.md`) | Check name → job → owner → blocking/advisory → trusted/untrusted context | FND-006-S01/S03 |
-| `AGENTS.md` | Claim/checkpoint/blocker protocol, stop conditions, forbidden actions (edit ADR, weaken tests, obtain credentials) | FND-006-S08 |
+| `AGENTS.md` | Claim/checkpoint/blocker protocol, stop conditions, forbidden actions (edit ADR, weaken tests, obtain credentials); D-19 additions: agent PR rules, per-PR evidence manifest, review checklist, 2–3 concurrent agent lanes per human reviewer, human-only gates (live WIF, Snowflake policy attacks, restore drills, payment evidence, production deploy approval) | FND-006-S08, S13, S14 |
 | `docs/development/snowflake-dev-access.md` | Decision record G-FND-02: identities per environment, auth policies, personal objects, CI schemas, janitor, quotas | FND-101-S01 |
 | `data/fixtures/recorded/meta.schema.json` | Recorded fixture metadata (FND-102-S01) | FND-102-S01 |
 | `contracts/.spectral.yaml` + API conventions doc | Decimal/UUID/date/enum rules, error envelope schema reference, pagination cursor type | FND-103-S01/S02 |
@@ -235,7 +235,7 @@ Task acceptance:
 - [ ] Planted secrets never reach artifacts.
 
 ### FND-006 — Establish CI quality gates and agent working rules
-Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-19, D-25 · Closes: G-FND-10
+Release: R1 · Estimate: 27–41 h · Risk: M · Decisions: D-19, D-25 · Closes: G-FND-10
 Dependency changes: `−` implicit FND-004 chain; deps = FND-002, FND-005. INF-001 no longer depends on FND-006.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -251,11 +251,14 @@ Dependency changes: `−` implicit FND-004 chain; deps = FND-002, FND-005. INF-0
 | FND-006-S10 | Negative validation: broken link, duplicate task ID, secret-like fixture, failing finance oracle — each in an isolated branch | CI run links in evidence | All four rejected with remediation text | 3 |
 | FND-006-S11 | Fork simulation: PR from a fork receives no OIDC token and no secrets | evidence of workflow run | Job requesting `id-token` is not scheduled for fork PR; recorded | 2 |
 | FND-006-S12 | Record evidence | index entry | Complete | 1 |
+| FND-006-S13 | Agent PR rules and review checklist (D-19, 2026-09-28: coding agents implement, 1–2 human reviewers approve): one task or declared step range per PR; PR template with task and step IDs; mandatory evidence manifest per PR (FND-005 gates run, commands, results, evidence index line); review checklist (contract/ADR conformance, oracle present and not weakened, no secrets, migration safety, boundary rules); CI check `pr-evidence-manifest`; a human CODEOWNERS approval on every agent-authored PR | `.github/pull_request_template.md`, `docs/development/review-checklist.md`, CI job | A planted agent PR without a valid manifest fails the check; a PR with a manifest but no human approval cannot merge | 3 |
+| FND-006-S14 | Review capacity and human-gate policy (D-19): at most 2–3 concurrent agent lanes per human reviewer (WIP check counting open agent PRs per assigned reviewer); gates a human executes or witnesses — live WIF (CON-002), Snowflake policy and isolation attacks (SEC-005, OPS-004), restore drills (OPS-006, OPS-007), payment evidence (LCH-001, LCH-002), production deploy approval (REL-004) — carry `requires.human_witness` in the FND-005 manifest, and the evidence validator rejects agent-reported results for them without a named witness | `AGENTS.md` section, `docs/development/review-capacity.md`, validator rule | A 4th concurrent agent PR for one reviewer is flagged; evidence for a `human_witness` gate without `witnessed_by` is rejected | 3 |
 Task acceptance:
 - [ ] No workflow references an action by tag; no `pull_request_target`; default token permissions empty.
 - [ ] Fork PRs cannot obtain cloud credentials (proved by run).
 - [ ] Every required check has an owner; the four deliberate violations are rejected.
 - [ ] AGENTS.md defines claim, checkpoint and stop rules consumed by coding agents.
+- [ ] Every agent PR carries an evidence manifest and a human approval; lane limits and human-only gates are enforced by checks, not by convention (D-19).
 
 ## 5. New tasks required
 
@@ -329,11 +332,11 @@ Task acceptance:
 | FND-003 | R1 | 22 | 32 |
 | FND-004 | R1 | 30 | 44 |
 | FND-005 | R1 | 26 | 38 |
-| FND-006 | R1 | 22 | 34 |
+| FND-006 | R1 | 27 | 41 |
 | FND-101 (new) | R1 | 15 | 22 |
 | FND-102 (new) | R1 | 20 | 30 |
 | FND-103 (new) | R1 | 14 | 22 |
-| **Total R1** | | **189** | **280** |
+| **Total R1** | | **194** | **287** |
 | **Total R2** | | **0** | **0** |
 
 The original methodology implies 6 tasks × 2–6 h = 12–36 h for FND. The realistic figure is about 6–8× higher, before the three new tasks.
@@ -342,6 +345,6 @@ The original methodology implies 6 tasks × 2–6 h = 12–36 h for FND. The rea
 
 1. Which identity provider will staff use for Snowflake DEV SSO and AWS: IAM Identity Center, Okta, Entra ID or Google? This decides the SAML integration and whether SCIM provisioning is available. The default assumed is IAM Identity Center as SAML IdP with Terraform-managed users.
 2. Which GitHub plan applies to this repository (Team, Enterprise Cloud, Secret Protection/Advanced Security)? It decides push protection and private-repo artifact attestations; otherwise the gitleaks CLI plus KMS-signed cosign is used.
-3. Confirm that coding agents receive no Snowflake/AWS identity and use only CI ephemeral schemas (recommended).
+3. Confirm that coding agents receive no Snowflake/AWS identity and use only CI ephemeral schemas (recommended; consistent with D-19, where humans execute or witness live gates — FND-006-S14).
 4. Supported developer OSes: macOS arm64 and Linux x86_64 are assumed; is Windows via WSL2 required?
 5. Is `prototypes/finops-react` a frozen reference (recommended) or the seed of `apps/web` to be migrated under pnpm?

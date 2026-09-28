@@ -157,7 +157,7 @@ Severity: MEDIUM · Type: GAP
 Evidence: the task entry points `/settings/api-clients` (API-006), `/settings/pricing` (FIN-002), `/govern/reconciliation/period` (FIN-010) and `/reports/templates` (RPT-003) are not in `SCREEN_INDEX.md`. API-004 "Submit deep analysis → follow progress → open completed result" has no job screen. G-FIN-21 lists the missing pricing, close and reference-intake screens. The following are absent too:
 - D-08 "wizard shows estimated monthly credits before consent" is not in `integrations.md` (grep "credit" finds nothing in the onboarding section).
 - D-09 fixed egress IPs are absent (grep "egress|IP address": 0 hits).
-- D-11 retention-tier states ("query-level detail retained 90 days") are absent from `queries.md`.
+- D-11 retention-tier states ("query-level detail retained `hot_days`" — 365 days by default since the owner's decision of 2026-09-28) are absent from `queries.md`.
 - There is no tenant chooser for multi-tenant users.
 - The metric-substitution banner (API G-API-02) is absent.
 Why it matters: these are R1 behaviors with no visual/IA contract, so engineers will improvise inconsistent patterns.
@@ -253,12 +253,12 @@ Affects: FND-004, UX-001, UX-008, WRK-002, WRK-003.
 | queries, query-executions, query-detail | /explore/queries[/executions], /explore/queries/:accountId/:queryId | UX-005 | R1 | needs API-104, WRK-104 |
 | workloads, ad-hoc | /explore/workloads, /explore/workloads/ad-hoc | **WRK-102 (new)** | R1 | previously claimed by WRK-004 |
 | dbt, dbt-project, dbt-invocation, dbt-model | /explore/workloads/dbt/… | WRK-002 | R1 | |
-| power-bi, power-bi-activity | /explore/workloads/powerbi/… | WRK-003 | R1* | D-20 |
+| power-bi, power-bi-activity | /explore/workloads/powerbi/… | WRK-003 | R1 | D-20 |
 | pipelines, pipeline-detail, procedures, dynamic-tables | /explore/workloads/{pipelines,procedures,dynamic-tables}/… | WRK-004 | R1 | |
 | native-apps, custom-apps | /explore/workloads/{native-apps,custom-apps} | **WRK-105 (new)** | R2 | |
 | storage, storage-detail, serverless, serverless-detail | /explore/storage/…, /explore/serverless/… | UX-006 | R1 | |
-| ai, ai-family, ai-execution, ai-search, ai-analyst | /explore/ai/… | UX-007 | R1* | D-20 |
-| spcs, spcs-pool, spcs-service | /explore/spcs/… | UX-007 | R1* | D-20 |
+| ai, ai-family, ai-execution, ai-search, ai-analyst | /explore/ai/… | UX-007 | R1 | D-20 |
+| spcs, spcs-pool, spcs-service | /explore/spcs/… | UX-007 | R1 | D-20 |
 | tags, tag-rule, tag-preview | /allocate/tags, /allocate/tags/rules/:id, /allocate/tags/preview/:simId | ALC-001, ALC-003 | R1 | |
 | allocation, allocation-rule, allocation-preview | /allocate/allocation/… | ALC-006 | R1 | |
 | usage-groups, usage-group-detail | /allocate/usage-groups/… | ALC-004 | R1 | |
@@ -279,7 +279,7 @@ Affects: FND-004, UX-001, UX-008, WRK-002, WRK-003.
 | settings-people | /settings/members | CTL-003 | R1 | |
 | settings-roles | /settings/roles | **UX-102 (new)** | R1 | PRD role names (G-SEC-04) |
 | settings-organizations | /settings/organizations | CON-004 | R1 | |
-| settings-security | /settings/security | SEC-002 (MFA policy), SEC-003 (SSO) | R1 / R1* | |
+| settings-security | /settings/security | SEC-002 (MFA policy), SEC-003 (SSO) | R1 | D-20 (SSO) |
 | settings-audit | /settings/audit | **UX-102 (new)** on SEC-008 API | R1 | D-25 |
 | settings-privacy | /settings/privacy | **UX-102 (new)** on SEC-007/OPS-005 APIs | R1 | D-10 |
 | settings-notifications | /settings/notifications | GOV-006 | R1 | |
@@ -317,7 +317,7 @@ Screens required by tasks but absent from the catalog (design additions §3.3): 
 | Jobs & exports center | list of analysis jobs/exports with status, progress, cancel, open result, download, expiry | UX-104 |
 | Explain drawer | lazy tree, remainder/restricted/unavailable nodes, copy reference, export evidence | UX-104 |
 | Integration Health additions | D-08 customer warehouse credits (actual vs quota), D-09 egress IPs to allowlist, per-warehouse MONITOR grant gaps (WRK.md G-WRK-09), capability matrix per source | UX-103 |
-| Retention-tier states | "Query-level detail is kept 90 days; showing daily family aggregates (≈ approximate percentiles)" | UX-005 |
+| Retention-tier states | "Query-level detail is kept {hot_days} days (365 by default); showing daily family aggregates (≈ approximate percentiles)" | UX-005 |
 | Metric substitution banner | "Grouped by warehouse: amounts are attributed components of billed spend; unattributed shown as its own row" | UX-004 |
 | Tenant chooser | `/select-tenant` for multi-tenant users, no counts of foreign tenant data | UX-002 |
 | Publication refresh banner | "Newer data available (as of …)" + Refresh | UX-002 |
@@ -433,7 +433,7 @@ Task acceptance:
 
 ### UX-005 — Warehouse and query deep dives
 Release: R1 · Estimate: 38–52 h · Risk: M · Decisions: D-11, D-14, D-20 · Closes: G-UX-04 (p95 labels), G-UX-10 (retention states)
-Dependency changes: `−UX-004`, `+UX-002`, `+API-104`, `+WRK-104` (retention tiers), `+FIN-003` (classic); `FIN-004` only if Adaptive is R1* (D-20). Keep the live gate on `API-101`.
+Dependency changes: `−UX-004`, `+UX-002`, `+API-104`, `+WRK-104` (retention tiers), `+FIN-003` (classic); `FIN-004` (R1 since D-20) feeds the Adaptive KPIs through the capability flag — step-level, not a graph edge (FIN.md G-FIN-23). Keep the live gate on `API-101`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -441,10 +441,10 @@ Dependency changes: `−UX-004`, `+UX-002`, `+API-104`, `+WRK-104` (retention ti
 | UX-005-S02 | Warehouse list: attributed spend, warehouse_credits, query compute, idle, type/size, utilization (UNSUPPORTED "—") | page | Adaptive rows show idle "—" + CAPABILITY_UNSUPPORTED | 3 |
 | UX-005-S03 | Warehouse detail tabs in order cost → attribution/idle → workloads → performance → evidence, type-aware KPIs (classic idle, Adaptive query-hour, QAS) | page | Fixture 200 = 140 + 60 shown as decomposition, not addition | 4 |
 | UX-005-S04 | Performance page: queue time, `query_elapsed_p95` and `query_execution_p95` labelled distinctly, spill (capability-gated), failures | page | Labels match registry populations; percentiles never averaged (tier label shown) | 3 |
-| UX-005-S05 | Queries overview on family aggregates with tier indicator ("≈" in AGGREGATE tier) | page | 180-day range shows the aggregate-tier label | 3 |
+| UX-005-S05 | Queries overview on family aggregates with tier indicator ("≈" in AGGREGATE tier) | page | A range starting before now − `hot_days` (380 days with the default 365; 180 days on a plan fixture with `hot_days` = 90) shows the aggregate-tier label | 3 |
 | UX-005-S06 | Execution explorer on `query_executions` records (hot tier; ≤ 31 d sync else job), PRD §76 columns available by capability | page | 45-day request becomes a job; columns without capability are hidden with an explanation | 4 |
 | UX-005-S07 | Query detail `/explore/queries/:accountId/:queryId`: compute component scope note, timing breakdown, hash + version, workload, parent/root links, sanitized SQL per privacy mode/capability, per-hour proration (D-14) | page | q_demo_042 shows 0.4 + 0.2 + 11.8 = 12.4 s; METADATA_ONLY tenant shows no SQL with the reason | 4 |
-| UX-005-S08 | Retention states: query older than hot tier → "kept 90 days" state linking to family aggregates; operator evidence link only within 14 days (WRK-103, R2 feature-flag) | components | 100-day-old query URL shows the retention state, not 404 | 2 |
+| UX-005-S08 | Retention states: query older than the hot tier → "kept {hot_days} days" state (365 by default, D-11) linking to family aggregates; operator evidence link only within 14 days (WRK-103, R2 feature-flag) | components | A query URL older than `hot_days` (370-day fixture; 100 days on a plan with `hot_days` = 90) shows the retention state, not 404 | 2 |
 | UX-005-S09 | Drill: warehouse → workload/hash → query with scope carried; export | flows | Back restores each level | 2 |
 | UX-005-S10 | Tests: missing QAH shows unattributed, never free; metadata-only query shows no compute with reason; parent/child procedure queries not double-counted (parent total = Σ distinct children); long query spanning 3 hours shows proration rows summing to its compute | `tests/spec/UX-005/*` | All pass | 4 |
 | UX-005-S11 | Mobile/a11y/screenshots | evidence | Wide execution table scrolls in its region at 390 px | 2 |
@@ -476,12 +476,12 @@ Task acceptance:
 - [ ] Unresolved or hidden resources keep their spend visible.
 
 ### UX-007 — AI/Cortex and SPCS analytical experiences
-Release: R1* (D-20) else R2 · Estimate: 28–40 h · Risk: M · Decisions: D-20 · Closes: —
+Release: R1 (D-20, 2026-09-28) · Estimate: 28–40 h · Risk: M · Decisions: D-20 · Closes: —
 Dependency changes: `−UX-004`, `+UX-002`, `+API-104`; keep `FIN-018`, `FIN-019`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
-| UX-007-S01 | Screen contracts for ai, ai-family, ai-execution, ai-search, ai-analyst, spcs, spcs-pool, spcs-service (bindings to R1* registry metrics, capability flags per family) | contracts | Reviewed with FIN-018/019 owners | 3 |
+| UX-007-S01 | Screen contracts for ai, ai-family, ai-execution, ai-search, ai-analyst, spcs, spcs-pool, spcs-service (bindings to the AI/SPCS registry metrics — R1 since D-20 — with capability flags per family) | contracts | Reviewed with FIN-018/019 owners | 3 |
 | UX-007-S02 | AI overview: family spend (billed), native units per family (tokens only where emitted), coverage | page | Families without token units show "—" + CAPABILITY_UNSUPPORTED | 3 |
 | UX-007-S03 | Family pages (functions, search, analyst, agents where available) with model/function dims | pages | Function cost 400 + search 150 + analyst 50 = 600 shown once | 4 |
 | UX-007-S04 | AI execution detail: parent request cost with child components and residual (10 = 4 + 6) | page | The parent total is not 14; children are labelled as components | 3 |
@@ -497,7 +497,7 @@ Task acceptance:
 
 ### UX-008 — End-to-end product-state, accessibility and navigation qualification
 Release: R1 · Estimate: 38–52 h · Risk: M · Decisions: D-18, D-25 · Closes: G-UX-12 (coverage), G-UX-13 (perf evidence)
-Dependency changes: `+UX-102`, `+UX-103`, `+UX-104`, `+WRK-002`, `+WRK-004`, `+GOV-008` (inverted edge, GOV backlog), and per RECONCILIATION C-29 `+UX-003`, `+UX-004`, `+WRK-005`, `+WRK-102`, `+ALC-007`, `+INS-101` (UX-008 qualifies all R1 routes; UX-005/006 no longer depend on UX-004); keep UX-005, UX-006; `UX-007` only if R1*.
+Dependency changes: `+UX-102`, `+UX-103`, `+UX-104`, `+WRK-002`, `+WRK-004`, `+GOV-008` (inverted edge, GOV backlog), and per RECONCILIATION C-29 `+UX-003`, `+UX-004`, `+WRK-005`, `+WRK-102`, `+ALC-007`, `+INS-101` (UX-008 qualifies all R1 routes; UX-005/006 no longer depend on UX-004); keep UX-005, UX-006; `+UX-007` (R1 since D-20; UX-008 qualifies all R1 routes).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -610,10 +610,11 @@ Task acceptance:
 | UX-102 (new) | R1 | 32 | 46 |
 | UX-103 (new) | R1 | 12 | 17 |
 | UX-104 (new) | R1 | 26 | 36 |
-| UX-007 | R1* (D-20) / else R2 | 28 | 40 |
+| UX-007 | R1 (D-20) | 28 | 40 |
 | UX-101 (new) | R2 | 30 | 44 |
-| **Total R1** (excluding R1* UX-007) | | **330** | **459** |
-| **Total R2** (UX-101 + UX-007 if not R1*) | | **58** | **84** |
+| **Total R1** | | **358** | **499** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
+| **Total R2** (UX-101) | | **30** | **44** |
 
 The original plan was 8 tasks × 2–6 h = 16–48 h. The realistic figure is about 10× higher: 20 screens had no owner, and the design system, data layer and qualification were each a multi-week effort presented as three steps.
 

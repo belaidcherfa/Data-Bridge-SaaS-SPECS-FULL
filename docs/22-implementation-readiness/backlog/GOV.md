@@ -218,7 +218,7 @@ Resolution:
 - Record the result as `ACCEPTED_BY_PROVIDER`, not DELIVERED.
 - 4xx means PERMANENT with the remediation "workflow disabled or owner removed".
 - The payload cap is 24 KB; the actual Teams limit (reportedly ~28 KB) and flow throttling are TO VERIFY LIVE.
-- Release R1* (only if the D-20 customer uses Teams).
+- Release R1 (D-20, 2026-09-28 — no longer conditional on the customer using Teams).
 
 Affects: GOV-006, GOV-102.
 
@@ -532,7 +532,7 @@ Task acceptance:
 - [ ] The digest caps notifications at 10 per tenant/evaluation; INS imports the same library.
 
 ### GOV-006 — Implement Email, Slack, Teams and secure webhook adapters
-Release: R1 (Email, Slack, Webhook); Teams R1* · Estimate: 44–62 h · Risk: H · Decisions: D-20 (Teams), D-23 · Closes: G-GOV-09, G-GOV-10, G-GOV-11, G-GOV-12
+Release: R1 (Email, Slack, Webhook, Teams — Teams unconditional since D-20) · Estimate: 44–62 h · Risk: H · Decisions: D-20 (Teams), D-23 · Closes: G-GOV-09, G-GOV-10, G-GOV-11, G-GOV-12
 Dependency changes: `−GOV-004` (adapters are independent of incident state), `+GOV-102` (infrastructure), `+CTL-004`; keep SEC-008 and INF-003.
 
 | Step | Micro-task | Deliverable | Done when | h |
@@ -543,17 +543,17 @@ Dependency changes: `−GOV-004` (adapters are independent of incident state), `
 | GOV-006-S04 | Build the bounce/complaint consumer (SQS): hard bounce → UNDELIVERABLE; complaint → opt-out; idempotent by SES message id | `adapters/ses_events.py` | Duplicate SNS message processed once | 3 |
 | GOV-006-S05 | Build the Slack OAuth v2 install (state CSRF, tenant binding), channel picker and `conversations.info` validation, `chat.postMessage` with thread_ts | `adapters/slack.py` + API | Test-workspace receipt; recovery posts in the incident thread | 4 |
 | GOV-006-S06 | Build the Slack events endpoint for `tokens_revoked`/`app_uninstalled`, verified with the signing secret and a 5-minute tolerance | API route | Forged signature → 401; revoke → destination REVOKED | 2 |
-| GOV-006-S07 | Build the Teams adapter (R1*): host/path validation, legacy URL rejection, Adaptive Card envelope, ACCEPTED_BY_PROVIDER, 4xx → PERMANENT remediation | `adapters/teams.py` | `logic.azure.com` URL → 422 `TEAMS_LEGACY_URL`; sandbox tenant receipt | 3 |
+| GOV-006-S07 | Build the Teams adapter: host/path validation, legacy URL rejection, Adaptive Card envelope, ACCEPTED_BY_PROVIDER, 4xx → PERMANENT remediation | `adapters/teams.py` | `logic.azure.com` URL → 422 `TEAMS_LEGACY_URL`; sandbox tenant receipt | 3 |
 | GOV-006-S08 | Build the webhook adapter: Standard Webhooks v1 signing, rotation with dual signatures, 64 KB cap | `adapters/webhook.py` | The reference verifier (standardwebhooks lib) accepts both signatures during rotation | 3 |
 | GOV-006-S09 | Build the URL validator and pinned connector through the egress proxy (G-GOV-11 rules; re-resolve per attempt; no redirects; 8 KB response cap) | `adapters/net_guard.py` | Unit and integration tests pass | 4 |
 | GOV-006-S10 | Run the SSRF suite: 169.254.169.254, [fd00:ec2::254], 127.0.0.1, 10.0.0.1, [::ffff:10.0.0.1], [64:ff9b::a00:1], decimal 2130706433, rebinding (TTL 0 public/private), redirect to internal, port 8080, http://, userinfo | `tests/security/GOV-006/` | Every case rejected with its error code; the proxy log shows no internal connect | 4 |
 | GOV-006-S11 | Implement the destination APIs: create/update (new version), requested test (labelled TEST payload, 5/hour/destination), rotate, pause, delete; secrets write-only | `apps/api/destinations` | Secret never returned; test rate limit enforced | 4 |
 | GOV-006-S12 | Add secret hygiene: log scrubber for full Teams URLs, `xoxb-` tokens and `whsec_`; errors never echo URLs | scrubber + tests | Log capture shows no secret patterns | 2 |
 | GOV-006-S13 | Build the destinations UI at `/settings/destinations` (configured/verified/degraded, remediation) | `apps/web/destinations` | Playwright UX matrix passes | 4 |
-| GOV-006-S14 | Record sandbox evidence for Email, Slack, Webhook (and Teams if R1*); no live customer messages | evidence | Complete | 3 |
+| GOV-006-S14 | Record sandbox evidence for Email, Slack, Webhook and Teams; no live customer messages | evidence | Complete | 3 |
 
 Task acceptance:
-- [ ] Email, Slack and webhook produce verified sandbox receipts (Teams when R1*).
+- [ ] Email, Slack, webhook and Teams produce verified sandbox receipts.
 - [ ] All SSRF vectors, including IPv6-embedded and rebinding, are denied.
 - [ ] Webhook signatures verify with the Standard Webhooks reference library, including rotation.
 - [ ] Secrets are absent from PG, logs and API responses.
@@ -631,7 +631,7 @@ Task acceptance:
 - [ ] All governance statistical fixtures pass with independently computed values; INS and GOV import this package only.
 
 ### GOV-102 — Notification delivery infrastructure (SES, egress proxy, Slack app, Teams setup)
-Release: R1 (Teams parts R1*) · Estimate: 14–20 h · Risk: M · Decisions: D-23, D-25 · Closes: G-GOV-09, G-GOV-10, G-GOV-11 (proxy), G-GOV-12
+Release: R1 (incl. Teams parts, D-20) · Estimate: 14–20 h · Risk: M · Decisions: D-23, D-25 · Closes: G-GOV-09, G-GOV-10, G-GOV-11 (proxy), G-GOV-12
 Why: lead-time items (Slack app registration) and network isolation must exist before GOV-006. The SES identity (`notify.<domain>`), configuration set and production-access request are INF-006-S11's; GOV-102 keeps the egress proxy, Slack app, Teams guide and destination secrets (RECONCILIATION U-07). Plugs in after INF-002 (egress) and INF-006 (DNS, SES).
 Dependency changes: new task; deps `INF-002, INF-003, INF-006`; new downstream edge `GOV-006 → GOV-102`.
 
@@ -643,7 +643,7 @@ Dependency changes: new task; deps `INF-002, INF-003, INF-006`; new downstream e
 | GOV-102-S04 | Deploy the Smokescreen egress proxy in an isolated subnet; notification worker SG egress only to the proxy + VPC endpoints; ACL per role | IaC `infra/egress-proxy/` | A worker connecting directly to the internet or to 10.0.0.0/8 is blocked | 4 |
 | GOV-102-S05 | Verify the proxy's IPv6 behaviour; if unsupported, remove the IPv6 route from the proxy subnet (TO VERIFY LIVE) | test report | Documented result | 2 |
 | GOV-102-S06 | Register the Slack app: OAuth v2 scopes chat:write, channels:read, groups:read; redirect URL; signing secret; distribution enabled | app manifest in repo | Install into the test workspace succeeds | 3 |
-| GOV-102-S07 | Write the Teams setup guide (R1*): Workflows template "Post to a channel when a webhook request is received", URL host pattern, owner-continuity advice | `docs/customer/teams-destination.md` | Reviewed | 2 |
+| GOV-102-S07 | Write the Teams setup guide: Workflows template "Post to a channel when a webhook request is received", URL host pattern, owner-continuity advice | `docs/customer/teams-destination.md` | Reviewed | 2 |
 | GOV-102-S08 | Configure secrets: KMS CMK per environment; path `/bridge/{env}/tenant/{tenant_id}/destination/{id}`; IAM limits the worker to that prefix | IaC | Cross-tenant secret read → AccessDenied | 2 |
 | GOV-102-S09 | Record evidence | evidence | Complete | 1 |
 
@@ -711,7 +711,7 @@ Dependency changes: new task; deps `GOV-002, GOV-101`; no R1 downstream edges.
 | GOV-003 | R1 | 45 | 64 |
 | GOV-004 | R1 | 47 | 67 |
 | GOV-005 | R1 | 18 | 26 |
-| GOV-006 | R1 (Teams R1*) | 44 | 62 |
+| GOV-006 | R1 | 44 | 62 |
 | GOV-007 | R1 | 39 | 55 |
 | GOV-008 | R1 | 33 | 47 |
 | GOV-101 | R1 | 20 | 28 |
@@ -720,9 +720,10 @@ Dependency changes: new task; deps `GOV-002, GOV-101`; no R1 downstream edges.
 | GOV-104 | R2 | 18 | 26 |
 | GOV-105 | R2 | 22 | 31 |
 | **Total R1** | | **345** | **490** |
+| R1\* (none after D-20, 2026-09-28) | — | 0 | 0 |
 | **Total R2** | | **40** | **57** |
 
-(Teams-specific effort inside R1 totals, conditional on D-20: GOV-006-S07 3 h + GOV-102-S07 2 h + evidence ≈ 6–9 h.)
+(Teams-specific effort inside R1 totals, unconditional since D-20: GOV-006-S07 3 h + GOV-102-S07 2 h + evidence ≈ 6–9 h.)
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 

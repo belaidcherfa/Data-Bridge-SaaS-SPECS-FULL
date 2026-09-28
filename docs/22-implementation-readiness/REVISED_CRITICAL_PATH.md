@@ -1,5 +1,7 @@
 # Revised critical path and delivery arithmetic
 
+> **Recomputed 2026-09-28 after the owner's decisions.** D-20 moved all nine former R1\* tasks (FIN-004, FIN-012, FIN-017, FIN-018, FIN-019, FIN-020, UX-007, WRK-003, SEC-003) and the R1 part of ING-105 into R1; D-17 added LCH-105. R1 is now **229 tasks, 7,116–10,488 h**; R2 614–948 h. The critical path is unchanged in shape — **42 tasks, 1,362–2,006 h** — because the added work has slack; LCH-002 (first payment) now requires 227 of the 228 other R1 tasks (all but LCH-004), since OPS-011 qualification gates every service family. List-scheduled makespan at 120 h per engineer-month: 3 engineers 19.9–29.4 months, 5 engineers 12.4–18.4, 8 engineers 11.5–16.7. With coding agents (D-19) the calendar is bounded by the chain, reviewer capacity and human-run live gates rather than headcount ([RELEASE_PLAN §5](RELEASE_PLAN.md#5-estimates)). The detailed tables below were computed before these changes (R1 218 tasks, 6,779–9,974 h); their chain composition and lane structure remain valid.
+
 Computed on 2026-09-28 from [revised-task-graph.json](revised-task-graph.json) (249 entries; rulings in [RECONCILIATION.md](RECONCILIATION.md)). The scripts (`validate_graph.py`, `compute_cp.py`) were run by the integration reviewer; every figure below is reproducible from the JSON. This is arithmetic on estimates, not a delivery commitment.
 
 ## 0. Assumptions

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:problem:v1",
+  "$comment": "contract=problem version=1 status=ACCEPTED owner_task=FND-103 last_changed=2026-09-28 (RFC 9457 + Bridge extensions)",
+  "title": "Problem",
+  "type": "object",
+  "required": ["type", "title", "status", "code", "request_id", "retryable"],
+  "properties": {
+    "type": {"type": "string", "format": "uri-reference", "description": "https://docs.bridge-data.io/errors/<code-kebab> (docs site, SAS domain)"},
+    "title": {"type": "string"},
+    "status": {"type": "integer"},
+    "detail": {"type": "string"},
+    "instance": {"type": "string"},
+    "code": {"type": "string"},
+    "request_id": {"type": "string"},
+    "retryable": {"type": "boolean"},
+    "retry_after_ms": {"type": "integer", "minimum": 0},
+    "errors": {
+      "type": "array",
+      "items": {"type": "object", "required": ["field", "code"], "properties": {"field": {"type": "string"}, "code": {"type": "string"}, "message": {"type": "string"}}}
+    }
+  }
+}

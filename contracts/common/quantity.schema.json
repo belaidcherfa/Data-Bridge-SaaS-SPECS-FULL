@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:quantity:v1",
+  "$comment": "contract=quantity version=1 status=ACCEPTED owner_task=FIN-106 last_changed=2026-09-28",
+  "title": "Quantity",
+  "description": "Exact signed quantity with a native unit (credits, bytes, tokens, ...). Never a JSON number.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["value", "unit"],
+  "properties": {
+    "value": {"$ref": "money.schema.json#/$defs/decimal_string"},
+    "unit": {
+      "type": "string",
+      "enum": ["CREDIT", "BYTE", "BYTE_DAY", "GIB_MONTH", "TB_MONTH", "TOKEN", "REQUEST", "QUERY", "FILE", "ROW", "SECOND", "MILLISECOND", "NODE_HOUR", "EXECUTION", "UNIT"]
+    }
+  },
+  "examples": [{"value": "105", "unit": "CREDIT"}, {"value": "0.25", "unit": "CREDIT"}]
+}

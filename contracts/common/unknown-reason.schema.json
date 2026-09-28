@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:unknown-reason:v1",
+  "$comment": "contract=unknown-reason version=1 status=ACCEPTED owner_task=API-003 last_changed=2026-09-28",
+  "title": "UnknownReason",
+  "description": "Why a value is null. Zero always means confirmed zero; unknown is never rendered as zero.",
+  "type": "string",
+  "enum": ["NOT_SUPPORTED", "NOT_ENABLED", "DENIED", "NOT_YET_AVAILABLE", "OUT_OF_RETENTION", "NO_PRICE", "SUPPRESSED_PRIVACY", "INSUFFICIENT_DATA", "CAPABILITY_MISSING", "TRIAL_ACCOUNT", "PENDING_RECONCILIATION", "NOT_APPLICABLE"]
+}

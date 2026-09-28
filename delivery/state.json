@@ -1,0 +1,2288 @@
+{
+  "$schema": "./state.schema.json",
+  "state_version": 1,
+  "updated_at": "2026-09-28T00:00:00Z",
+  "control": {
+    "paused": true,
+    "pause_reason": "Waiting for owner go: repository private, config/environments filled, delivery server ready (HUMAN_CHECKPOINTS.md)",
+    "tick_minutes": 30,
+    "max_workers": 6,
+    "lane_cap": 2,
+    "lease_ttl_hours": 4,
+    "worker_max_turns": 150,
+    "usd_per_estimated_hour": 6,
+    "daily_budget_usd": 400,
+    "release_scope": [
+      "R1"
+    ],
+    "default_models": {
+      "orchestrator": "claude-opus-5-5",
+      "tier_a": "claude-opus-5-5",
+      "tier_b": "claude-sonnet-5",
+      "tier_c": "claude-sonnet-5",
+      "reviewer": "claude-opus-5-5",
+      "verifier": "claude-sonnet-5"
+    }
+  },
+  "budget": {
+    "spent_usd_total": 0,
+    "spent_usd_today": 0,
+    "day": "2026-09-28"
+  },
+  "locks": {},
+  "leases": [],
+  "tasks": {
+    "ALC-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ALC-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "API-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CON-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "CTL-103": {
+      "status": "MERGED_INTO:UX-101",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "DBT-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-009": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-010": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-011": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-012": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-013": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-014": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-015": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-016": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-017": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-018": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-019": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-020": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-021": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-107": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-108": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FIN-109": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "FND-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "GOV-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INF-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-009": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-010": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-011": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-012": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-107": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ING-112": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "INS-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ONB-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-009": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-010": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-011": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-107": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-108": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-109": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-110": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "OPS-111": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "ORC-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "REL-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "RPT-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "SEC-106": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-006": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-007": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-008": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "UX-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-001": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-002": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-003": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-004": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-005": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-101": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-102": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-103": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-104": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "WRK-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    },
+    "LCH-105": {
+      "status": "NOT_STARTED",
+      "attempts": 0,
+      "pr": null,
+      "model": null,
+      "steps_done": [],
+      "evidence": null,
+      "blocked_by": []
+    }
+  },
+  "escalations_open": [],
+  "reports": []
+}

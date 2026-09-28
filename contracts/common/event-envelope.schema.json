@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:event-envelope:v1",
+  "$comment": "contract=event-envelope version=1 status=ACCEPTED owner_task=CTL-101 last_changed=2026-09-28",
+  "title": "EventEnvelope",
+  "description": "Transactional-outbox event envelope. At-least-once delivery, ordered per aggregate; consumers deduplicate on (consumer, event_id).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "type", "schema_version", "tenant_id", "occurred_at", "producer", "aggregate_type", "aggregate_id", "aggregate_version", "correlation_id", "privacy", "payload"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "type": {"type": "string", "pattern": "^bridge\\.[a-z_]+\\.[a-z_]+\\.[a-z_]+$"},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "tenant_id": {"type": ["string", "null"], "format": "uuid", "description": "null only for platform events (declared as such in the catalog)."},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "producer": {"type": "string", "pattern": "^[a-z0-9-]+@[0-9A-Za-z.+-]+$", "description": "service@version"},
+    "aggregate_type": {"type": "string"},
+    "aggregate_id": {"type": "string"},
+    "aggregate_version": {"type": "integer", "minimum": 1},
+    "correlation_id": {"type": "string"},
+    "causation_id": {"type": ["string", "null"]},
+    "privacy": {"type": "string", "enum": ["NONE", "CUSTOMER_METADATA", "PERSONAL"]},
+    "payload": {"type": "object", "description": "Validated against contracts/events/schemas/<type>.v<schema_version>.schema.json"}
+  }
+}

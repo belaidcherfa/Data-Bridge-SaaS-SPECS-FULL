@@ -1,0 +1,49 @@
+# Curated inputs for tools/delivery/build_packets.py (ORCHESTRATION §4, §8). Edit here, then `make packets`.
+version: 1
+
+# Tier A: implemented by Opus, reviewed by Opus + specialized reviewer + human on merge.
+tier_a_domains: [SEC, FIN, ALC]
+tier_a_tasks: [CTL-101, CTL-004, CTL-005, CTL-006, DBT-101, DBT-004, DBT-006, ORC-005, ORC-101, ORC-105, INF-103, INF-102, ING-005, ING-007, ING-008, ING-106, ING-107, API-002, API-003, API-005, WRK-101, GOV-004, GOV-006, GOV-007, LCH-101, LCH-105, OPS-004, OPS-104, OPS-007, CON-001, CON-003]
+# Tier C: mechanical work.
+tier_c_tasks: []
+
+specialized_reviewers:
+  security: [SEC, CTL-101, CTL-006, INF-103, INF-102, CON-001, CON-003, ING-005, ING-106, ING-107, API-002, API-003, API-006, GOV-006, OPS-004, OPS-104, SEC-105, WRK-101, RPT-005]
+  finops: [FIN, ALC, GOV-001, GOV-002, INS-006, INS-007, LCH-105, API-001, API-101]
+  data: [DBT, ORC-004, ORC-005, ORC-101, ORC-105, ING-007, ING-008, WRK-104, OPS-007]
+  frontend: [UX, ALC-006, ALC-007, GOV-008, INS-101, RPT-003, ONB-001]
+
+# Human-only gates per task (the orchestrator prepares, a human approves/executes).
+human_gates:
+  INF-001: ["Owner creates/authorizes AWS Organization and accounts; fills config/environments/*.yaml"]
+  INF-002: ["Human approves first STAGING/PROD network apply (plan reviewed)"]
+  INF-006: ["Human approves DNS/ACM changes on the production zone"]
+  INF-007: ["Human configures GitHub environments and required reviewers for staging/prod"]
+  INF-008: ["Owner creates central Snowflake accounts (ORGADMIN); transient bootstrap credential handled by a human (D-21)"]
+  INF-101: ["Owner approves test-estate spend (D-32) and creates test Snowflake organizations/accounts"]
+  INF-103: ["Human approves IAM permission boundary + SCP in PROD"]
+  INF-105: ["Owner sets budget thresholds and alarm recipients"]
+  FND-006: ["Owner confirms repository is private before product code merges (ADR-017)"]
+  SEC-003: ["Human configures test IdP tenants (Entra ID, Okta, Google) for SSO verification"]
+  CON-002: ["Human witnesses first live WIF positive/negative/revocation run"]
+  GOV-006: ["Owner provides SES domain verification/production access request, Slack app and Teams test tenant"]
+  OPS-006: ["Human witnesses first timed Aurora restore drill"]
+  OPS-007: ["Human witnesses first analytical recovery drill"]
+  OPS-107: ["Owner books and scopes the external penetration test"]
+  OPS-108: ["Owner approves SOC 2 control ownership assignments"]
+  REL-002: ["Human approves production deployment rehearsal and rollback"]
+  REL-004: ["Owner signs the release candidate go/no-go"]
+  LCH-001: ["Owner approves plan catalog and prices (D-17)"]
+  LCH-102: ["Owner/counsel approve DPA, subprocessors, terms (D-36)"]
+  LCH-103: ["Finance operator records invoice/payment references (D-30)"]
+  LCH-104: ["Owner approves support policy and contacts (D-37)"]
+  LCH-105: ["Owner approves spend-band table"]
+  ONB-003: ["Customer administrator runs install scripts; owner confirms pilot contract"]
+  ONB-004: ["Customer finance approver reviews reconciliation"]
+  ONB-005: ["Customer workshop and acceptance signature"]
+  LCH-002: ["Finance verifies real payment evidence"]
+  LCH-003: ["Owner approves production go-live"]
+  LCH-004: ["Owner reviews day-30 results"]
+
+# Extra write globs or corrections per task (added to generated writes).
+extra_writes: {}

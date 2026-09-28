@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:money:v1",
+  "$comment": "contract=money version=1 status=ACCEPTED owner_task=FIN-106 decisions=D-12 last_changed=2026-09-28",
+  "title": "Money",
+  "description": "Exact signed monetary amount as a decimal string with explicit ISO 4217 currency. Never a JSON number.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["amount", "currency"],
+  "properties": {
+    "amount": {
+      "$ref": "#/$defs/decimal_string",
+      "x-privacy": "INTERNAL"
+    },
+    "currency": {
+      "$ref": "#/$defs/currency_code"
+    }
+  },
+  "$defs": {
+    "decimal_string": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]{0,25})(\\.[0-9]{1,12})?$",
+      "description": "Up to 26 integer digits and 12 fractional digits (NUMBER(38,12)); leading zeros forbidden; sign allowed."
+    },
+    "currency_code": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 alphabetic code."
+    }
+  },
+  "examples": [
+    {"amount": "270.000000000000", "currency": "USD"},
+    {"amount": "-3.00", "currency": "USD"},
+    {"amount": "0", "currency": "EUR"}
+  ]
+}

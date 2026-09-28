@@ -1,0 +1,10 @@
+# contract=uuid-namespaces version=1 status=ACCEPTED owner_task=FND-103 last_changed=2026-09-28
+# UUIDv5 namespaces for deterministic identifiers. Add entries; never change an existing value.
+# Key tuple members are joined with U+001F (unit separator) before hashing.
+namespaces:
+  logical_delivery:   {uuid: 52e783ea-da91-45f0-8407-f82ab7268d71, key: [event_id, destination_id], owner_task: GOV-007}
+  logical_window:     {uuid: 0c617176-5611-4af9-a569-5b98a5f1020b, key: [tenant_id, account_id, source_id, window_start, window_end, contract_version], owner_task: ING-002}
+  report_occurrence:  {uuid: bf4eede1-be75-49f3-a67f-5776576e6650, key: [schedule_id, local_calendar_slot], owner_task: RPT-004}
+  monitor_observation: {uuid: 5d7aa8e0-639d-43ae-b41e-d93c851ba015, key: [monitor_id, monitor_version, partition_key, window_start, window_end, publication_id], owner_task: GOV-004}
+  insight_fingerprint: {uuid: 04fa162b-b2c5-4664-9547-31d92cb5f3b8, key: [tenant_id, detector_id, detector_version, resource_key, opportunity_group], owner_task: INS-001}
+  charge_estimate:    {uuid: e26a4d3d-f99a-45ae-a2f8-cd46872368c3, key: [tenant_id, organization_id, scope_kind, account_id, usage_date, service_family, currency], owner_task: FIN-102}

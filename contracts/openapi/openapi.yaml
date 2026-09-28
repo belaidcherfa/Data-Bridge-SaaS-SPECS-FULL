@@ -1,0 +1,98 @@
+# contract=openapi-root version=1 status=DRAFT owner_task=FND-103 decisions=D-22,D-33 last_changed=2026-09-28
+# Root document. Each domain owns contracts/openapi/paths/<domain>.yaml; components shared across
+# domains live in contracts/openapi/components/. Bundle with `redocly bundle` for publication.
+openapi: 3.1.0
+info:
+  title: Bridge Data FinOps API
+  version: 1.0.0-draft
+  description: |
+    Single API consumed by the Bridge web app, customer integrations and future CLI/Terraform/MCP clients (PRD §145).
+    Conventions: contracts/CONVENTIONS.md. Money and quantities are decimal strings. Errors are RFC 9457 problems.
+  license: {name: Proprietary}
+servers:
+  - url: https://api.{environment}.bridge-data.example/v1
+    variables:
+      environment: {default: app, enum: [app, staging, dev]}
+security:
+  - cookieSession: []
+  - bearerMachine: []
+tags:
+  - {name: auth, description: Sessions, SSO, MFA (SEC)}
+  - {name: tenancy, description: Tenants, members, teams, invitations (CTL)}
+  - {name: connections, description: Snowflake connections, capabilities, scripts (CON)}
+  - {name: sync, description: Coverage, backfills, replay, data health (ING)}
+  - {name: analytics, description: Semantic query, explain, jobs, exports (API)}
+  - {name: finance, description: Pricing, billing references, reconciliation, periods, statements (FIN)}
+  - {name: workloads, description: dbt, Power BI, tasks, workloads (WRK)}
+  - {name: allocation, description: Dimensions, rules, simulations, groups, showback, chargeback (ALC)}
+  - {name: governance, description: Budgets, forecasts, monitors, incidents, destinations (GOV)}
+  - {name: insights, description: Insights, actions, savings (INS)}
+  - {name: reports, description: Report definitions, schedules, artifacts (RPT)}
+  - {name: onboarding, description: Guided onboarding (ONB)}
+  - {name: commercial, description: Plans, entitlements, subscription, usage (LCH)}
+  - {name: platform, description: Health, feature flags, notifications, audit (OPS/SEC/SAS)}
+paths: {}
+# Domain path files are merged by the bundler; each file declares `paths:` with $refs to components.
+x-bridge-path-files:
+  - paths/auth.yaml
+  - paths/tenancy.yaml
+  - paths/connections.yaml
+  - paths/sync.yaml
+  - paths/analytics.yaml
+  - paths/finance.yaml
+  - paths/workloads.yaml
+  - paths/allocation.yaml
+  - paths/governance.yaml
+  - paths/insights.yaml
+  - paths/reports.yaml
+  - paths/onboarding.yaml
+  - paths/commercial.yaml
+  - paths/platform.yaml
+components:
+  securitySchemes:
+    cookieSession:
+      type: apiKey
+      in: cookie
+      name: __Host-bridge_session
+      description: Opaque BFF session cookie (Secure, HttpOnly, SameSite=Lax). Mutations also require the X-CSRF-Token header.
+    bearerMachine:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito client-credentials token for a machine client bound to one tenant (API-006, R2).
+  parameters:
+    TenantHeader:
+      name: X-Bridge-Tenant
+      in: header
+      required: true
+      schema: {type: string, format: uuid}
+      description: Selected tenant; echoed in the response; the client rejects a mismatching echo.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: {type: string, minLength: 16, maxLength: 128}
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: {type: string}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 500, default: 100}
+    Cursor:
+      name: cursor
+      in: query
+      schema: {type: string, maxLength: 2048}
+  schemas:
+    Money: {$ref: '../common/money.schema.json'}
+    Quantity: {$ref: '../common/quantity.schema.json'}
+    Problem: {$ref: '../common/problem.schema.json'}
+    UnknownReason: {$ref: '../common/unknown-reason.schema.json'}
+  responses:
+    Problem:
+      description: Error (RFC 9457)
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}

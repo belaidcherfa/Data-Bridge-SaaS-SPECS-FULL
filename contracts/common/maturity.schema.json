@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:common:maturity:v1",
+  "$comment": "contract=maturity version=1 status=ACCEPTED owner_task=FIN-104 decisions=D-13 last_changed=2026-09-28",
+  "title": "Maturity and financial state enums",
+  "$defs": {
+    "data_status": {"type": "string", "enum": ["PROVISIONAL", "FINAL", "RECONCILED"]},
+    "reconciliation_status": {"type": "string", "enum": ["PENDING", "MATCHED", "WARNING", "FAILED"]},
+    "period_state": {"type": "string", "enum": ["OPEN", "MONTH_STABLE", "CLOSED", "RESTATED"]},
+    "price_basis": {"type": "string", "enum": ["BILLED_SOURCE", "CONTRACT_RATE_ESTIMATE", "CUSTOMER_APPROVED_RATE", "UNKNOWN"]},
+    "scope_kind": {"type": "string", "enum": ["ORGANIZATION", "ACCOUNT"]}
+  }
+}

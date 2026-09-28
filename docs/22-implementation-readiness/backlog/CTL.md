@@ -140,7 +140,7 @@ Dependency changes: `+CTL-101` (migration runner, template, `tenant_transaction`
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CTL-001-S01 | Specify DDL: `connection.organizations` (tenant_id, id, snowflake_org_name, display_name, status, revision), `connection.organization_name_history`, `connection.accounts` (tenant_id, id, account_locator, region, cloud, account_name_current, edition, status `DISCOVERED|SELECTED|CONNECTED|MISSING|DISCONNECTED|DELETED_AT_SOURCE`, source_identity_hash, first_seen_at, last_seen_at, missing_count, revision; unique `(tenant_id, account_locator, region, cloud)`), `connection.account_name_history`, `connection.account_membership_history` (tenant_id, account_id, organization_id, valid_from, valid_to, source, observed_at) | `docs/data/control-erd.md` §connection | Reviewed by CON and FIN owners (org-level rows per ADR-001) | 4 |
+| CTL-001-S01 | Specify DDL: `connection.organizations` (tenant_id, id, snowflake_org_name, display_name, status, revision), `connection.organization_name_history`, `connection.accounts` (tenant_id, id, account_locator, region, cloud, account_name_current, edition, status `DISCOVERED\|SELECTED\|CONNECTED\|MISSING\|DISCONNECTED\|DELETED_AT_SOURCE`, source_identity_hash, first_seen_at, last_seen_at, missing_count, revision; unique `(tenant_id, account_locator, region, cloud)`), `connection.account_name_history`, `connection.account_membership_history` (tenant_id, account_id, organization_id, valid_from, valid_to, source, observed_at) | `docs/data/control-erd.md` §connection | Reviewed by CON and FIN owners (org-level rows per ADR-001) | 4 |
 | CTL-001-S02 | Write migration with composite keys/FKs, RLS + grants via the CTL-101 template, and a GiST exclusion constraint preventing overlapping membership intervals per account | `migrations/versions/00xx_connection.py` | RLS lint passes; overlapping interval insert fails with 23P01 | 3 |
 | CTL-001-S03 | Implement temporal repository: `organization_of(account_id, at)` and `accounts_of(org_id, at)` on half-open intervals `[valid_from, valid_to)` | `packages/control_db/repos/accounts.py` | Boundary instant belongs to the new interval | 3 |
 | CTL-001-S04 | Implement discovery upsert by natural key: rename → history row + same UUID; missed discovery increments `missing_count`, status `MISSING` at 3; reappearance resets and keeps UUID; never delete | `packages/control_db/repos/discovery.py` | Rename and disappear/reappear fixtures keep one UUID | 4 |
@@ -162,7 +162,7 @@ Dependency changes: `+CTL-101` (runner exists there; this task adds generation s
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CTL-002-S01 | Write the expand/contract protocol (Appendix C) and a migration linter: each revision declares `phase: expand|backfill|contract`; contract requires `requires_schema_rev_drained`; non-concurrent `CREATE INDEX` on existing tables, in-place renames/type changes and `ALTER TYPE … ADD VALUE` are rejected | `docs/data/migrations.md`, `tools/ci/migration_lint.py` | Linter fails on a fixture migration renaming a column | 4 |
+| CTL-002-S01 | Write the expand/contract protocol (Appendix C) and a migration linter: each revision declares `phase: expand\|backfill\|contract`; contract requires `requires_schema_rev_drained`; non-concurrent `CREATE INDEX` on existing tables, in-place renames/type changes and `ALTER TYPE … ADD VALUE` are rejected | `docs/data/migrations.md`, `tools/ci/migration_lint.py` | Linter fails on a fixture migration renaming a column | 4 |
 | CTL-002-S02 | Create `platform.component_heartbeats` (component, instance_id, image_digest, schema_rev_min, schema_rev_max, last_seen_at) updated every 30 s by every process; migration runner guard for contract steps | `migrations/…`, `packages/control_db/heartbeat.py` | Contract refused while an N−1 heartbeat is <15 min old | 3 |
 | CTL-002-S03 | Build resumable backfill framework `platform.backfill_jobs(name, last_key, batch_size, rows_done, status, updated_at)`; 5k rows per batch by PK, `SET LOCAL statement_timeout='30s'`, 200 ms pause, run as worker job outside the migration transaction | `packages/control_db/backfill.py` | Kill mid-run and resume without reprocessing committed batches | 4 |
 | CTL-002-S04 | Run `CREATE INDEX CONCURRENTLY` inside Alembic `autocommit_block()`; detect and rebuild invalid indexes (`pg_index.indisvalid = false`) | `migrations/helpers/indexes.py` | Interrupted build leaves no invalid index after rerun | 2 |
@@ -191,7 +191,7 @@ Dependency changes: `−SEC-008` (audit write-path now in CTL-101), `+CTL-101`, 
 | CTL-003-S01 | Author OpenAPI: `GET/PATCH /v1/tenants/current`, `GET /v1/members`, `GET/PATCH/DELETE /v1/members/{id}`, `PUT /v1/members/{id}/grants`, `POST/GET /v1/invitations`, `DELETE /v1/invitations/{id}`, `POST /v1/invitations/{id}:resend`, `POST /v1/invitations:accept`, `/v1/teams` CRUD, `/v1/teams/{id}/members` | `packages/api_contracts/openapi/settings.yaml` | Lint passes; every mutation documents If-Match/Idempotency-Key | 4 |
 | CTL-003-S02 | Implement keyset pagination: signed cursor `{sort values, id, filter digest, exp 15 min}`, `limit ≤100`, stable `(created_at, id)` order | `packages/control_db/pagination.py` | Insertions between pages cause no duplicates/skips | 3 |
 | CTL-003-S03 | Publish the error catalog (§3) and map exceptions to it | `packages/api_contracts/errors.yaml` | Every code used in routes exists in the catalog (CI) | 2 |
-| CTL-003-S04 | Migrate `identity.invitations` (tenant_id, id, email_norm, token_hash unique, grants jsonb, invited_by, status `PENDING|ACCEPTED|REVOKED|EXPIRED`, expires_at ≤14 d, accepted_by, accepted_at, resend_count, revision) | migration | RLS lint passes | 2 |
+| CTL-003-S04 | Migrate `identity.invitations` (tenant_id, id, email_norm, token_hash unique, grants jsonb, invited_by, status `PENDING\|ACCEPTED\|REVOKED\|EXPIRED`, expires_at ≤14 d, accepted_by, accepted_at, resend_count, revision) | migration | RLS lint passes | 2 |
 | CTL-003-S05 | Create invitation: delegation check (SEC-004), `users` quota check (CTL-007), Idempotency-Key, outbox `invitation.created` → email containing `/invite#t=<token>` | `apps/api/routes/invitations.py` | Retry with same key → same invitation id | 4 |
 | CTL-003-S06 | Accept invitation per Appendix E (email binding, SSO binding, inviter re-validation, single use, uniform errors) | `apps/api/routes/invitations_accept.py` | ATK-24 (forwarded link used by another email) → 403 `INVITE_EMAIL_MISMATCH`; second accept by same subject → 200 same membership | 5 |
 | CTL-003-S07 | Resend (rotates token), revoke, expiry job | `services/workers/invitation_expiry.py` | Old token after resend → uniform 410 `INVITE_INVALID` | 2 |
@@ -215,7 +215,7 @@ Dependency changes: `−CTL-003` (dispatcher does not need settings CRUD), `+CTL
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CTL-004-S01 | Define event catalog and routing: event_type → transport (`sqs_fifo`, `sqs_standard`, `internal`), queue, `ordering` (`AGGREGATE|NONE`), max_attempts | `schemas/events/routing.yaml` | Every emitted event type has a route (CI) | 3 |
+| CTL-004-S01 | Define event catalog and routing: event_type → transport (`sqs_fifo`, `sqs_standard`, `internal`), queue, `ordering` (`AGGREGATE\|NONE`), max_attempts | `schemas/events/routing.yaml` | Every emitted event type has a route (CI) | 3 |
 | CTL-004-S02 | Implement claim algorithm (Appendix A.2): SKIP LOCKED, per-aggregate head-of-line for ordered types, batch 100, lease 60 s, token from `platform.lease_token_seq` | `services/outbox_dispatcher/claim.py` | Two dispatchers never publish seq n+1 before seq n of the same aggregate (1,000-event test) | 4 |
 | CTL-004-S03 | Publishers: FIFO with `MessageGroupId`=aggregate key and `MessageDeduplicationId`=event_id; standard queues with `event_id` attribute; consumer helper `consume_once(consumer, event_id)` over `platform.consumed_events` | `services/outbox_dispatcher/publish.py`, `packages/events/consume.py` | Duplicate publish → one consumer effect | 4 |
 | CTL-004-S04 | Complete/fail with fencing; backoff `min(5 s·2^attempts, 3600 s)` ±20 % jitter; classes RETRYABLE/PERMANENT; attempts ≥ max → DEAD | `services/outbox_dispatcher/complete.py` | Stale-token completion affects 0 rows and logs `OUTBOX_STALE_LEASE` | 3 |
@@ -236,13 +236,13 @@ Task acceptance:
 
 ### CTL-005 — Publish immutable analytical configuration snapshots (D-04)
 Release: R1 · Estimate: 40–62 h · Risk: M · Decisions: D-04, D-05, D-10, D-16 · Closes: G-CTL-11
-Dependency changes: `+INF-008` (CONFIG schema and `config-publisher` WIF identity), `+SEC-103` (pseudonymized user predicates); keep CTL-004, INF-003 (S3 archive).
+Dependency changes: `+INF-008` (CONFIG schema and `config-publisher` WIF identity), `+SEC-103` (pseudonymized user predicates), `+SEC-102` (only approved objects are serialized); keep CTL-004, INF-003 (S3 archive).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | CTL-005-S01 | Write the ADR-007 amendment for D-04 (direct insert-only publication + S3 archive; drafts in `SIMULATION_INPUT`) and event contract `config.publication.requested` | `docs/architecture/adr/ADR-007a-direct-config-publication.md` | Accepted | 2 |
 | CTL-005-S02 | Create Snowflake DDL (Appendix G): `CONFIG.CONFIG_VERSION` header + kind tables (`TAG_RULE_PREDICATE`, `ALLOCATION_RULE`, `ALLOCATION_WEIGHT`, `GROUP_SET_MEMBERSHIP`, `GROUP_HIERARCHY`, `PRICE_RATE`, `MONITOR_DEFINITION`); `CONFIG_PUBLISHER` has INSERT only; dbt role SELECT | `infra/snowflake/config/010_config.sql` | Publisher UPDATE/DELETE → insufficient privileges | 4 |
-| CTL-005-S03 | Migrate PG `governance.config_publications` (tenant_id, id, config_kind, config_version, source_revisions jsonb, content_sha256, approval_id, status `PENDING_PUBLICATION|PUBLISHED|FAILED`, attempts, published_at, revision); version allocated per `(tenant, kind)` monotonically | migration | Concurrent requests allocate distinct versions | 3 |
+| CTL-005-S03 | Migrate PG `governance.config_publications` (tenant_id, id, config_kind, config_version, source_revisions jsonb, content_sha256, approval_id, status `PENDING_PUBLICATION\|PUBLISHED\|FAILED`, attempts, published_at, revision); version allocated per `(tenant, kind)` monotonically | migration | Concurrent requests allocate distinct versions | 3 |
 | CTL-005-S04 | Implement deterministic serializer: approved objects only (valid SEC-102 approval), effective dates, user predicates pseudonymized (SEC-103), stable row order, content hash | `services/config_publisher/serialize.py` | Same input → byte-identical output and hash | 4 |
 | CTL-005-S05 | Implement publisher: fenced lease per `(tenant, kind)`; one Snowflake transaction inserting rows then header; existing header equal hash → no-op; different hash → FAILED `CONFIG_VERSION_CONFLICT` + page | `services/config_publisher/publish.py` | Kill between rows and header → no header, retry completes once | 5 |
 | CTL-005-S06 | Write S3 archive copy `config/{env}/{tenant}/{kind}/{version}.json.gz` (versioned bucket, KMS) with SHA-256 | `services/config_publisher/archive.py` | Archive hash equals content hash | 2 |
@@ -291,7 +291,7 @@ Dependency changes: `+API-001` (registry contract for spec validation; contract 
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CTL-007-S01 | Migrate `report.saved_views` (tenant_id, id, owner_membership_id NULL, name, description, semantic_spec jsonb, registry_version, visibility `PRIVATE|SHARED`, revision), `report.shares` (tenant_id, object_type, object_id, grantee_type `MEMBER|TEAM|TENANT`, grantee_id), `report.dashboards` (layout jsonb, widgets jsonb ≤30) | migration | RLS lint passes | 3 |
+| CTL-007-S01 | Migrate `report.saved_views` (tenant_id, id, owner_membership_id NULL, name, description, semantic_spec jsonb, registry_version, visibility `PRIVATE\|SHARED`, revision), `report.shares` (tenant_id, object_type, object_id, grantee_type `MEMBER\|TEAM\|TENANT`, grantee_id), `report.dashboards` (layout jsonb, widgets jsonb ≤30) | migration | RLS lint passes | 3 |
 | CTL-007-S02 | Validate specs by JSON Schema against the registry version (metric IDs, dimensions, operators), 16 KB per spec, no result-value fields | `packages/semantic/spec_validation.py` | Spec containing a numeric result array rejected | 3 |
 | CTL-007-S03 | CRUD and share APIs with If-Match and Idempotency-Key | `apps/api/routes/saved_views.py`, `dashboards.py` | Foreign shared view id → 404 | 4 |
 | CTL-007-S04 | Rendering rule: always recipient's profile; filters outside recipient scope → widget `PARTIAL_SCOPE` without echoing names; deleted metric → `UNAVAILABLE_METRIC` with migration hint; other widgets render | `packages/semantic/render_saved.py` | Recipient with A1 scope viewing an A1+A2 view sees A1 values and a partial-scope notice | 4 |
@@ -391,8 +391,8 @@ Task acceptance:
 | CTL-007 | R1 | 48 | 72 |
 | CTL-102 | R1 | 28 | 44 |
 | CTL-103 | R2 | 24 | 40 |
-| **Total R1** | | **352** | **536** |
-| **Total R2** | | **24** | **40** |
+| **Total R1** | \| **352** | **536** |
+| **Total R2** | \| **24** | **40** |
 
 ## 7. Owner questions
 
@@ -525,12 +525,12 @@ Formula per cluster: `Σ replicas_max × processes × (pool_size + max_overflow)
 | extraction account-cycle tasks (D-07; 8 steady + 2 backfill per orchestration.md) | bridge_worker | 10 | 1 | 2+0 | 20 | 20 |
 | migration task | bridge_migrator | 1 | 1 | 2+0 | 2 | 2 |
 | ops / break-glass reserve | bridge_ops_ro | — | — | — | 10 | 10 |
-| **bridge_control subtotal** | | | | | **240** | **448** |
+| **bridge_control subtotal** | \| | \| | **240** | **448** |
 | Dagster webserver | dagster | 2 | 1 | 5+0 | 10 | 20 |
 | Dagster daemon | dagster | 1 | 1 | 10+0 | 10 | 20 |
 | Dagster run workers (16 concurrent runs: 8+2+2+2+2 per orchestration.md; ≈3 conns/run — MEASURE) | dagster | 16 | 1 | 3 | 48 | 48 |
-| **dagster_meta subtotal** | | | | | **68** | **88** |
-| **Cluster total** | | | | | **308** | **536** |
+| **dagster_meta subtotal** | \| | \| | **68** | **88** |
+| **Cluster total** | \| | \| | **308** | **536** |
 
 On db.r6g.large (`max_connections` ≈1,716, secondary source; formula VERIFIED) the limits are 1,201 steady / 1,544 surge → ample headroom; memory ≈10 MB/backend × 536 ≈5.4 GB of 16 GiB. On db.t4g.medium (4 GiB → at most ≈450 by formula before reserved memory) the steady total leaves no headroom → staging must use smaller replica maxima. All connections target the writer endpoint (authz reads need read-after-write). RDS Proxy is not used in R1 (R32 pinning risk, TO VERIFY LIVE).
 

@@ -36,6 +36,7 @@ Resolution: plan with the timeline below; new ONB-101 computes and displays cred
 | P10 workshop: ownership, allocation simulation, budget, monitor, report, insight | weeks 2–3 | customer FinOps |
 | P11 FV-1 acceptance | ≈ 3–4 weeks after P3 | – |
 | P12 FV-2: first Bridge close of a full post-enrollment month | first full month end + 5 days (≈ 5–9 weeks after P3) | – |
+
 Affects: ONB-003, ONB-004, ONB-005, new ONB-101; LCH-002/LCH-004 timing.
 
 ### G-ONB-03 · "Complete period", first chargeback and savings cannot all be in first value
@@ -116,6 +117,7 @@ Affects: ONB-005.
 ### ONB-001 — Build resumable onboarding checklist as a projection of domain state
 Release: R1 · Estimate: 52–78 h · Risk: H · Decisions: D-08, D-09, D-13, D-17, D-18 · Closes: G-ONB-01, G-ONB-04, G-ONB-05, G-ONB-07, G-ONB-08
 Dependency changes: `+LCH-101`, `+ONB-101`.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-001-S01 | Write the state machine (§3) with every transition, guard and bound acknowledgement. | `docs/onboarding/state-machine.md` | Reviewed by CS, FinOps and backend; every step has a completion predicate referencing a domain API. | 4 |
@@ -135,6 +137,7 @@ Dependency changes: `+LCH-101`, `+ONB-101`.
 | ONB-001-S15 | Isolation tests: foreign run id, foreign step acknowledgement, Analyst acknowledging a financial limitation. | `tests/isolation/test_onboarding.py` | 404 for foreign ids; 403 for Analyst (FinOps Admin only). | 2 |
 | ONB-001-S16 | Funnel metrics without tenant dimensions (steps reached, time in step, blocker code counts) and per-tenant ops facts. | metrics registry entries | Dashboard shows funnel from synthetic runs. | 2 |
 | ONB-001-S17 | Docs and evidence. | `docs/evidence/ONB-001/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] Reload, double submission and worker restart resume the same run without duplicate pipelines.
 - [ ] Checklist status can never disagree with Data Health/reconciliation for the same publication.
@@ -145,6 +148,7 @@ Task acceptance:
 ### ONB-002 — Prepare customer and support documentation with clean-room rehearsal
 Release: R1 · Estimate: 36–54 h · Risk: M · Decisions: D-08, D-09, D-13, D-18 · Closes: G-ONB-05
 Dependency changes: `+ONB-102`; drafting starts at M5 (after CON-003/CON-006), finalization at M9.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-002-S01 | Define the doc set and version it against the release manifest: getting started, admin install (organization + account), network/IP allowlist (D-09), permissions reference (required vs optional per source), customer credit footprint (D-08) with formula, FinOps interpretation, history limitations, pause/revoke/reconnect, offboarding/deletion, support intake. | `docs/customer/index.md` | Each guide states the release version it matches. | 3 |
@@ -159,6 +163,7 @@ Dependency changes: `+ONB-102`; drafting starts at M5 (after CON-003/CON-006), f
 | ONB-002-S10 | Generate screenshots with Playwright and pull UI strings from the externalized catalog to prevent stale docs. | `tools/docs/screenshots.spec.ts` | Screenshot job runs in CI per release. | 3 |
 | ONB-002-S11 | Lint docs/scripts for secrets and real locators. | CI rule | Planted fake locator fails lint. | 1 |
 | ONB-002-S12 | Evidence. | `docs/evidence/ONB-002/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] A second engineer reaches synthetic first data from the guides alone.
 - [ ] Scripts in docs equal generated scripts for the same configuration revision.
@@ -167,6 +172,7 @@ Task acceptance:
 ### ONB-003 — Prepare authorized first-customer environment and identities
 Release: R1 · Estimate: 18–30 h (+ customer elapsed time) · Risk: M · Decisions: D-08, D-09, D-17, D-20, D-23 · Closes: G-ONB-02, G-ONB-07
 Dependency changes: `+LCH-003` (production go-live precedes the first real tenant), `+LCH-102` (signed DPA).
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-003-S01 | Create the private customer record: authorization, order form and DPA references, region (EU, D-23), privacy mode, requested history, named organization owner, Snowflake admin, finance approver, support contacts. | private system record; public template `docs/customer-records/onboarding-template.md` | All fields filled; public repo contains template only (lint). | 2 |
@@ -181,6 +187,7 @@ Dependency changes: `+LCH-003` (production go-live precedes the first real tenan
 | ONB-003-S10 | Review manual interventions so far and file product items. | backlog items | Each intervention has an item. | 1 |
 | ONB-003-S11 | Agree the backfill window with the customer (avoid their month close and peak hours). | calendar entry | Window recorded. | 1 |
 | ONB-003-S12 | Redacted evidence. | `docs/evidence/ONB-003/<commit>/` | No real locators in public evidence. | 2 |
+
 Task acceptance:
 - [ ] Only approved accounts are selectable; wrong-account identity fails validation.
 - [ ] Signed DPA and entitlement revision are referenced before any collection.
@@ -189,6 +196,7 @@ Task acceptance:
 ### ONB-004 — Complete historical synchronization and customer reconciliation (FV-1 financial evidence)
 Release: R1 · Estimate: 26–42 h (+ 1–4 days elapsed backfill) · Risk: H · Decisions: D-08, D-11, D-12, D-13 · Closes: G-ONB-02, G-ONB-03
 Dependency changes: `+ONB-101`.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-004-S01 | Present the plan: requested vs available per source, gaps, estimate (ONB-101); obtain consent acknowledgement. | S07 acknowledgement | 365 requested / 90 available shows 90 available / 275 unavailable. | 2 |
@@ -203,6 +211,7 @@ Dependency changes: `+ONB-101`.
 | ONB-004-S10 | Replay one account-day (ING-011) and confirm totals unchanged. | evidence | Totals identical. | 1 |
 | ONB-004-S11 | Obtain customer finance sign-off on the truthful status (RECONCILED / WARNING / FAILED + reasons). | signed record | Signed. | 2 |
 | ONB-004-S12 | Evidence (redacted). | `docs/evidence/ONB-004/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] All required available ranges are contiguous; gaps are explicit and accepted.
 - [ ] Duplicate replay leaves totals unchanged.
@@ -212,6 +221,7 @@ Task acceptance:
 ### ONB-005 — Complete FV-1 workshop and customer acceptance
 Release: R1 · Estimate: 20–32 h · Risk: M · Decisions: D-11, D-15, D-16 · Closes: G-ONB-03, G-ONB-05, G-ONB-09
 Dependency changes: `−INS-007`, `+INS-006`.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-005-S01 | Prepare the workshop pack from the FV-1 list using the customer's own publication (normal APIs only). | `docs/onboarding/first-value.md` (template) + private pack | No customer-specific pipeline or data copy. | 3 |
@@ -225,6 +235,7 @@ Dependency changes: `−INS-007`, `+INS-006`.
 | ONB-005-S09 | Schedule first-week and FV-2 reviews (LCH-004). | calendar | Dates recorded. | 1 |
 | ONB-005-S10 | Convert manual interventions into backlog items. | items | All converted. | 1 |
 | ONB-005-S11 | Evidence (private) and redacted template update. | `docs/evidence/ONB-005/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] Restricted user sees only assigned scope; allocation conserves; report equals Explorer.
 - [ ] Acceptance distinguishes FV-1 evidence from FV-2 commitments with dates.
@@ -236,6 +247,7 @@ Task acceptance:
 Release: R1 · Estimate: 26–40 h · Risk: M · Decisions: D-08, D-11, D-17 · Closes: G-ONB-02, G-ONB-04
 Why / where: D-08 requires credits shown before consent; onboarding.md requires evidence-based ETAs. Plugs in at M5 after ING-010, CON-005, OPS-105, LCH-101; ONB-001 and ONB-004 depend on it.
 Dependency changes: new; deps ING-010, CON-005, OPS-105, LCH-101.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-101-S01 | Specify the estimate model (inputs/outputs in §3) and coefficient versioning. | `data/estimates/onboarding-estimate.v1.json` | Reviewed with OPS-105 owner. | 3 |
@@ -248,6 +260,7 @@ Dependency changes: new; deps ING-010, CON-005, OPS-105, LCH-101.
 | ONB-101-S08 | Track estimate vs actual per onboarding for recalibration. | ops facts | Error distribution visible. | 2 |
 | ONB-101-S09 | Tests: 365 requested / 90 available; zero-volume account; 3 M/day account. | `tests/spec/ONB-101/` | Outputs match expected ranges. | 2 |
 | ONB-101-S10 | Docs and evidence. | `docs/evidence/ONB-101/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] Customer sees credits and duration ranges before consent; consent binds to the estimate version.
 - [ ] No ETA without throughput evidence.
@@ -256,6 +269,7 @@ Task acceptance:
 Release: R1 · Estimate: 26–40 h · Risk: M · Decisions: D-10, D-11 · Closes: G-ONB-06
 Why / where: DPA return-or-delete obligation and duplicate-free reconnection; plugs in at M9 after OPS-005, API-004, ALC-008, CON-006; ONB-002 depends on it.
 Dependency changes: new; deps OPS-005, API-004, ALC-008, CON-006.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-102-S01 | Define the export bundle: charges by D-12 bucket, allocation results, closed statements (PDF + CSV), budget/monitor configuration, tenant audit — Parquet + CSV with manifest and checksums. | `data/contracts/tenant-export.v1.json` | Schema reviewed. | 3 |
@@ -267,6 +281,7 @@ Dependency changes: new; deps OPS-005, API-004, ALC-008, CON-006.
 | ONB-102-S07 | Test: disconnect, reconnect 10 days later. | `tests/spec/ONB-102/test_reconnect.py` | Gap backfilled; totals for previously covered days unchanged; no duplicate charges. | 3 |
 | ONB-102-S08 | Authorization: Owner/Admin only; audited; foreign export id → 404. | tests | All pass. | 2 |
 | ONB-102-S09 | Docs and evidence. | `docs/evidence/ONB-102/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] Export bundle reproduces Explorer totals at the pinned publication.
 - [ ] Reconnection never creates a new account identity or duplicate charges.

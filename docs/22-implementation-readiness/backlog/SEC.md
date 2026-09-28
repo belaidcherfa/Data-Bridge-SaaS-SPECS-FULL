@@ -35,7 +35,7 @@ Affects: SEC-004, SEC-101, CTL-001, CTL-003, ALC-004.
 Severity: BLOCKER · Type: GAP / CONTRADICTION
 Evidence: `security.md` — "Permissions are explicit capabilities; roles are defaults" (no capability list). `settings.md` settings-roles — rows "FinOps admin / Group viewer / Platform admin" and "Role editor: Choose named capabilities, allowed scopes…"; PRD §114 lists Organization Owner … Auditor.
 Why it matters: every route handler will invent its own permission string; "Platform admin" and "Group viewer" are not roles; per-member capability editing interacts with Snowflake profiles (data-visibility capabilities such as full SQL text change the profile hash).
-Resolution: Appendix C: 44 named capabilities × 8 roles, grantable extras, delegation rule, and which capabilities are **data-visibility** capabilities (included in the profile hash) versus **mutation** capabilities (checked in PG only). R1 has no custom roles: a grant = (one of 8 roles, optional extra grantable capabilities from an allowlist, scope clauses). UI labels must use the PRD role names (fix in UX backlog).
+Resolution: Appendix C: ≈55 named capabilities (45 matrix rows) × 8 roles, grantable extras, delegation rule, and which capabilities are **data-visibility** capabilities (included in the profile hash) versus **mutation** capabilities (checked in PG only). R1 has no custom roles: a grant = (one of 8 roles, optional extra grantable capabilities from an allowlist, scope clauses). UI labels must use the PRD role names (fix in UX backlog).
 Affects: SEC-004, SEC-102, CTL-003, every route in API/ALC/GOV/RPT/FIN.
 
 ### G-SEC-05 · Separation of duties / maker-checker is required by UI and runbooks but specified nowhere
@@ -190,7 +190,7 @@ Affects: all SEC tasks.
 |---|---|---|
 | ADR-005 amendment (D-02) | Appendix A verbatim: identities, Snowflake DDL for `SECURITY.TENANT_PRINCIPAL/PROFILE/PROFILE_ENTITLEMENT`, three policy bodies, masking policy for full SQL text, lifecycle, limits, pool rules, provisioner privileges, attack list | SEC-005-S01 |
 | Scope grammar spec + JSON Schema | `schemas/authz/scope-clause.v1.json`, `profile-canonical.v1.json`; normalization algorithm; hash; subsumption; PG/Snowflake compilation; 40-case golden table (Appendix B.5) | SEC-101-S01/S02 |
-| Capability catalog + role matrix | `packages/authz/capabilities.yaml`: 44 capabilities with `kind` (mutation/visibility), `scope_bound`, `grantable`, `four_eyes_policy`, `step_up`; 8-role defaults (Appendix C) | SEC-004-S02 |
+| Capability catalog + role matrix | `packages/authz/capabilities.yaml`: ≈55 capabilities (Appendix C.2) with `kind` (mutation/visibility), `scope_bound`, `grantable`, `four_eyes_policy`, `step_up`; 8-role defaults (Appendix C) | SEC-004-S02 |
 | Approval (maker-checker) state machine | States REQUESTED→APPROVED/REJECTED/EXPIRED/VOIDED→EXECUTED; guards; bound fields; per-action policy table | SEC-102-S01 |
 | Session & auth OpenAPI | `GET /v1/auth/login`, `GET /v1/auth/callback`, `POST /v1/auth/discover`, `GET /v1/auth/session`, `POST /v1/auth/refresh` (internal), `POST /v1/auth/logout`, `POST /v1/auth/sessions/revoke-all`, `POST /v1/auth/switch-tenant`, `POST /v1/auth/step-up`, `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{id}`; cookie attributes; CSRF header; error codes | SEC-002-S01 |
 | Identity DDL | `identity.tenants, subjects, subject_identities, memberships, grants, grant_clauses, permission_profiles, sessions, identity_providers, idp_domains, support_access_grants`; columns/keys in Appendix D.2 and E | SEC-004-S01, SEC-002-S02, SEC-003-S01 |
@@ -265,7 +265,7 @@ Dependency changes: `+SEC-102` (enforcement requires approval/step-up), `+CTL-00
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| SEC-003-S01 | Migrate `identity.identity_providers` (tenant_id, id, protocol, cognito_provider_name `t-<short>-<n>`, entity_id/issuer **globally unique**, metadata_sha256, subject_attribute, attribute_mapping, mfa_assertion `REQUIRED_AMR|TRUSTED_IDP_POLICY`, jit_enabled, state `DRAFT|TESTED|ENFORCED|DISABLED`, tested_at/by, enforced_at, revision) and `identity.idp_domains` (domain, verification_token_hash, verified_at, last_checked_at) | `migrations/versions/00xx_idp.py` | Unique index rejects the same entity_id for a second tenant | 3 |
+| SEC-003-S01 | Migrate `identity.identity_providers` (tenant_id, id, protocol, cognito_provider_name `t-<short>-<n>`, entity_id/issuer **globally unique**, metadata_sha256, subject_attribute, attribute_mapping, mfa_assertion `REQUIRED_AMR\|TRUSTED_IDP_POLICY`, jit_enabled, state `DRAFT\|TESTED\|ENFORCED\|DISABLED`, tested_at/by, enforced_at, revision) and `identity.idp_domains` (domain, verification_token_hash, verified_at, last_checked_at) | `migrations/versions/00xx_idp.py` | Unique index rejects the same entity_id for a second tenant | 3 |
 | SEC-003-S02 | Implement IdP draft create/update: SAML metadata ≤256 KB parsed with `defusedxml`, signing cert present, RSA ≥2048, not expired; OIDC discovery fetched through the SSRF-safe egress client (https, public IPs only, 5 s timeout, no redirects to private ranges); call Cognito `CreateIdentityProvider`; same entity_id in another tenant → 409 `IDP_ALREADY_BOUND` without tenant name | `apps/api/identity_providers/` | XXE payload and `http://169.254.169.254` discovery URL both rejected | 5 |
 | SEC-003-S03 | Enforce stable subject: SAML requires persistent NameID or a configured immutable attribute (Entra objectidentifier, Okta user.id); OIDC uses `sub`; store in `subject_identities` | `apps/api/identity_providers/mapping.py` | Email change at IdP maps to the same subject in the test | 3 |
 | SEC-003-S04 | Build test mode: `POST /v1/settings/sso/{id}/test` starts an auth transaction flagged `test`, result shows redacted asserted attributes, creates no tenant session; success sets TESTED bound to metadata_sha256; any metadata change resets to DRAFT | `apps/api/identity_providers/test_flow.py` | Enforce attempt on DRAFT → 409 `SSO_NOT_TESTED` | 5 |
@@ -295,7 +295,7 @@ Dependency changes: `−SEC-002` (RBAC/RLS does not need Cognito; SEC-002 now de
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| SEC-004-S01 | Migrate identity schema: `tenants` (id, slug unique, status, authz_epoch, security_policy jsonb, revision), `subjects` (id, issuer, cognito_sub, email_norm, email_verified, status; unique(issuer,cognito_sub)), `subject_identities`, `memberships` (tenant_id, id, subject_id, kind `MEMBER|SUPPORT`, status `INVITED|ACTIVE|SUSPENDED|REMOVED`, permission_epoch, profile_id, revision; unique(tenant_id,subject_id)), `grants` (tenant_id, id, membership_id, role, extra_capabilities text[], scope jsonb validated by SEC-101 schema, created_by, revision), `permission_profiles` (tenant_id, id, profile_hash, canonical jsonb, role_name, status, created_at, retired_at; unique(tenant_id, profile_hash)), `teams` (+ linked_group_set_id, linked_group_id), `team_members` — all composite keys/FKs | `migrations/versions/0002_identity.py` | Catalog lint (CTL-101) passes; every FK includes tenant_id | 4 |
+| SEC-004-S01 | Migrate identity schema: `tenants` (id, slug unique, status, authz_epoch, security_policy jsonb, revision), `subjects` (id, issuer, cognito_sub, email_norm, email_verified, status; unique(issuer,cognito_sub)), `subject_identities`, `memberships` (tenant_id, id, subject_id, kind `MEMBER\|SUPPORT`, status `INVITED\|ACTIVE\|SUSPENDED\|REMOVED`, permission_epoch, profile_id, revision; unique(tenant_id,subject_id)), `grants` (tenant_id, id, membership_id, role, extra_capabilities text[], scope jsonb validated by SEC-101 schema, created_by, revision), `permission_profiles` (tenant_id, id, profile_hash, canonical jsonb, role_name, status, created_at, retired_at; unique(tenant_id, profile_hash)), `teams` (+ linked_group_set_id, linked_group_id), `team_members` — all composite keys/FKs | `migrations/versions/0002_identity.py` | Catalog lint (CTL-101) passes; every FK includes tenant_id | 4 |
 | SEC-004-S02 | Encode capability catalog and role defaults (Appendix C) as `capabilities.yaml`; generate `Capability` enum; FastAPI dependency `require(cap, scope_of=…)`; CI job lists routes without a declared capability | `packages/authz/capabilities.yaml`, `packages/authz/generated.py`, `tools/ci/check_route_caps.py` | CI fails on a route lacking `require()`; matrix doc and YAML generated from one source | 4 |
 | SEC-004-S03 | Apply RLS policies to identity tables per Appendix E (tenant template; subject-scoped policies for `tenants`, `subjects`, `memberships` "list my tenants"), FORCE RLS | migration + `tests/security/rls/test_identity_rls.py` | With only `app.subject_id` set, subject lists own memberships across tenants and nothing else | 4 |
 | SEC-004-S04 | Implement `authorize(ctx, capability) -> ScopePredicate`: union of clauses of grants whose role/extra caps include the capability, normalized by SEC-101; in-process cache keyed `(membership_id, permission_epoch)` | `packages/authz/authorize.py` | Epoch bump invalidates cache (test); p99 <1 ms warm | 4 |
@@ -380,7 +380,7 @@ Task acceptance:
 
 ### SEC-007 — Sanitize SQL, tags and errors before persistence
 Release: R1 · Estimate: 50–78 h · Risk: H · Decisions: D-10, D-11 · Closes: G-SEC-14, G-SEC-15, G-SEC-23
-Dependency changes: none (SEC-001, FND-004 kept). Consumers: `ING-003 +SEC-103` edge added via SEC-103.
+Dependency changes: none as a start dependency (SEC-001, FND-004 kept). Step S11 (FULL-mode enablement) additionally needs SEC-102; until SEC-102 lands FULL cannot be enabled (default SANITIZED), so no hard edge is added on the ingestion path. Consumers: `ING-003 +SEC-103` edge added via SEC-103.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -413,7 +413,7 @@ Dependency changes: `+CTL-101` (audit table and emit API move there), `+INF-003`
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| SEC-008-S01 | Author audit taxonomy and `event.v1.json` (Appendix H.1): action names, object types, outcome enum `ALLOWED|DENIED|FAILED`, redaction rules per field, PRD §118 IP/user-agent | `schemas/audit/event.v1.json`, `docs/security/audit-taxonomy.md` | Every capability in Appendix C maps to ≥1 action | 4 |
+| SEC-008-S01 | Author audit taxonomy and `event.v1.json` (Appendix H.1): action names, object types, outcome enum `ALLOWED\|DENIED\|FAILED`, redaction rules per field, PRD §118 IP/user-agent | `schemas/audit/event.v1.json`, `docs/security/audit-taxonomy.md` | Every capability in Appendix C maps to ≥1 action | 4 |
 | SEC-008-S02 | Extend `audit.events` (CTL-101) with monthly partitions, indexes `(tenant_id, occurred_at DESC)`, `(tenant_id, actor_subject_id, occurred_at)`, `(tenant_id, object_type, object_id)` | migration | EXPLAIN of audit list uses index; no seq scan at 5M rows | 3 |
 | SEC-008-S03 | Instrument emit: allowed outcomes inside the business transaction; denied/failed in a separate short transaction after rollback; read-denials rate-limited 1/min per (subject, route) | `packages/audit/emit.py` | Denied mutation still produces exactly one audit row (oracle) | 4 |
 | SEC-008-S04 | Build redacted diff generator: per-object field allowlist; destination URLs → host only; secrets/tokens/SQL never | `packages/audit/diff.py` | Snapshot tests for 10 object types | 3 |
@@ -493,10 +493,10 @@ Dependency changes: `+INF-003` (KMS), `+CTL-101`, `+SEC-001`.
 |---|---|---|---|---|
 | SEC-103-S01 | Write design (Appendix G.2) incl. legal-review note on residual windows | `docs/security/pseudonymization.md` | Legal/owner acknowledgement recorded | 2 |
 | SEC-103-S02 | Tenant key lifecycle: 32-byte key at tenant creation, KMS `Encrypt` with encryption context `{tenant_id}`; `privacy.tenant_keys(tenant_id, key_version, ciphertext, created_at, destroyed_at)`; KMS key policy requires matching context and principal tag | migration, `infra/terraform/modules/kms/pseudonym.tf` | Task role of tenant A cannot decrypt B's key (AccessDenied) | 4 |
-| SEC-103-S03 | Pseudonymizer: `u1_` + base32(HMAC-SHA256(key, "sf_user|"+account_id+"|"+upper(NFKC(name))))[:26]; `e1_` for emails in tags | `packages/query_privacy/pseudonym.py` | Case variants map to same value; tenants differ | 3 |
+| SEC-103-S03 | Pseudonymizer: `u1_` + base32(HMAC-SHA256(key, "sf_user\|"+account_id+"\|"+upper(NFKC(name))))[:26]; `e1_` for emails in tags | `packages/query_privacy/pseudonym.py` | Case variants map to same value; tenants differ | 3 |
 | SEC-103-S04 | Extraction contract for ING-003: decrypt once per account-cycle, pseudonymize USER_NAME (QUERY_HISTORY, LOGIN_HISTORY if projected), emit dictionary deltas to the control API (never S3) | `packages/extraction/privacy_hook.py` contract + test double | Parquet fixture contains zero plaintext names | 4 |
 | SEC-103-S05 | Internal endpoint `POST /internal/v1/identity-dictionary:batchUpsert` (SigV4/mTLS, account-cycle identity bound to tenant) with tombstone suppression | `apps/api/internal/identity_dictionary.py` | Tombstoned pseudonym is not re-populated | 3 |
-| SEC-103-S06 | Post-query resolver in API for callers with `identity.resolve` (≤500 pseudonyms, one PG query); response `{pseudonym, display_name|null, resolution: RESOLVED|HIDDEN|ERASED}` | `packages/semantic/identity_resolver.py` | Viewer without capability sees HIDDEN | 3 |
+| SEC-103-S06 | Post-query resolver in API for callers with `identity.resolve` (≤500 pseudonyms, one PG query); response `{pseudonym, display_name\|null, resolution: RESOLVED\|HIDDEN\|ERASED}` | `packages/semantic/identity_resolver.py` | Viewer without capability sees HIDDEN | 3 |
 | SEC-103-S07 | Name search: PG lookup → pseudonym list (cap 1,000) → Snowflake `IN`; above cap → 422 `FILTER_TOO_BROAD` | `packages/semantic/user_filter.py` | Search for erased user returns nothing | 3 |
 | SEC-103-S08 | Config-publication helper: user-dimension `eq/in` values → pseudonyms; reject prefix/contains on user names in R1 (`OPERATOR_NOT_SUPPORTED_FOR_PSEUDONYMIZED_DIMENSION`) | `packages/governance/pseudonymize_rules.py` | ALC rule with user `contains` rejected with that code | 2 |
 | SEC-103-S09 | Erasure flow: `POST /v1/privacy/erasure-requests` → approval (SEC-102) → delete dictionary rows, insert tombstones, bump tenant authz_epoch (cache), audit, residual report (PITR 35 d, Redis TTL) | `apps/api/routes/privacy_erasure.py` | After erasure no API response contains the name | 4 |
@@ -514,12 +514,12 @@ Task acceptance:
 ### SEC-104 — Time-bound, customer-approved support access
 Release: R1 · Estimate: 24–40 h · Risk: M · Decisions: D-25 · Closes: G-SEC-18
 Why: launch support needs a sanctioned, audited path; otherwise standing cross-tenant access appears. Plugs in after SEC-102, SEC-006 and SEC-105; consumed by OPS-010.
-Dependency changes: `+SEC-102`, `+SEC-006`, `+SEC-105`.
+Dependency changes: `+SEC-102`, `+SEC-006`, `+SEC-105`, `+CTL-102` (internal console operator authentication).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | SEC-104-S01 | Migrate `identity.support_access_grants` (tenant_id, id, operator_subject, reason_code, case_ref, scope jsonb, capabilities[], approved_by, starts_at, expires_at ≤ starts_at+8 h, revoked_at, status) | migration | CHECK rejects >8 h | 2 |
-| SEC-104-S02 | Operator identity via internal IdP (IAM Identity Center OIDC) into the internal console, hardware-key MFA, separate from customer Cognito pool | `apps/internal_console/auth/` | Customer pool user cannot reach console | 4 |
+| SEC-104-S02 | Reuse CTL-102 operator authentication (IAM Identity Center OIDC, hardware-key MFA); add operator role `support_agent` and bind each support session to a case reference | `apps/internal_console/support/` | Customer Cognito user cannot reach console; operator without `support_agent` cannot request | 4 |
 | SEC-104-S03 | Request/approve flow: operator requests; tenant member with `support.grant` approves scope/duration (step-up) | `apps/api/routes/support_access.py` | Operator cannot approve own request | 3 |
 | SEC-104-S04 | Materialize as synthetic membership `kind=SUPPORT`, read-only capability set, profile with sanitized SQL + pseudonymous identities; banner header `X-Bridge-Support-Session` | `packages/authz/support_membership.py` | Write endpoints → 403; FULL SQL masked | 4 |
 | SEC-104-S05 | Expiry reaper and revoke (≤30 s, SEC-006 mechanisms) | `services/workers/support_expiry.py` | Access denied within 30 s of expiry | 2 |
@@ -596,9 +596,9 @@ Task acceptance:
 | SEC-104 | R1 | 24 | 40 |
 | SEC-105 | R1 | 48 | 76 |
 | SEC-106 | R2 | 40 | 64 |
-| **Total R1** (excl. SEC-003) | | **522** | **814** |
-| **Total R1\*** (SEC-003 if required) | | **56** | **84** |
-| **Total R2** | | **40** | **64** |
+| **Total R1** (excl. SEC-003) | \| **522** | **814** |
+| **Total R1\*** (SEC-003 if required) | \| **56** | **84** |
+| **Total R2** | \| **40** | **64** |
 
 ## 7. Owner questions
 
@@ -856,7 +856,7 @@ Objects scoped at account/org level (group_set_id NULL) require an atom with unr
 | period.close.approve / restatement.approve | M | C | ✗ | C (S) | ✗ | ✗ | ✗ | ✗ | ✗ |
 | statement.issue (chargeback) | M | ✓ | ✗ | S | ✗ | ✗ | ✗ | ✗ | ✗ |
 | insight.triage / action.manage | M | ✓ | ✗ | S | S | S | O | ✗ | ✗ |
-| commercial.payment.record | — | internal finance operator only (not a tenant role), M/C with a second operator | | | | | | | |
+| commercial.payment.record | — | internal finance operator only (not a tenant role), M/C with a second operator | \| | \| | \| \| |
 
 ### C.3 Delegation rule
 An actor may create/modify a grant only if: (1) actor holds `member.manage` over a scope that subsumes the target grant's scope (SEC-101 `subsumes`); (2) every default and extra capability of the target role ⊆ actor's own capability set, excluding owner-only capabilities (`tenant.ownership.transfer`, `subscription.manage`, `sso.enforce` checker); (3) Team Admin may assign only Viewer/Analyst; (4) nobody edits their own grants; (5) removing/demoting the last ACTIVE Owner is refused (`LAST_OWNER`), serialized by `SELECT … FOR UPDATE` on all Owner memberships of the tenant.

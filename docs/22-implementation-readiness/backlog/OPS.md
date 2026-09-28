@@ -188,12 +188,13 @@ Cross-domain edges requested from other owners: REL-003 +OPS-107; ONB-101 +OPS-1
 ### OPS-001 — Instrument shared telemetry contract, correlation and platform dashboards
 Release: R1 · Estimate: 34–52 h · Risk: M · Decisions: D-06, D-07, D-22 · Closes: G-OPS-01, G-OPS-18
 Dependency changes: `−CTL-004` (reversed: CTL-004 +OPS-001 so the outbox carries `traceparent` from day one), `+FND-003` (library tested in local Compose); milestone M3 → M1. Ingestion/dbt dashboards move to OPS-101.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-001-S01 | Author the log event JSON Schema with the field list and forbidden-key list from §3; add 10 valid and 10 invalid fixtures (missing `trace_id`, extra `sql` key, non-UTC `ts`, unknown `error_class`). | `packages/telemetry/schema/log-event.v1.json`, `tests/spec/OPS-001/fixtures/` | Schema validator accepts 10/10 valid and rejects 10/10 invalid fixtures. | 3 |
 | OPS-001-S02 | Implement the error taxonomy enum with `retryable` and `customer_category`; map Snowflake connector auth/network/timeout exceptions, botocore throttling and SQLAlchemy errors to classes; unknown exceptions map to `INTERNAL_BUG`. | `packages/telemetry/error_taxonomy.py` | Table-driven test maps ≥ 25 exception fixtures; no exception escapes unmapped. | 2 |
 | OPS-001-S03 | Implement W3C `traceparent` helpers for FastAPI middleware, outbox row column, SQS message attribute, ECS RunTask env `TRACEPARENT`, Dagster run tag `bridge/traceparent`, and the Snowflake QUERY_TAG builder (JSON, keys `c,r,t,tn`, hard cap 2000 chars, truncation drops `tn` first). | `packages/telemetry/propagation.py`, `docs/operations/propagation.md` | Round-trip tests for each carrier preserve trace_id; QUERY_TAG for a 5,000-char input is ≤ 2000 chars and valid JSON. | 4 |
-| OPS-001-S04 | Build the structured logger (structlog JSON to stdout) with an allowlist processor that drops non-schema keys and a redaction processor for JWT (`eyJ…\.…\.…`), AWS keys (`(AKIA|ASIA)[0-9A-Z]{16}`), PEM blocks, `password=`/`secret=`/`token=` pairs and bearer headers → `[REDACTED:<kind>]`. | `packages/telemetry/logging.py` | Planted-secret unit test: 12 fake secrets across message, exception text and nested attrs → 0 survive; performance ≤ 50 µs/event p95. | 4 |
+| OPS-001-S04 | Build the structured logger (structlog JSON to stdout) with an allowlist processor that drops non-schema keys and a redaction processor for JWT (`eyJ…\.…\.…`), AWS keys (`(AKIA\|ASIA)[0-9A-Z]{16}`), PEM blocks, `password=`/`secret=`/`token=` pairs and bearer headers → `[REDACTED:<kind>]`. | `packages/telemetry/logging.py` | Planted-secret unit test: 12 fake secrets across message, exception text and nested attrs → 0 survive; performance ≤ 50 µs/event p95. | 4 |
 | OPS-001-S05 | Create the metrics registry and an EMF emitter wrapper that refuses at import time any metric/dimension not in the registry; closed dimension list `env, service, component, lane, source_family, outcome, error_class, plan_tier`; CI job diffs registry vs code usage. | `packages/telemetry/metrics-registry.yaml`, `packages/telemetry/metrics.py`, `.github/workflows/telemetry-lint.yml` | Emitting `tenant_id` as a dimension raises in tests; CI fails on an unregistered metric name. | 3 |
 | OPS-001-S06 | Add the ADOT collector sidecar module to the ECS task-definition module: OTLP in, traces → X-Ray, metrics → EMF; parent-based head sampling 10 % plus collector tail sampling keeping 100 % of error traces (tail-sampling support in the pinned ADOT build TO VERIFY LIVE). | `infra/observability/adot/`, task-def module input `telemetry = true` | Staging service shows traces in X-Ray; an error span is kept while a success sample rate is ≈ 10 % over 1,000 requests (±3 %). | 4 |
 | OPS-001-S07 | Create the CloudWatch log-group Terraform module (KMS-encrypted, `retention_in_days`: app 30, security 90, access 90) and a policy-as-code rule (checkov/conftest) rejecting any `aws_cloudwatch_log_group` without retention. | `infra/modules/log-group/`, `infra/policy/log-retention.rego` | `terraform plan` of a fixture log group without retention fails the policy job. | 2 |
@@ -203,6 +204,7 @@ Dependency changes: `−CTL-004` (reversed: CTL-004 +OPS-001 so the outbox carri
 | OPS-001-S11 | Restrict telemetry access: log groups and X-Ray readable only by operator permission sets; runtime task roles have no `logs:Get*`/`logs:StartQuery`; customer-facing roles have none. | IAM policies in `infra/iam/telemetry.tf` | IAM policy simulator: API/extractor task roles denied `logs:GetLogEvents` on all groups; ReadOnlyOps allowed. | 2 |
 | OPS-001-S12 | End-to-end trace proof in staging: a synthetic request that fails in an outbox-driven worker (forced `VALIDATION_FAILED`) is followed request → outbox event → worker span → ECS task log line. | `docs/evidence/OPS-001/<commit>/trace.md` | One trace_id appears in all four places; Logs Insights query in evidence returns ≥ 4 correlated events. | 3 |
 | OPS-001-S13 | Write the developer guide (how to log, name events, emit metrics) and runbook entries for trace dropped, log amplification (> 5× baseline ingest/hour alarm), clock skew (event `ts` vs ingestion time > 5 s alarm). | `docs/operations/telemetry.md`, `docs/runbooks/telemetry.md` | Alarms exist in Terraform with owner/severity/runbook tags; guide reviewed by one non-author. | 2 |
+
 Task acceptance (task-specific, 3–8 items, NO boilerplate):
 - [ ] One trace_id links API request, outbox event, worker span and ECS task log for the synthetic failure.
 - [ ] 0 of 12 planted secrets and 0 of 5 canary strings appear unredacted in any log group.
@@ -215,6 +217,7 @@ Release: R1 · Estimate: 38–58 h · Risk: H · Decisions: D-05, D-06, D-12 · 
 Dependency changes: `+OPS-101` (gate results feed data-health dashboards and ops facts). Milestone M4 unchanged.
 
 Gate catalogue (normative for S01): REQUIRED — T01 every manifest file has a LOADED receipt whose row count equals the manifest; T02 file SHA-256 at upload equals manifest; T03 Σ manifest rows = RAW rows for the batch; T04 schema fingerprint equals the registry version; X01 scoped natural-key uniqueness per staging model; X02 no orphan tenant/account keys (keys ∈ published config); X03 every staging row's batch_id ∈ accepted batches; X04 published window coverage contiguous; F01 Σ `fct_charge` per D-12 billing bucket = Σ authoritative source bucket, exact decimal; F02 warehouse query-attributed + idle = warehouse charge per warehouse-day; F03 allocated + unallocated = eligible per book/currency (when allocation enabled); F04 no aggregate row mixes currencies; S01 serving totals per tenant/month/currency = ledger totals for the candidate. ADVISORY — F05 tenant daily total > 10× trailing 7-day median AND > 100 currency units → WARN; F06 reconciliation status pass-through (blocks close, not publication); optional-source coverage gaps.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-002-S01 | Write the gate catalogue above as data (id, family, version, severity, scope, SQL/asset ref, owner) and get FinOps + Data sign-off. | `data/quality/gate-catalog.yaml` | Catalogue validates against its JSON Schema; two named reviewers recorded. | 3 |
@@ -231,6 +234,7 @@ Gate catalogue (normative for S01): REQUIRED — T01 every manifest file has a L
 | OPS-002-S12 | Optional-gap fixture: optional source denied (e.g. SEARCH_OPTIMIZATION detail). | same folder | Advisory WARN; required totals (270) published; coverage disclosed as partial for that detail. | 2 |
 | OPS-002-S13 | Build the internal data-health dashboard (gate failures by check_id/family, no tenant dimension; tenant drill via ops views) and alarm "required gate failed" (owner Data platform, SEV2 business-hours page). | `infra/observability/dashboards/data-health.json.tftpl` | Injected F01 failure raises the alarm within 10 min with runbook RB-07 link. | 3 |
 | OPS-002-S14 | Update RB-07 with gate IDs, the eligibility query and safe repoint procedure; collect evidence. | `docs/runbooks/RB-07-bad-publication.md`, `docs/evidence/OPS-002/<commit>/` | Second engineer locates the failing check for the 540 fixture using only RB-07. | 2 |
+
 Task acceptance:
 - [ ] 540 double count is blocked by F01; 270 remains served with stale metadata.
 - [ ] A missing or ERROR gate result blocks exactly that tenant's candidate, never other tenants.
@@ -255,6 +259,7 @@ SLO catalogue (normative for S01; window 28 days rolling; exclusions are counted
 | BACKLOG-STEADY | 1-min samples where oldest due-not-started steady account-cycle ≤ 2 × cadence AND oldest accepted-unprocessed batch ≤ 45 min | PG leases + `ops.processing_ledger` | paused tenants | 99 % |
 
 Error-budget policy: budget = 1 − target over 28 days. Page when burn ≥ 14.4 over 1 h and 5 min, or ≥ 6 over 6 h and 30 min; ticket when ≥ 1 over 3 days and 6 h. A burn window with < 50 valid real events is evaluated on probe events only. Remaining budget < 25 % → freeze non-reliability releases of the responsible component (owner approval to override); one incident consuming ≥ 20 % → postmortem within 5 business days. Incidents with `cause=dependency:<vendor>` count against the SLO but do not trigger the release freeze.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-003-S01 | Encode the catalogue and policy above as data with owner per SLO. | `infra/observability/slo/slo-catalog.yaml`, `docs/operations/error-budget-policy.md` | Schema-valid; every SLO has numerator, denominator, exclusions, source, owner. | 3 |
@@ -270,6 +275,7 @@ Error-budget policy: budget = 1 − target over 28 days. Page when burn ≥ 14.4
 | OPS-003-S11 | Run fault injection in staging: stop the steady worker; revoke a required source role on SYN_A; inject 30 % 503 through a non-prod fault flag. Record detection time and impact class. | `docs/evidence/OPS-003/<commit>/fault-injection.md` | Detection ≤ 5 min (503), ≤ 2×cadence+1 min (worker), required-source revoke classified `SOURCE_PERMISSION_DENIED` with account FAILING. | 4 |
 | OPS-003-S12 | Enforce alarm hygiene: CI policy requires `owner`, `severity`, `runbook_url`, `impact` tags and an SNS target that exists. | `infra/policy/alarm-tags.rego` | An alarm without owner fails CI. | 1 |
 | OPS-003-S13 | Write `docs/runbooks/slo.md` (how to read burn, when to freeze, how to classify dependency causes). | runbook | Reviewed by on-call rota members. | 2 |
+
 Task acceptance:
 - [ ] Every SLO has a numeric SLI, explicit exclusions and a live data source in staging.
 - [ ] Missing probe data raises an alarm; it never yields 100 % availability.
@@ -280,6 +286,7 @@ Task acceptance:
 ### OPS-004 — Run adversarial tenant isolation and internal security qualification
 Release: R1 · Estimate: 56–84 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-14 (internal part), G-OPS-15 (tests)
 Dependency changes: `+OPS-106` (support access and ops API must be in the attack surface). Milestone M9 unchanged (SEC-008 early suite runs from M1).
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-004-S01 | Generate the attack surface inventory from the public OpenAPI, ops API, report/download links, webhook config, S3 prefixes and Snowflake roles; write the attack matrix (actor, target, entry point, expected result, evidence). | `tests/security/attack-matrix.yaml` | Every OpenAPI operation with a tenant-scoped path/body ID has ≥ 1 attack row (CI diff check). | 4 |
@@ -298,6 +305,7 @@ Dependency changes: `+OPS-106` (support access and ops API must be in the attack
 | OPS-004-S14 | Run a 1-day manual abuse review by two engineers (business-logic abuse: plan quota bypass, report schedule spam, invitation abuse, onboarding step skipping). | `docs/security/qualification/manual-review-<date>.md` | Findings logged with severity; none left untriaged. | 8 |
 | OPS-004-S15 | Fix/retest loop and exception register (id, severity, owner, compensating control, expiry ≤ 30 days); release rule: any open tenant-disclosure finding or critical/high exploitable finding → NO-GO. | `docs/security/qualification/exceptions.yaml` | Register empty of blocking items or REL-004 records NO-GO. | 4 |
 | OPS-004-S16 | Assemble redacted evidence for REL-003 and LCH-102 questionnaires. | `docs/evidence/OPS-004/<commit>/` | Evidence references exact commit and environment. | 2 |
+
 Task acceptance:
 - [ ] Every tenant-scoped operation has a generated A→B attack and it is denied without name/count/timing leakage.
 - [ ] Revocation is effective ≤ 30 s across cached pages, cursors, jobs and downloads.
@@ -329,7 +337,8 @@ Retention matrix (normative for S02; defaults from ADR-009/D-11; contract may ov
 | CloudWatch Logs | app 30 d, security/access 90 d | `retention_in_days` enforced (OPS-001-S07) | cannot delete lines → logs carry only pseudonymous IDs | ≤ 90 d |
 | Dagster runs / event logs | runs 30 d, event logs 7 d (D-07) | purge job | delete runs tagged with tenant | – |
 | Identity dictionary (D-10) | subject lifetime | – | tenant KMS key scheduled for deletion (7-day minimum waiting) → ciphertext in all backups unreadable | ≤ 7 d key waiting period |
-| Stage | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
+
+| Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-005-S01 | Create `privacy.deletion_requests` (type SUBJECT_ACCESS / SUBJECT_ERASURE / TENANT_DELETION; states RECEIVED → PREVIEWED → APPROVED → HELD or EXECUTING → VERIFIED → CERTIFIED; REJECTED), `privacy.deletion_stages` (store, expected_count, deleted_count, verified_at, error) and `privacy.legal_holds` (scope tenant/account/subject/dataset, reason_code, requested_by, approved_by, review_by ≤ 90 d, released_at). | Alembic migration `privacy_0001`, state machine `services/privacy/deletion_state.py` | Illegal transitions (e.g. RECEIVED → EXECUTING) rejected in tests; approver ≠ requester enforced. | 3 |
 | OPS-005-S02 | Encode the retention matrix as data with a verification query per store. | `infra/lifecycle/retention-matrix.yaml` | Every store in OPS-104 data inventory has a row; CI fails on a store without a row. | 3 |
@@ -349,6 +358,7 @@ Retention matrix (normative for S02; defaults from ADR-009/D-11; contract may ov
 | OPS-005-S16 | Stale report URL and cached analytics after deletion. | `tests/privacy/test_post_delete_access.py` | 410 for artifact links; cache keys absent; API 404 for tenant resources. | 1 |
 | OPS-005-S17 | Admin API `POST /v1/privacy/requests` (preview returns per-store counts), `POST …/{id}/approve`, `GET …/{id}` with stages; hook into Settings › Privacy & retention; update RB-14. | `apps/api/privacy/`, `docs/runbooks/RB-14-offboarding.md` | Only Organization Owner can create TENANT_DELETION; Admin can create SUBJECT_*; foreign request ID → 404. | 4 |
 | OPS-005-S18 | Evidence pack including a full synthetic tenant deletion and one subject erasure. | `docs/evidence/OPS-005/<commit>/` | Certificate and verification outputs attached. | 2 |
+
 Task acceptance:
 - [ ] Deleted synthetic tenant: 0 rows/objects/keys in every store, cannot authenticate, does not reappear after restore + tombstone replay.
 - [ ] Object versions and delete markers leave no retrievable tenant object.
@@ -359,6 +369,7 @@ Task acceptance:
 ### OPS-006 — Rehearse control-plane backup, PITR and side-effect reconciliation
 Release: R1 · Estimate: 34–50 h · Risk: M · Decisions: D-25 · Closes: G-OPS-07, G-OPS-08
 Dependency changes: `−OPS-005`, `−INF-003`, `−INF-006` (transitively satisfied or not needed), `+OPS-104`, `+OPS-102`; milestone M9 → M2 (first drill), re-executed at M10 as REL-002 evidence.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-006-S01 | Verify and codify: `backup_retention_period=35`, deletion protection, CMK encryption, `copy_tags_to_snapshot`; AWS Backup plan for daily snapshots with 35-day lifecycle (manual snapshots otherwise never expire); `bridge-restore-operator` role not assumable by application roles; KMS key policy grants it decrypt/create-grant. | `infra/backup/control/*.tf` | Terraform tests pass; IAM simulator denies API task role `rds:RestoreDBClusterToPointInTime`. | 3 |
@@ -374,6 +385,7 @@ Dependency changes: `−OPS-005`, `−INF-003`, `−INF-006` (transitively satis
 | OPS-006-S11 | Dual-writer test: a worker holding a pre-restore lease attempts to commit. | `tests/recovery/control/test_epoch_fence.py` | Commit rejected with `LEASE_EPOCH_STALE`. | 2 |
 | OPS-006-S12 | Redis loss under load: flush Redis during synthetic API + job traffic. | `tests/recovery/control/test_redis_loss.py` | No job lost; no stale-epoch authorization served; latency rises only within RB-12 limits. | 2 |
 | OPS-006-S13 | Finalize RB-10 with exact commands, add quarterly drill to OPS-108 calendar. | runbook + calendar entry | Second engineer can run the dry-run from RB-10 alone. | 2 |
+
 Task acceptance:
 - [ ] Measured RPO ≤ 5 min and RTO ≤ 4 h for the synthetic footprint (or recorded blocking gap).
 - [ ] Zero duplicate logical dispatches and zero dropped undelivered events in the 20-event fixture.
@@ -393,13 +405,14 @@ Recovery design (normative):
 | 3 (R2) | regional outage | database replication to a second EU account (OPS-111) | replication interval | ≈ 1–2 h | full storage duplicate + transfer + refresh compute |
 
 Customer-side WIF installs are unaffected by a central-account rebuild because customer service users trust Bridge's AWS IAM roles (ADR-004), not the central Snowflake account; only Bridge-owned trust (central service users' WORKLOAD_IDENTITY, storage integrations' IAM trust/external IDs) is recreated.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-007-S01 | Write the recovery scope: fct_charge revisions, attribution bridges, allocation results, statements and closed-period evidence, published config versions, publication map and history, SECURITY entitlement/profile tables, reference rates, query-family × day aggregates, hot query detail (included so journal retention need not exceed 90 d). | `data/contracts/recovery-scope.yaml` | Every canonical dbt model tagged `recovery: include/exclude` with reason; CI fails on an untagged canonical model. | 3 |
 | OPS-007-S02 | Define manifest v1 and checksum method per revision: `COUNT(*)`, `HASH_AGG(*)`, `SUM(amount)` per currency. | `data/contracts/recovery-manifest.v1.json` | Two exports of the same revision produce identical checksums. | 2 |
 | OPS-007-S03 | Provision the recovery bucket in a separate AWS account: versioning, SSE-KMS with a CMK owned by that account, Object Lock governance mode 35 d (bypass only by break-glass role), bucket policy allowing `PutObject` only from the `RECOVERY_EXPORT_INT` storage-integration role; create Snowflake storage integration, stage and `RECOVERY_EXPORTER` role (SELECT on scope, USAGE on stage, nothing else). | `infra/recovery/*.tf`, `infra/snowflake/recovery.sql` | Exporter cannot DELETE objects; production app roles cannot read the bucket (IAM simulator). | 4 |
 | OPS-007-S04 | Configure Tier 1 backup sets and policy (daily, expire 35 d, no retention lock); verify live which objects/attachments (row access policies, grants) a restore preserves — TO VERIFY LIVE. | `infra/snowflake/backups.sql` | `SHOW BACKUP SETS` evidence; restore of a table in staging preserves or documents policy attachment behaviour. | 3 |
-| OPS-007-S05 | Implement the daily export asset: T = start time; select revisions with `created_at ≤ T` not in `ops.recovery_exports`; `COPY INTO @recovery_stage/ … PARTITION BY ('ds='||dataset||'/t='||tenant_id||'/pk='||partition_key||'/rev='||revision_id) FILE_FORMAT=(TYPE=PARQUET) HEADER=TRUE` with `ALTER SESSION SET ENABLE_UNLOAD_PHYSICAL_TYPE_OPTIMIZATION=FALSE`; record row count, HASH_AGG, amounts. | `services/recovery/analytical_export.py` (Dagster asset `recovery_export`) | Second run on unchanged data exports 0 new revisions; decimal column types in Parquet equal logical types. | 5 |
+| OPS-007-S05 | Implement the daily export asset: T = start time; select revisions with `created_at ≤ T` not in `ops.recovery_exports`; `COPY INTO @recovery_stage/ … PARTITION BY ('ds='\|\|dataset\|\|'/t='\|\|tenant_id\|\|'/pk='\|\|partition_key\|\|'/rev='\|\|revision_id) FILE_FORMAT=(TYPE=PARQUET) HEADER=TRUE` with `ALTER SESSION SET ENABLE_UNLOAD_PHYSICAL_TYPE_OPTIMIZATION=FALSE`; record row count, HASH_AGG, amounts. | `services/recovery/analytical_export.py` (Dagster asset `recovery_export`) | Second run on unchanged data exports 0 new revisions; decimal column types in Parquet equal logical types. | 5 |
 | OPS-007-S06 | Write the daily manifest last: publication map read `AT(TIMESTAMP => T)`, referenced revisions, config/security snapshot, `tombstone_hwm`, `journal_hwm` per source/account; store SHA-256 of the manifest in a sibling object. | `services/recovery/manifest.py` | Manifest validates; tampering one byte fails verification. | 4 |
 | OPS-007-S07 | Implement recovery-bucket GC: delete revision prefixes not referenced by any manifest dated within 35 days (break-glass role, audited). | `services/recovery/gc.py` | Fixture: revision superseded 36 days ago deleted; revision still current after 200 days kept. | 3 |
 | OPS-007-S08 | Run the initial full export in staging and measure credits, bytes, duration. | evidence | Measured cost recorded in OPS-009 inputs. | 2 |
@@ -413,6 +426,7 @@ Customer-side WIF installs are unaffected by a central-account rebuild because c
 | OPS-007-S16 | Timed Tier 1 drill: accidental `DELETE` on a canonical table in staging → `CREATE TABLE … FROM BACKUP` → swap. | `drill-tier1.md` | Recovery ≤ 60 min; totals equal pre-incident. | 2 |
 | OPS-007-S17 | Write RB-11 with a decision tree (Tier 1 when account intact; Tier 2 when account lost/compromised) and exact commands. | `docs/runbooks/RB-11-snowflake-recovery.md` | Second engineer executes Tier 1 drill using RB-11 only. | 3 |
 | OPS-007-S18 | Evidence and cost record. | `docs/evidence/OPS-007/<commit>/` | Includes manifest sample, checksums, timings, credits. | 2 |
+
 Task acceptance:
 - [ ] Old retained charge restored without its raw files; corrected total 269 restored exactly; duplicate replay leaves 269.
 - [ ] Each revision is exported exactly once; daily export of unchanged data exports nothing.
@@ -425,6 +439,7 @@ Release: R1 · Estimate: 56–90 h (+ approved benchmark spend, ASSUMPTION ≤ 3
 Dependency changes: `+OPS-105` (early probes and simulator). Milestone M9 unchanged.
 
 Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k queries/account/day, p90 1 M, one skew account 3 M/day; 2 tenants backfilling 365 d concurrently while 8 are steady; 30 concurrent interactive users, peak 5 req/s; 50 report runs/day. Volume check: 50 accounts × ≈ 500 k mean × 2 query-grain sources (QUERY_HISTORY, QUERY_ATTRIBUTION_HISTORY) ≈ 50 M rows/day steady; backfill 2 × 5 × 365 × 500 k × 2 ≈ 3.65 B rows. C2 (R2) = 50 × 5 with 10 % at 1 M/day. C3 = PRD profile by extrapolation + one live bottleneck test.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-008-S01 | Write the benchmark manifest schema (profile, dataset size/skew, versions, spend cap, measured distributions) and get spend approval. | `tests/performance/benchmark-manifest.v1.json`, approval record | Owner approval with credit cap recorded. | 3 |
@@ -442,6 +457,7 @@ Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k
 | OPS-008-S13 | C3 bottleneck live test: one 1 M/day account × 365 d end-to-end within the approved budget. | evidence | Duration and credits recorded; bottleneck identified. | 4 |
 | OPS-008-S14 | Compute unit costs (credits per million extracted/transformed rows; USD per tenant-month at C1). | input file for OPS-009 | Values reproducible from evidence. | 2 |
 | OPS-008-S15 | Capacity dashboard and evidence. | `dashboards/capacity`, `docs/evidence/OPS-008/<commit>/` | Dashboard shows lane queue ages and quotas. | 2 |
+
 Task acceptance:
 - [ ] C1 executed with p50/p95/p99 for extraction, load, publish, serving and reports.
 - [ ] One noisy tenant cannot starve steady-state lanes of other tenants.
@@ -451,6 +467,7 @@ Task acceptance:
 ### OPS-009 — Measure Bridge unit economics and internal cost allocation
 Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-02, D-06, D-08, D-17 · Closes: G-OPS-12, G-OPS-13
 Dependency changes: `+OPS-109` (tags, processing ledger), `+LCH-101` (revenue references). Milestone M9 unchanged.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-009-S01 | Create database `INTERNAL_COST` with the §3 tables; grants only to `FINOPS_INTERNAL` and the cost loader; none to serving/transform/customer roles. | `data/dbt/models/internal_cost/`, `infra/snowflake/internal_cost.sql` | `SHOW GRANTS ON DATABASE INTERNAL_COST` lists only the two roles. | 2 |
@@ -468,6 +485,7 @@ Dependency changes: `+OPS-109` (tags, processing ledger), `+LCH-101` (revenue re
 | OPS-009-S13 | Access tests for `INTERNAL_COST` from every customer/serving profile user and the API. | `tests/security/test_internal_cost_access.py` | All denied. | 2 |
 | OPS-009-S14 | Double-count guard: if Snowflake is purchased via AWS Marketplace, Snowflake charges appear in CUR as Marketplace lines — exclude them from AWS and keep them in Snowflake source. | rule in S06 model + test | Fixture with Marketplace line counted once. | 2 |
 | OPS-009-S15 | Evidence with one real staging month. | `docs/evidence/OPS-009/<commit>/` | Control totals and allocation conservation attached. | 2 |
+
 Task acceptance:
 - [ ] Allocated + unallocated equals each provider total exactly.
 - [ ] 70 % margin fixture and zero-revenue NULL pass.
@@ -477,6 +495,7 @@ Task acceptance:
 ### OPS-010 — Publish runbooks, incident process and run incident exercises
 Release: R1 · Estimate: 46–70 h · Risk: M · Decisions: D-25 · Closes: G-OPS-15 (process part), G-OPS-16 (process part)
 Dependency changes: `+OPS-106` (`bridge-admin`), `+OPS-110`, `+OPS-102`. Milestone M9 unchanged.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-010-S01 | Create the runbook template and catalogue data (owner, trigger alarm IDs, diagnosis commands, containment, recovery, verification, escalation, last rehearsal date). | `docs/runbooks/_template.md`, `docs/runbooks/catalog.yaml` | Every alarm ID in Terraform maps to one runbook (CI check). | 2 |
@@ -495,6 +514,7 @@ Dependency changes: `+OPS-106` (`bridge-admin`), `+OPS-110`, `+OPS-102`. Milesto
 | OPS-010-S14 | Second-engineer oracle: an engineer who did not write RB-10/RB-11 executes one restore from docs only; every gap filed as a blocking task. | `drill-second-engineer.md` | Restore succeeds or gaps filed with owners. | 4 |
 | OPS-010-S15 | Put drills on a calendar (restore quarterly, tabletop semi-annually) in OPS-108 evidence. | calendar entries | Next dates visible. | 1 |
 | OPS-010-S16 | Evidence index. | `docs/evidence/OPS-010/<commit>/index.md` | All drills listed with outcome. | 2 |
+
 Task acceptance:
 - [ ] Every alarm maps to exactly one tested runbook.
 - [ ] Six drills executed with measured detection/containment/restore times.
@@ -504,6 +524,7 @@ Task acceptance:
 ### OPS-011 — Complete cross-product QA and release evidence matrix
 Release: R1 · Estimate: 44–66 h · Risk: M · Decisions: D-01 · Closes: G-OPS-14 (evidence gate)
 Dependency changes: `+OPS-107`; INS-007 dependency becomes conditional on D-01 (if verified savings are R2, the matrix records it as a disclosed limitation instead of blocking).
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-011-S01 | Define the evidence matrix schema (requirement → task → test level → environment → result → commit → owner → evidence URI → freshness) and generate it from `task-index.json` plus test reports. | `tools/evidence-matrix/`, `docs/evidence/release-matrix/matrix.json` | Matrix lists every R1 task with required levels. | 4 |
@@ -518,6 +539,7 @@ Dependency changes: `+OPS-107`; INS-007 dependency becomes conditional on D-01 (
 | OPS-011-S10 | Trace PRD §157/§158 items and CHECKLIST gates to evidence rows. | `docs/evidence/release-matrix/traceability.md` | Every §158 step maps to a journey or a disclosed limitation. | 3 |
 | OPS-011-S11 | Maintain the limitations register (capability limits, R2 deferrals). | `docs/evidence/release-matrix/limitations.md` | Each limitation has customer-facing wording. | 2 |
 | OPS-011-S12 | Publish redacted evidence. | `docs/evidence/OPS-011/<commit>/` | No secrets/customer data (leak scan). | 2 |
+
 Task acceptance:
 - [ ] End-to-end figures agree with 270/200/120/80/280 fixtures on staging.
 - [ ] Every required test level has evidence for the candidate commit or a justified NOT_APPLICABLE.
@@ -530,6 +552,7 @@ Task acceptance:
 Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-03, D-06, D-07 · Closes: G-OPS-02, G-OPS-18
 Why / where: OPS-001 moves to M1 before ingestion exists; the ingestion/dbt/publication dashboards and the per-batch timeline needed by FRESH-1 and Data Health (PRD §43) need their own task at M3. Plugs in after ING-007 and ORC-003; OPS-002 and OPS-003 depend on it.
 Dependency changes: new; deps OPS-001, ING-007, ORC-003.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-101-S01 | Create internal `ops.batch_timeline(batch_id, tenant_id, account_id, source, window_start, window_end, lane, extracted_at, manifest_committed_at, first_receipt_at, accepted_at, processing_run_id, published_at, publication_id)` in an operator-only schema. | `data/dbt/models/ops/batch_timeline.sql` (DDL) | Customer/serving roles have no grant (SHOW GRANTS). | 3 |
@@ -541,6 +564,7 @@ Dependency changes: new; deps OPS-001, ING-007, ORC-003.
 | OPS-101-S07 | Expose source lag vs platform lag per source/account to the Data Health API (ING-012): `source_current_through`, `platform_current_through`, `lag_minutes` decomposed. | `apps/api/health/lag.py` | Fixture: source 08:42, platform 08:47 → lag 5 min, matching PRD §121 example. | 3 |
 | OPS-101-S08 | Synthetic timeline tests (late receipt, duplicate event, missing publication). | `tests/spec/OPS-101/` | Missing publication after 90 min raises alarm; duplicate event idempotent. | 2 |
 | OPS-101-S09 | Evidence. | `docs/evidence/OPS-101/<commit>/` | Screenshots + queries attached. | 1 |
+
 Task acceptance:
 - [ ] Every accepted batch has a complete timeline from manifest to publication.
 - [ ] Source lag and platform lag are reported separately per source/account.
@@ -550,6 +574,7 @@ Task acceptance:
 Release: R1 · Estimate: 18–28 h · Risk: M · Decisions: D-25 · Closes: G-OPS-16
 Why / where: CHECKLIST requires "named on-call" and "Working alert routes" but no task configures them; staging carries live synthetic Snowflake data from M2. Plugs in at M1 after OPS-001 and INF-006.
 Dependency changes: new; deps OPS-001, INF-006.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-102-S01 | Write the on-call policy: coverage 08:00–19:00 Europe/Paris Mon–Fri (primary + secondary), out-of-hours pages only for SEV1 classes with best-effort 60-min ack, escalation primary → secondary (15 min) → engineering lead (30 min), handover template. Hours are placeholders until D-19 staffing is known. | `docs/operations/oncall-policy.md` | Owner approval recorded. | 2 |
@@ -561,6 +586,7 @@ Dependency changes: new; deps OPS-001, INF-006.
 | OPS-102-S07 | Set up the status page (components: Web app, API, Data freshness, Reports & notifications) with templates; private until launch. | status page config, `docs/support/status-templates.md` | Test incident published privately. | 3 |
 | OPS-102-S08 | Automate incident channel creation and the incident record template. | Slack workflow / bot config | Declaring an incident creates channel + record. | 2 |
 | OPS-102-S09 | Evidence. | `docs/evidence/OPS-102/<commit>/` | Page test + escalation captured. | 2 |
+
 Task acceptance:
 - [ ] A production SEV1 alarm pages the on-call engineer and escalates if unacknowledged.
 - [ ] No alarm exists without owner, severity and runbook.
@@ -570,6 +596,7 @@ Task acceptance:
 Release: R1 · Estimate: 26–40 h (+ ≈ 100 credits/month, ASSUMPTION) · Risk: M · Decisions: D-08, D-13, D-21 · Closes: G-OPS-05
 Why / where: live WIF tests (CON-002/005), canaries (OPS-003), drills (OPS-010) and the E2E live suite (OPS-011) all need continuously active synthetic Snowflake accounts; none is created or funded today. Plugs in at M2 after INF-008 and CON-003.
 Dependency changes: new; deps INF-008, CON-003.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-103-S01 | Obtain owner approval/budget and create the synthetic organization with SYN_A (Enterprise, AWS eu-west-1) and SYN_B (Standard, a second region or cloud to exercise non-AWS egress); organization-account/ORGADMIN access for ORGANIZATION_USAGE — TO VERIFY LIVE. | `docs/operations/synthetic-estate.md` (locators in private evidence) | Both accounts reachable; ORGANIZATION_USAGE visible or limitation recorded. | 3 |
@@ -583,6 +610,7 @@ Dependency changes: new; deps INF-008, CON-003.
 | OPS-103-S09 | Monitor canary spend (credits/month) with alarm at 80 % of budget. | alarm | Alarm fires in a lowered-threshold test. | 2 |
 | OPS-103-S10 | Add expiry/drift alarms: account contract/trial expiry date, WIF trust drift, generator task suspended. | alarms | Suspending the task raises an alarm within 2 h. | 1 |
 | OPS-103-S11 | Documentation and evidence. | `docs/evidence/OPS-103/<commit>/` | Includes 7-day canary record and credits. | 2 |
+
 Task acceptance:
 - [ ] Canary hours evaluate at their lagged horizons and never pass vacuously on empty data.
 - [ ] Canary spend stays within the approved monthly quota and suspends at 100 %.
@@ -592,6 +620,7 @@ Task acceptance:
 Release: R1 · Estimate: 22–34 h · Risk: H · Decisions: D-10 · Closes: G-OPS-07, G-OPS-09
 Why / where: any restore drill (OPS-006 at M2) must replay tombstones from a log that the restore does not roll back. Plugs in at M1 after CTL-002, INF-003 and SEC-001.
 Dependency changes: new; deps CTL-002, INF-003, SEC-001; OPS-005, OPS-006, OPS-007 depend on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-104-S01 | Create `privacy.tombstones` per §3 with an INSERT-only writer role (no UPDATE/DELETE grants to anyone except the migration owner). | Alembic migration `privacy_0000` | UPDATE by runtime role fails with permission denied. | 2 |
@@ -604,6 +633,7 @@ Dependency changes: new; deps CTL-002, INF-003, SEC-001; OPS-005, OPS-006, OPS-0
 | OPS-104-S08 | Tamper handling: alarm on PutObject to an existing key; versioning preserves original. | CloudTrail data-event alarm | Overwrite attempt alarms. | 2 |
 | OPS-104-S09 | Monitor PG max seq vs S3 max seq lag > 5 min. | alarm | Paused dispatcher triggers alarm. | 1 |
 | OPS-104-S10 | Docs and evidence. | `docs/evidence/OPS-104/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] A tombstone survives rollback of PostgreSQL and Snowflake and is replayable from S3.
 - [ ] Tombstones contain no personal data (tenant/account UUIDs, subject HMAC only).
@@ -613,6 +643,7 @@ Task acceptance:
 Release: R1 · Estimate: 26–40 h (+ ≤ 100 credits) · Risk: M · Decisions: D-02, D-06, D-07, D-08 · Closes: G-OPS-11
 Why / where: D-06 (multi-tenant dbt), D-07 (account-cycle tasks) and D-02 (per-tenant principals/pools) are architecture bets whose limits must be measured before M4/M5 build on them, not at M9. Part A after ING-008/ORC-003; part B after API-003.
 Dependency changes: new; deps ING-008, ORC-003, OPS-101 (part B: +API-003); feeds ONB-101 and OPS-008.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-105-S01 | Write the probe plan and budget cap. | `docs/operations/capacity-probes.md` | Owner approval. | 1 |
@@ -625,6 +656,7 @@ Dependency changes: new; deps ING-008, ORC-003, OPS-101 (part B: +API-003); feed
 | OPS-105-S08 | Part B: connection and pool budget under per-tenant/profile pools (idle pool eviction, max pools). | same doc | Budget formula validated. | 3 |
 | OPS-105-S09 | Write recommendations to D-02/D-06/D-07 owners (keep/adjust, with numbers). | decision memo | Memo acknowledged by owners. | 2 |
 | OPS-105-S10 | Evidence. | `docs/evidence/OPS-105/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Extraction, dbt and serving capacity numbers exist before M4/M5 exit.
 - [ ] Customer credit coefficients are available to the onboarding estimate.
@@ -633,6 +665,7 @@ Task acceptance:
 Release: R1 · Estimate: 40–60 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-15
 Why / where: every runbook depends on `bridge-admin`, and the operations contract requires time-bound, customer-approved, audited support access; no task builds either. Plugs in at M3 after SEC-008, INF-006, ING-007; support analytics access step waits for API-002.
 Dependency changes: new; deps SEC-008, INF-006, ING-007; OPS-004 and OPS-010 depend on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-106-S01 | Create IAM Identity Center permission sets `ReadOnlyOps`, `IncidentResponder`, `BreakGlass` (MFA, session ≤ 4 h; BreakGlass requires two-person approval out of band). | `infra/iam/operators.tf` | Sessions expire at 4 h; BreakGlass assignment is empty by default. | 3 |
@@ -647,6 +680,7 @@ Dependency changes: new; deps SEC-008, INF-006, ING-007; OPS-004 and OPS-010 dep
 | OPS-106-S10 | Break-glass: sealed AWS root MFA and Snowflake emergency admin procedure with two-person rule; alarms on CloudTrail root sign-in and Snowflake LOGIN_HISTORY use of the emergency user → SEV1 page. | `docs/security/break-glass.md`, alarms | Test sign-in pages on-call. | 4 |
 | OPS-106-S11 | Negative tests: no grant, expired grant, grant for tenant A used on tenant B, read-only command attempting mutation, wrong env. | `tests/security/test_ops_access.py` | All denied and audited. | 3 |
 | OPS-106-S12 | Docs and evidence. | `docs/evidence/OPS-106/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] Operators have no standing access to tenant analytics; all access is granted, time-bound and visible to the tenant.
 - [ ] Every runbook command exists in `bridge-admin` and is read-only unless a second approver signs a dry-run manifest.
@@ -656,6 +690,7 @@ Task acceptance:
 Release: R1 · Estimate: 24–36 h engineering (+ vendor fee, ASSUMPTION EUR 12–25 k) · Risk: M · Decisions: D-25 · Closes: G-OPS-14
 Why / where: enterprise security questionnaires require third-party test evidence; internal tests (OPS-004) are not independent. Book at M6 (4–8 week lead time), execute at M9 after OPS-004 on dark production (REL-104) or production-equivalent staging.
 Dependency changes: new; deps OPS-004; REL-003 and OPS-011 depend on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-107-S01 | Write scope and rules of engagement: web, public API, auth/SSO, tenant isolation with two test tenants and all personas, report links, webhooks, ops API exposure, AWS config review (read-only audit role), central Snowflake config review; exclusions (customer accounts); windows; contacts. | `docs/security/pentest/scope-<year>.md` | Signed by owner and vendor. | 3 |
@@ -667,6 +702,7 @@ Dependency changes: new; deps OPS-004; REL-003 and OPS-011 depend on it.
 | OPS-107-S07 | Retest and obtain the attestation letter. | letter (private evidence) | No open critical/high. | 2 |
 | OPS-107-S08 | Publish `/.well-known/security.txt` (RFC 9116), the disclosure policy page with safe-harbour wording (TO VERIFY with counsel) and the security@ triage procedure (ack ≤ 3 business days). | web route + `docs/security/vdp.md` | security.txt served with Expires field. | 3 |
 | OPS-107-S09 | Redacted summary for REL-003/LCH-102. | evidence | – | 2 |
+
 Task acceptance:
 - [ ] Independent test executed on the release-candidate configuration; no open critical/high finding at REL-004.
 - [ ] security.txt and disclosure policy live before first customer.
@@ -675,6 +711,7 @@ Task acceptance:
 Release: R1 · Estimate: 32–48 h · Risk: M · Decisions: D-25 · Closes: G-OPS-14
 Why / where: a Type II report requires months of evidence generated as operations happen; D-25 asks for SOC 2-ready controls in R1. Plugs in at M1 after INF-007 and SEC-008 and runs continuously.
 Dependency changes: new; deps INF-007, SEC-008.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-108-S01 | Write the evidence catalogue: control → generator → frequency → storage → reviewer (change mgmt, access reviews, vulnerability mgmt, backups/DR drills, incidents, logging/monitoring, vendor mgmt, HR on/offboarding, risk assessment, policies, encryption). | `docs/security/evidence-catalog.yaml` | Every control has an automated or manual generator. | 4 |
@@ -689,6 +726,7 @@ Dependency changes: new; deps INF-007, SEC-008.
 | OPS-108-S10 | Security training records and risk register. | `docs/security/risk-register.yaml` | First entries recorded. | 2 |
 | OPS-108-S11 | Quarterly evidence completeness report. | `tools/evidence/completeness.py` | Missing evidence listed per control. | 2 |
 | OPS-108-S12 | Evidence. | `docs/evidence/OPS-108/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Every catalogue control produces dated evidence from M1 onward.
 - [ ] First quarterly access review signed off.
@@ -698,6 +736,7 @@ Task acceptance:
 Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-02, D-06, D-07 · Closes: G-OPS-12
 Why / where: OPS-009 at M9 can only attribute months for which tags and driver facts were recorded; they must be emitted from the first pipeline runs (M3).
 Dependency changes: new; deps OPS-001, ORC-003, INF-008; OPS-009 depends on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-109-S01 | Enforce AWS tags `environment, component, cost_owner` via Terraform `default_tags` and an organization tag policy; activate them as cost-allocation tags. | `infra/tagging.tf` | Untagged resource fixture fails policy. | 2 |
@@ -709,6 +748,7 @@ Dependency changes: new; deps OPS-001, ORC-003, INF-008; OPS-009 depends on it.
 | OPS-109-S07 | Coverage test: over 24 h in staging, ≥ 99 % of central Snowflake queries have a parsable QUERY_TAG; untagged queries listed. | `tests/spec/OPS-109/` | Coverage report attached. | 3 |
 | OPS-109-S08 | Enable AWS CUR 2.0/Data Exports (daily Parquet) to the internal cost bucket. | `infra/cost/cur.tf` | First export delivered. | 2 |
 | OPS-109-S09 | Evidence. | `docs/evidence/OPS-109/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Every central Snowflake workload is attributable to a component and run; single-tenant queries also to a tenant.
 - [ ] Multi-tenant dbt runs record per-tenant input rows.
@@ -717,6 +757,7 @@ Task acceptance:
 Release: R1 · Estimate: 14–22 h · Risk: L · Decisions: none · Closes: G-OPS-02
 Why / where: split from OPS-003 so API/freshness SLOs are not delayed to M7. Plugs in after GOV-007 and RPT-005.
 Dependency changes: new; deps OPS-003, GOV-007, RPT-005; OPS-010 depends on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-110-S01 | Define NOTIF-DELIVERY (logical notifications DELIVERED ≤ 10 min after episode open / all, target 99 %) and REPORT-DELIVERY (occurrences delivered ≤ 60 min after scheduled time, 99 %); customer-destination permanent errors are counted and shown as destination health, not silently excluded. | catalogue entries | Reviewed. | 2 |
@@ -725,7 +766,9 @@ Dependency changes: new; deps OPS-003, GOV-007, RPT-005; OPS-010 depends on it.
 | OPS-110-S04 | Burn alarms and DLQ alarms with owners. | alarms | Fault test fires. | 2 |
 | OPS-110-S05 | Fault tests: webhook 500 then success within 10 min (good), permanent 410 (destination DEGRADED, visible), SES throttling. | `tests/spec/OPS-110/` | Outcomes as stated. | 3 |
 | OPS-110-S06 | Dashboard and RB-08 update. | dashboard, runbook | – | 2 |
-| OPS-110-S07 | Evidence. | `docs/evidence/OPS-110/<commit>/` | – | 1 |
+| OPS-110-S07 | Show destination health (status, last error class, last success time) per destination in Settings › Integrations so customer-caused permanent failures are visible to the customer. | `apps/web/settings/integrations` health panel | Revoked Slack token fixture shows DEGRADED with `invalid_auth` class. | 2 |
+| OPS-110-S08 | Evidence. | `docs/evidence/OPS-110/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Delivery SLIs computed with visible, counted destination-error classes.
 
@@ -733,6 +776,7 @@ Task acceptance:
 Release: R2 · Estimate: 22–36 h · Risk: M · Decisions: D-23 · Closes: G-OPS-06 (Tier 3)
 Why / where: optional regional protection; requires owner decision on cost and EU-only residency (eu-west-1 → eu-central-1).
 Dependency changes: new; deps OPS-007.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-111-S01 | Record owner decision (residency, cost ceiling, RTO target). | decision record | Approved. | 2 |
@@ -741,7 +785,9 @@ Dependency changes: new; deps OPS-007.
 | OPS-111-S04 | Measure replication lag and monthly cost for 30 days. | evidence | Values recorded. | 3 |
 | OPS-111-S05 | Regional drill: writable clone of secondary databases, identities/policies recreated, broker switched. | drill record | RTO measured. | 6 |
 | OPS-111-S06 | Decide Aurora cross-region snapshot copy vs Global Database. | decision record | Approved. | 4 |
-| OPS-111-S07 | Runbook and evidence. | `docs/runbooks/RB-16-regional.md` | – | 3 |
+| OPS-111-S07 | Write the owner cost/benefit memo: measured monthly cost vs RTO/RPO gained, residency confirmation. | decision memo | Owner decision recorded (keep or disable). | 2 |
+| OPS-111-S08 | Runbook and evidence. | `docs/runbooks/RB-16-regional.md` | – | 3 |
+
 Task acceptance:
 - [ ] Regional drill executed with measured RPO/RTO and monthly cost.
 

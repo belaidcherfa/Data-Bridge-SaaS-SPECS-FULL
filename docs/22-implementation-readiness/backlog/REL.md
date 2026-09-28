@@ -95,6 +95,7 @@ Affects: REL-001, REL-004.
 ### REL-001 — Qualify complete CI/CD promotion, provenance and schema compatibility
 Release: R1 · Estimate: 40–60 h · Risk: M · Decisions: D-21, D-25 · Closes: G-REL-06, G-REL-07, G-REL-08
 Dependency changes: `+REL-101`, `+REL-103`.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-001-S01 | Author release manifest v1 (§3) and a generator that fills it from the build. | `docs/releases/release-manifest.v1.json`, `tools/release/manifest.py` | Generated manifest validates; missing component fails the build. | 3 |
@@ -110,6 +111,7 @@ Dependency changes: `+REL-101`, `+REL-103`.
 | REL-001-S11 | Terraform: apply only the reviewed saved plan (digest pinned in manifest); nightly drift detection per stack. | `infra/cicd/terraform-apply.yml` | Apply with a different plan digest refused; drift alarm fires on manual console change. | 3 |
 | REL-001-S12 | Enforce the change calendar: production deploys touching `financial-logic` paths during the month-close window require a FinOps approval label. | `tools/release/freeze.py` | Fixture deploy on day 2 of month without label blocked. | 2 |
 | REL-001-S13 | Evidence. | `docs/evidence/REL-001/<commit>/` | Includes negative-test outputs and a verified manifest. | 2 |
+
 Task acceptance:
 - [ ] The same signed digest reaches staging and production; tags and unsigned images cannot deploy.
 - [ ] Missing or stale required evidence blocks production promotion.
@@ -119,6 +121,7 @@ Task acceptance:
 ### REL-002 — Rehearse production deployment and rollback (code, publication, forward fix)
 Release: R1 · Estimate: 36–56 h · Risk: H · Decisions: D-05, D-07, D-09, D-22 · Closes: G-REL-01, G-REL-04
 Dependency changes: `+REL-102`, `+REL-104`; production provisioning moves to REL-104.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-002-S01 | Diff production vs staging configuration (DNS/TLS/WAF/endpoints/secrets) and check quotas: ECS tasks, IAM roles (per-tenant principals D-02), SES production access, Cognito limits. | `docs/releases/prod-config-diff.md` | Every difference justified; quota headroom ≥ 2× C1 needs. | 3 |
@@ -135,6 +138,7 @@ Dependency changes: `+REL-102`, `+REL-104`; production provisioning moves to REL
 | REL-002-S12 | Verify a control mutation made during rollout (budget created) survives rollback and the ledger stays 270. | `tests/smoke/test_rollback_preserves.py` | Budget present; no duplicate 270 rows. | 2 |
 | REL-002-S13 | Write deployment records automatically (schema §3). | `tools/release/deployment_record.py` | Every rehearsal has a record with duration and decision. | 2 |
 | REL-002-S14 | Update RB-13 with measured durations and exact commands. | `docs/runbooks/RB-13-rollback.md` | Second engineer performs Rehearsal A from RB-13. | 2 |
+
 Task acceptance:
 - [ ] New API versions receive production traffic only after the smoke hook passes; bake-time regressions roll back automatically.
 - [ ] Worker and daemon deployments never run two lease owners or two daemons concurrently.
@@ -144,6 +148,7 @@ Task acceptance:
 ### REL-003 — Assemble operational, commercial and support readiness pack
 Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-17, D-25 · Closes: G-REL-07
 Dependency changes: `+LCH-001`, `+LCH-102`, `+LCH-104`, `+OPS-107`.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-003-S01 | Create the checklist data model (item, gate, owner, evidence URI, commit, environment, date, result, risk acceptance with expiry). | `docs/production/checklist.yaml` | Schema-valid, 14 gates present. | 2 |
@@ -156,6 +161,7 @@ Dependency changes: `+LCH-001`, `+LCH-102`, `+LCH-104`, `+OPS-107`.
 | REL-003-S08 | Tabletop 2: tenant deletion request followed by a restore. | tabletop record | Tombstone replay step identified in both runbooks. | 2 |
 | REL-003-S09 | Tabletop 3: billing dispute (credit note, PAST_DUE grace, data access during dispute). | tabletop record | Policy answers exist for each question. | 2 |
 | REL-003-S10 | Assign unresolved items; blocking items feed NO-GO. | issue list | No unowned item. | 2 |
+
 Task acceptance:
 - [ ] Every blocking checklist item has accepted, fresh evidence or the pack states NO-GO.
 - [ ] Legal/commercial items carry named human approvals, never engineering approval.
@@ -164,6 +170,7 @@ Task acceptance:
 ### REL-004 — Approve immutable release candidate and production gate
 Release: R1 · Estimate: 12–18 h · Risk: M · Decisions: D-25 · Closes: G-REL-07
 Dependency changes: none.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-004-S01 | Tag `vX.Y.Z-rc.N` and freeze the manifest (immutable object, SHA recorded). | `docs/releases/rc-manifest/` | Manifest SHA recorded in go/no-go file. | 1 |
@@ -174,6 +181,7 @@ Dependency changes: none.
 | REL-004-S06 | Fill `go-no-go.yaml`; a NO-GO keeps `signup.enabled=false` and production onboarding disabled. | `docs/production/go-no-go.yaml` | Flag state matches decision. | 2 |
 | REL-004-S07 | Test: one failed isolation or financial invariant computes NO_GO automatically. | `tests/spec/REL-004/` | Decision computed NO_GO. | 2 |
 | REL-004-S08 | Evidence. | `docs/evidence/REL-004/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] One failed tenant-isolation or financial invariant yields NO_GO without human override.
 - [ ] The approved candidate names exact digests, rollback owner and limitations.
@@ -184,6 +192,7 @@ Task acceptance:
 Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: none · Closes: G-REL-02
 Why / where: first migrations and rolling deploys happen at M1; plugs in after CTL-002/INF-007; REL-001 depends on it.
 Dependency changes: new; deps CTL-002, INF-007.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-101-S01 | Write the migration policy (§3). | `docs/releases/migration-policy.md` | Reviewed by backend + DevOps. | 2 |
@@ -195,6 +204,7 @@ Dependency changes: new; deps CTL-002, INF-007.
 | REL-101-S07 | Catalog guard: new tenant tables must have `tenant_id`, composite FKs, FORCE RLS and policies. | `tests/migrations/test_rls_guard.py` | Fixture table without FORCE RLS fails CI. | 2 |
 | REL-101-S08 | Negative fixtures for missing `lock_timeout` and non-concurrent index. | fixtures | Both fail. | 1 |
 | REL-101-S09 | Evidence. | `docs/evidence/REL-101/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Unsafe migrations fail CI before merge.
 - [ ] Previous release's tests pass against every new schema head.
@@ -204,6 +214,7 @@ Task acceptance:
 Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-07, D-17 · Closes: G-REL-05
 Why / where: containment for RB-02/05/09/15 and dark launch; plugs in at M3 after CTL-004/CTL-006 and OPS-106 (ops API).
 Dependency changes: new; deps CTL-004, CTL-006, OPS-106; REL-002 depends on it.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-102-S01 | Create `control.feature_flags` and audit events. | migration | Every change audited with reason. | 2 |
@@ -215,6 +226,7 @@ Dependency changes: new; deps CTL-004, CTL-006, OPS-106; REL-002 depends on it.
 | REL-102-S07 | Include the flag snapshot hash in the release manifest. | manifest field | Present. | 1 |
 | REL-102-S08 | Propagation tests: tenant extraction pause stops new account-cycles within 60 s while in-flight finish; publication freeze holds the pointer. | `tests/spec/REL-102/` | Measured ≤ 60 s. | 3 |
 | REL-102-S09 | Docs and evidence. | `docs/releases/kill-switches.md` | – | 2 |
+
 Task acceptance:
 - [ ] Every runbook containment action has a kill switch with measured propagation ≤ 60 s.
 - [ ] Flags never widen authorization.
@@ -223,6 +235,7 @@ Task acceptance:
 Release: R1 · Estimate: 26–40 h · Risk: H · Decisions: D-05, D-22 · Closes: G-REL-03
 Why / where: first serving schema at M4/M5; plugs in after DBT-006, API-001, ORC-005; REL-001/REL-002 depend on it.
 Dependency changes: new; deps DBT-006, API-001, ORC-005.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-103-S01 | Write the compatibility contract (§3). | `docs/releases/serving-compatibility.md` | Reviewed by DBT/API owners. | 3 |
@@ -235,6 +248,7 @@ Dependency changes: new; deps DBT-006, API-001, ORC-005.
 | REL-103-S08 | Rehearse a two-release serving column rename in staging. | evidence | No request fails during either release. | 4 |
 | REL-103-S09 | Security test: row access policies attached to every new view version. | `tests/isolation/test_new_view_policies.py` | Unattached view fails CI. | 2 |
 | REL-103-S10 | Docs and evidence. | `docs/evidence/REL-103/<commit>/` | – | 2 |
+
 Task acceptance:
 - [ ] No deployed API version can face a publication schema it cannot read.
 - [ ] Serving contract changes complete in two releases without failed requests.
@@ -244,6 +258,7 @@ Task acceptance:
 Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-09, D-23 · Closes: G-REL-01
 Why / where: production-only differences must surface early; plugs in at M5 after INF-007/INF-008, OPS-102, OPS-103; REL-002 and OPS-107 depend on it.
 Dependency changes: new; deps INF-007, INF-008, OPS-102, OPS-103.
+
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-104-S01 | Provision production AWS stacks and the production central Snowflake account through the pipeline. | Terraform state per prod stack | Second apply no-op. | 5 |
@@ -255,6 +270,7 @@ Dependency changes: new; deps INF-007, INF-008, OPS-102, OPS-103.
 | REL-104-S07 | Nightly drift detection on production stacks. | workflow | Manual change detected. | 2 |
 | REL-104-S08 | Cost guards: AWS Budgets alarms and Snowflake resource monitors on production. | budgets | Alarm test fires. | 2 |
 | REL-104-S09 | Evidence. | `docs/evidence/REL-104/<commit>/` | – | 1 |
+
 Task acceptance:
 - [ ] Production has run every candidate since M5 with green smoke tests.
 - [ ] NAT Elastic IPs are fixed and published before any customer allowlists them.

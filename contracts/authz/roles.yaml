@@ -1,0 +1,478 @@
+# contract=authz-roles version=1 status=DRAFT owner_task=SEC-004 decisions=D-02,D-10,D-20,D-25 last_changed=2026-09-28
+# =====================================================================================================
+# Role x capability matrix (SEC-004-S02; SEC backlog Appendix C.2/C.3; PRD §114 role names - UI labels MUST use
+# display_name, never "FinOps admin / Group viewer / Platform admin" (G-SEC-04, UX correction).
+# Capability ids: contracts/authz/capabilities.yaml. Scope grammar: contracts/authz/scope.schema.json.
+# The roles section is generated from a compact matrix (scratch generator kept with the lane); edit both together.
+# Maker/checker roles are NOT encoded here: they follow from approval_policies in capabilities.yaml
+# (a role holding a checker capability can approve, never its own request or its own last edit).
+# Capabilities absent from a role's map are NEVER (not even grantable). finance.org_scope.read is derived from the
+# scope (organization-level atom) and therefore absent from every role map.
+# =====================================================================================================
+version: 1
+catalog_version: 1.0.0
+legend:
+  DEFAULT: Held by every grant of this role (scope-bound capabilities apply within the grant scope).
+  OWN: 'Held by default but limited to objects owned by the member (Team Admin: teams the member administers).'
+  GRANTABLE: Not held by default; may be added as extra_capabilities on a grant of this role (subject to delegation).
+  NEVER: 'Absent from the map: cannot be held by this role, not even as an extra.'
+roles:
+  ORGANIZATION_OWNER:
+    display_name: Organization Owner
+    prd_mutations: Ownership transfer, subscription, all tenant administration
+    prd_read_scope: Granted tenant organizations/accounts (normally "*")
+    rank: 1
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: DEFAULT
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: DEFAULT
+      query.evidence.read: DEFAULT
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: DEFAULT
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      tenant.settings.manage: DEFAULT
+      tenant.ownership.transfer: DEFAULT
+      tenant.offboarding.request: DEFAULT
+      security.policy.manage: DEFAULT
+      sso.manage: DEFAULT
+      sso.enforce: DEFAULT
+      sso.disable: DEFAULT
+      sso.approve: DEFAULT
+      member.read: DEFAULT
+      member.invite: DEFAULT
+      member.manage: DEFAULT
+      member.mfa.reset: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      team.manage: DEFAULT
+      api_client.manage: DEFAULT
+      support.grant: DEFAULT
+      subscription.read: DEFAULT
+      subscription.manage: DEFAULT
+      audit.read: DEFAULT
+      audit.export: DEFAULT
+      access.review: DEFAULT
+      connection.read: DEFAULT
+      connection.manage: DEFAULT
+      source.configure: DEFAULT
+      sync.replay: DEFAULT
+      backfill.request: DEFAULT
+      onboarding.read: DEFAULT
+      onboarding.acknowledge: DEFAULT
+      onboarding.acknowledge_financial: DEFAULT
+      privacy.mode.manage: DEFAULT
+      privacy.mode.full.enable: DEFAULT
+      privacy.erasure.request: DEFAULT
+      privacy.access.request: DEFAULT
+      finance.pricing.import: DEFAULT
+      finance.pricing.approve: DEFAULT
+      finance.reference.enter: DEFAULT
+      finance.reference.approve: DEFAULT
+      finance.reconciliation.explain: DEFAULT
+      finance.reconciliation.approve_explanation: DEFAULT
+      finance.period.close.request: DEFAULT
+      finance.period.close.approve: DEFAULT
+      finance.period.restate.request: DEFAULT
+      finance.period.restate.approve: DEFAULT
+      statement.issue: DEFAULT
+      statement.approve: DEFAULT
+      tag_rule.edit: DEFAULT
+      allocation_rule.edit: DEFAULT
+      group_set.edit: DEFAULT
+      rule.approve: DEFAULT
+      rule.publish: DEFAULT
+      allocation.pool_disclosure.manage: DEFAULT
+      budget.manage: DEFAULT
+      monitor.manage: DEFAULT
+      incident.manage: DEFAULT
+      notification.destination.manage: DEFAULT
+      report.manage: DEFAULT
+      report.recipients.external: DEFAULT
+      report.artifact.delete: DEFAULT
+      insight.triage: DEFAULT
+      action.manage: DEFAULT
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      saved_view.share_tenant: DEFAULT
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: DEFAULT
+      config_publication.read: DEFAULT
+  ORGANIZATION_ADMIN:
+    display_name: Organization Admin
+    prd_mutations: Members, teams, settings and integration administration; no ownership transfer
+    prd_read_scope: Explicit grant scope
+    rank: 2
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: GRANTABLE
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: DEFAULT
+      query.evidence.read: GRANTABLE
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: GRANTABLE
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      tenant.settings.manage: DEFAULT
+      tenant.offboarding.request: DEFAULT
+      security.policy.manage: DEFAULT
+      sso.manage: DEFAULT
+      sso.enforce: DEFAULT
+      sso.disable: DEFAULT
+      member.read: DEFAULT
+      member.invite: DEFAULT
+      member.manage: DEFAULT
+      member.mfa.reset: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      team.manage: DEFAULT
+      api_client.manage: DEFAULT
+      support.grant: DEFAULT
+      subscription.read: DEFAULT
+      audit.read: DEFAULT
+      audit.export: GRANTABLE
+      access.review: DEFAULT
+      connection.read: DEFAULT
+      onboarding.read: DEFAULT
+      onboarding.acknowledge: DEFAULT
+      privacy.mode.manage: DEFAULT
+      privacy.mode.full.enable: DEFAULT
+      privacy.erasure.request: DEFAULT
+      privacy.access.request: DEFAULT
+      allocation.pool_disclosure.manage: DEFAULT
+      incident.manage: DEFAULT
+      notification.destination.manage: DEFAULT
+      report.recipients.external: DEFAULT
+      report.artifact.delete: DEFAULT
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      saved_view.share_tenant: DEFAULT
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: GRANTABLE
+      config_publication.read: DEFAULT
+  FINOPS_ADMIN:
+    display_name: FinOps Admin
+    prd_mutations: Prices, tags, allocation, budgets, close/restate, chargeback
+    prd_read_scope: Explicit financial scope
+    rank: 3
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: DEFAULT
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: DEFAULT
+      query.evidence.read: DEFAULT
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: DEFAULT
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      member.read: GRANTABLE
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      subscription.read: GRANTABLE
+      audit.read: GRANTABLE
+      connection.read: DEFAULT
+      onboarding.read: DEFAULT
+      onboarding.acknowledge_financial: DEFAULT
+      finance.pricing.import: DEFAULT
+      finance.pricing.approve: DEFAULT
+      finance.reference.enter: DEFAULT
+      finance.reference.approve: DEFAULT
+      finance.reconciliation.explain: DEFAULT
+      finance.reconciliation.approve_explanation: DEFAULT
+      finance.period.close.request: DEFAULT
+      finance.period.close.approve: DEFAULT
+      finance.period.restate.request: DEFAULT
+      finance.period.restate.approve: DEFAULT
+      statement.issue: DEFAULT
+      statement.approve: DEFAULT
+      tag_rule.edit: DEFAULT
+      allocation_rule.edit: DEFAULT
+      group_set.edit: DEFAULT
+      rule.approve: DEFAULT
+      rule.publish: DEFAULT
+      budget.manage: DEFAULT
+      monitor.manage: DEFAULT
+      incident.manage: DEFAULT
+      report.manage: DEFAULT
+      report.recipients.external: GRANTABLE
+      report.artifact.delete: DEFAULT
+      insight.triage: DEFAULT
+      action.manage: DEFAULT
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      saved_view.share_tenant: DEFAULT
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: DEFAULT
+      config_publication.read: DEFAULT
+  SNOWFLAKE_ADMIN:
+    display_name: Snowflake Admin
+    prd_mutations: Connections, source configuration, sync/replay requests
+    prd_read_scope: Granted technical/financial modules
+    rank: 4
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: DEFAULT
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: DEFAULT
+      query.evidence.read: DEFAULT
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: GRANTABLE
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      member.read: GRANTABLE
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      api_client.manage: GRANTABLE
+      audit.read: GRANTABLE
+      connection.read: DEFAULT
+      connection.manage: DEFAULT
+      source.configure: DEFAULT
+      sync.replay: DEFAULT
+      backfill.request: DEFAULT
+      onboarding.read: DEFAULT
+      onboarding.acknowledge: DEFAULT
+      monitor.manage: DEFAULT
+      incident.manage: DEFAULT
+      report.manage: DEFAULT
+      insight.triage: DEFAULT
+      action.manage: DEFAULT
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      saved_view.share_tenant: GRANTABLE
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: DEFAULT
+      config_publication.read: DEFAULT
+  TEAM_ADMIN:
+    display_name: Team Admin
+    prd_mutations: Own team membership within delegation bounds, team budgets/reports
+    prd_read_scope: Granted team/account intersection
+    rank: 5
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: DEFAULT
+      query.read: DEFAULT
+      identity.resolve: GRANTABLE
+      query.evidence.read: GRANTABLE
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      member.read: OWN
+      member.invite: DEFAULT
+      member.manage: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      team.manage: OWN
+      onboarding.read: DEFAULT
+      budget.manage: DEFAULT
+      monitor.manage: DEFAULT
+      incident.manage: DEFAULT
+      report.manage: DEFAULT
+      insight.triage: DEFAULT
+      action.manage: DEFAULT
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: DEFAULT
+  ANALYST:
+    display_name: Analyst
+    prd_mutations: Own saved views/reports and assigned actions; no publish/close
+    prd_read_scope: Granted analytical scope
+    rank: 6
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: DEFAULT
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: GRANTABLE
+      query.evidence.read: GRANTABLE
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: GRANTABLE
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      onboarding.read: DEFAULT
+      finance.reconciliation.explain: GRANTABLE
+      tag_rule.edit: GRANTABLE
+      allocation_rule.edit: GRANTABLE
+      group_set.edit: GRANTABLE
+      budget.manage: GRANTABLE
+      monitor.manage: GRANTABLE
+      incident.manage: DEFAULT
+      report.manage: OWN
+      insight.triage: OWN
+      action.manage: OWN
+      saved_view.manage_own: DEFAULT
+      saved_view.share: DEFAULT
+      saved_view.share_tenant: GRANTABLE
+      dashboard.manage_shared: DEFAULT
+      analysis_job.run: DEFAULT
+      config_publication.read: DEFAULT
+  VIEWER:
+    display_name: Viewer
+    prd_mutations: Personal presentation preferences only
+    prd_read_scope: Granted analytical scope
+    rank: 7
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: GRANTABLE
+      query.read: GRANTABLE
+      explain.read: DEFAULT
+      export.data: GRANTABLE
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      onboarding.read: DEFAULT
+      saved_view.manage_own: DEFAULT
+  AUDITOR:
+    display_name: Auditor
+    prd_mutations: No business mutation
+    prd_read_scope: Granted financial/audit evidence; SQL text only if separately granted
+    rank: 8
+    capabilities:
+      analytics.read: DEFAULT
+      sql_text.read_sanitized: GRANTABLE
+      sql_text.read_full: GRANTABLE
+      query.read: DEFAULT
+      identity.resolve: GRANTABLE
+      query.evidence.read: GRANTABLE
+      explain.read: DEFAULT
+      export.data: DEFAULT
+      export.bulk: GRANTABLE
+      analysis_job.read: OWN
+      data_health.read: DEFAULT
+      tenant.read: DEFAULT
+      member.read: DEFAULT
+      membership.leave: DEFAULT
+      team.read: DEFAULT
+      subscription.read: DEFAULT
+      audit.read: DEFAULT
+      audit.export: DEFAULT
+      access.review: GRANTABLE
+      connection.read: DEFAULT
+      onboarding.read: DEFAULT
+      saved_view.manage_own: DEFAULT
+      config_publication.read: DEFAULT
+  SUPPORT_READ_ONLY:
+    display_name: Support (read-only, synthetic)
+    synthetic: true
+    assignable: false
+    prd_mutations: None. Materialized only by an ACTIVE identity.support_access_grant (SEC-104).
+    prd_read_scope: Approved data scope; sanitized SQL; pseudonymous identities (never identity.resolve).
+    rank: 99
+    capabilities: {}
+
+# ---------------------------------------------------------------------------------------------------
+# Delegation (Appendix C.3; SEC-004-S08). Evaluated on invitation create/accept and on grant replacement.
+# ---------------------------------------------------------------------------------------------------
+delegation:
+  rules:
+    - id: DLG-1
+      rule: "The actor holds member.manage (member.invite for invitations) over a scope that subsumes the target grant's scope (SEC-101 subsumes over canonical atoms)."
+      error: AUTHZ_DELEGATION_EXCEEDED
+    - id: DLG-2
+      rule: "Every DEFAULT capability of the target role and every extra capability is contained in the actor's own effective capability set, excluding owner-only capabilities."
+      error: AUTHZ_DELEGATION_EXCEEDED
+    - id: DLG-3
+      rule: "A Team Admin may assign only roles listed in role_ceilings.TEAM_ADMIN, and only for members of teams it administers; the target scope must also be <= the Team Admin's member.manage scope."
+      error: AUTHZ_DELEGATION_EXCEEDED
+    - id: DLG-4
+      rule: "Nobody creates or modifies grants of their own membership (identity.role_grant.granted_by_membership_id <> membership_id)."
+      error: AUTHZ_SELF_GRANT_FORBIDDEN
+    - id: DLG-5
+      rule: "Removing, suspending or demoting the last ACTIVE ORGANIZATION_OWNER membership is refused; serialized by SELECT ... FOR UPDATE on all ACTIVE owner memberships of the tenant."
+      error: TENANT_LAST_OWNER
+    - id: DLG-6
+      rule: "Extra capabilities must be GRANTABLE for the target role; VISIBILITY extras (sql_text.read_full) change the profile and require step-up."
+      error: AUTHZ_CAPABILITY_NOT_GRANTABLE
+    - id: DLG-7
+      rule: "Only an ORGANIZATION_OWNER grants ORGANIZATION_OWNER (via invitation by an owner or tenant.ownership.transfer); ORGANIZATION_ADMIN may grant ORGANIZATION_ADMIN and below."
+      error: AUTHZ_DELEGATION_EXCEEDED
+  owner_only_capabilities: [tenant.ownership.transfer, subscription.manage, sso.approve]
+  role_ceilings:
+    ORGANIZATION_OWNER: [ORGANIZATION_OWNER, ORGANIZATION_ADMIN, FINOPS_ADMIN, SNOWFLAKE_ADMIN, TEAM_ADMIN, ANALYST, VIEWER, AUDITOR]
+    ORGANIZATION_ADMIN: [ORGANIZATION_ADMIN, FINOPS_ADMIN, SNOWFLAKE_ADMIN, TEAM_ADMIN, ANALYST, VIEWER, AUDITOR]
+    TEAM_ADMIN: [ANALYST, VIEWER]
+  step_up_for_target_roles: [ORGANIZATION_OWNER, ORGANIZATION_ADMIN, FINOPS_ADMIN]
+  sso_jit_default: {role: VIEWER, scope: {grammar_version: 1, clauses: []}}   # JIT members see nothing until granted (SEC-003-S08)
+  bootstrap_owner: {role: ORGANIZATION_OWNER, scope: {grammar_version: 1, clauses: [{org: "*", account: "*", group: "*", include_shared: true, include_unallocated: true}]}}
+
+# ---------------------------------------------------------------------------------------------------
+# Synthetic SUPPORT memberships (SEC-104-S04; RECONCILIATION C-15). Read-only, sanitized SQL, pseudonymous
+# identities; banner header X-Bridge-Support-Session; every request audited (support.access.used).
+# ---------------------------------------------------------------------------------------------------
+support_scopes:
+  health_read:
+    role: SUPPORT_READ_ONLY
+    capabilities: [tenant.read, data_health.read, connection.read, config_publication.read, onboarding.read]
+    data_scope: none          # no analytical rows; profile is not provisioned
+  analytics_read:
+    role: SUPPORT_READ_ONLY
+    capabilities: [tenant.read, data_health.read, connection.read, config_publication.read, onboarding.read,
+                   analytics.read, query.read, sql_text.read_sanitized, explain.read]
+    data_scope: approved      # data_scope_json on the grant, <= approver scope
+  never: [identity.resolve, sql_text.read_full, export.data, export.bulk, analysis_job.run]
+  max_duration_minutes: 480
+  default_duration_minutes: 240
+
+# ---------------------------------------------------------------------------------------------------
+# Machine clients (API-006, R2): Cognito resource-server scopes express capabilities only; tenant and data scope
+# come from identity.machine_client. Allowlist of capabilities a machine client may hold.
+# ---------------------------------------------------------------------------------------------------
+machine_client_allowlist: [analytics.read, query.read, explain.read, analysis_job.run, analysis_job.read, export.data]
+cognito_scope_mapping:
+  analytics.read: bridge-api/analytics.read
+  query.read: bridge-api/query.read
+  explain.read: bridge-api/explain.read
+  analysis_job.run: bridge-api/jobs.write
+  analysis_job.read: bridge-api/jobs.read
+  export.data: bridge-api/exports.read
+
+# ---------------------------------------------------------------------------------------------------
+# Operator roles (CTL-102-S02 operator role catalog; IAM Identity Center OIDC + hardware MFA; never tenant roles).
+# ---------------------------------------------------------------------------------------------------
+operator_roles:
+  ops_viewer:
+    capabilities: [ops.tenant.read]
+  ops_provisioner:
+    capabilities: [ops.tenant.read, ops.tenant.provision, ops.tenant.suspend, ops.tenant.offboard, ops.config.redrive]
+  finance_operator:
+    capabilities: [ops.tenant.read, ops.finance.payment.record, ops.finance.payment.correct, ops.finance.subscription.transition,
+                   ops.finance.entitlement.override, ops.tenant.suspend]
+  support_agent:
+    capabilities: [ops.tenant.read, ops.support.request]
+  incident_responder:
+    capabilities: [ops.tenant.read, ops.tenant.suspend, ops.incident.respond, ops.outbox.redrive, ops.outbox.discard, ops.recovery.execute]
+  rules:
+    - "Operators authenticate on the internal ops plane only (IAM Identity Center OIDC for the console, SigV4 for bridge-admin); Cognito customer sessions are rejected there."
+    - "An operator never holds a tenant membership except a synthetic SUPPORT membership materialized by a customer-approved support grant."
+    - "Two-operator actions: see capabilities.yaml#operator_approval_policies; the approving operator must differ from the requesting operator."
+
+# ---------------------------------------------------------------------------------------------------
+# Separation-of-duties summary (derived; the normative rules are approval_policies in capabilities.yaml).
+# ---------------------------------------------------------------------------------------------------
+separation_of_duties:
+  - "Approver != requester and != last editor of the approved revision, for every approval action, unless self_approval permits it and the approval is flagged self_approved (surfaced on statements and audit)."
+  - "Self-approval under SINGLE_ELIGIBLE_APPROVER_FLAGGED is allowed only when, at request time, no other ACTIVE member holds a checker capability over the object's full scope; adding one disables self-approval for new requests."
+  - "The checker must hold the checker capability over the object's full scope at approval AND at execution; losing it voids the approval (APPROVER_LOST_CAPABILITY)."
+  - "Owner and Admin role grants, ownership transfer, SSO enforcement, FULL privacy mode, erasure, close and restatement require step-up (auth_time <= 600 s)."
+  - "Finance operators (ops plane) can never approve their own payment corrections; tenant Owners can never mark invoices paid (LCH-001-S13)."

@@ -1,47 +1,59 @@
-# Decisions required before implementation
+# Decision record
 
-Each decision below must be recorded (accepted as recommended, or replaced) before the tasks it blocks start. Decisions that change an accepted ADR are recorded as an ADR amendment or a superseding ADR, per the repository's ADR process. The [revised backlog](backlog/) is written against the **recommended** option and tags dependent micro-steps with the decision ID, so accepting a recommendation requires no backlog rewrite.
+**Status: all 38 decisions RECORDED on 2026-09-28** by the product owner (answers collected in the review session; engineering recommendations accepted where the owner delegated). This file started as the list of decisions required before implementation; it is now the accepted decision record. Decisions that change an accepted ADR are carried by ADR amendments and new ADRs (ADR-014 to ADR-016) in [docs/architecture/adr](../architecture/adr/README.md).
 
-Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BUSINESS. **Owner input**: the recommendation cannot be made by engineering alone.
+Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BUSINESS. **Basis**: OWNER = answered explicitly by the owner; OWNER·REC = owner accepted the engineering recommendation; DELEGATED = owner delegated technical choices to engineering ("take the best production-grade decisions"), recommendation applied.
 
 ## Summary
 
-| ID | Decision | Type | Recommendation | Must be decided before |
-|---|---|---|---|---|
-| D-01 | Release slicing | PRODUCT | R1 thin-but-complete production slice; R2 breadth | Planning (now) |
-| D-02 | Serving authorization identity model | ARCH (amends ADR-005) | Tenant WIF user + per-profile Snowflake role | SEC-005 |
-| D-03 | Snowpipe usage mode | ARCH | Auto-ingest steady state; orchestrated COPY for replay | ING-006 |
-| D-04 | Config publication transport | ARCH (amends ADR-007) | Direct idempotent insert by config-publisher identity | CTL-005 |
-| D-05 | Analytical write model | ARCH | Insert-only revisioned partitions + publication map | DBT-001 |
-| D-06 | dbt run granularity | ARCH | Multi-tenant set-based runs, per-tenant publication gating | DBT-001, ORC-004 |
-| D-07 | Extraction execution model | ARCH | One ECS task per account-cycle | ORC-002, ING-003 |
-| D-08 | Customer-side extraction footprint | PRODUCT/ARCH | Dedicated XS warehouse, resource monitor, query tag, disclosed cost | CON-003 |
-| D-09 | Network reachability | ARCH | Fixed egress IPs + optional network policy; PrivateLink R2 | INF-002, CON-003 |
-| D-10 | Personal data in the immutable journal | ARCH/LEGAL | Per-tenant HMAC pseudonyms + deletable identity dictionary | SEC-007, ING-003 |
-| D-11 | Query-level retention tiering | PRODUCT | 90 days query grain; 400 days family×day aggregates | ING-001, DBT-003 |
-| D-12 | Canonical charge grain | FIN | Billing-bucket grain; estimates at same grain | FIN-001 |
-| D-13 | FINAL maturity horizons | FIN | Numeric per-source defaults in registry | ING-001, FIN-001 |
-| D-14 | Temporal attribution of long queries | FIN | Prorate by execution overlap with metering hours | FIN-003 |
-| D-15 | Default allocation per charge family | FIN/PRODUCT | Seeded editable default book | ALC-005 |
-| D-16 | Rule evaluation engine | ARCH | Data-driven predicate tables, set-based SQL | ALC-002 |
-| D-17 | Commercial plan model | BUSINESS · owner input | Plan-agnostic quota entitlements; price model TBD | LCH-001 (design CTL-007) |
-| D-18 | Localization | PRODUCT · owner input | EN R1 with externalized strings; FR R2 | UX-001 |
-| D-19 | Delivery capacity | BUSINESS · owner input | — (needed to turn hours into a schedule) | Planning (now) |
-| D-20 | First-customer profile | BUSINESS · owner input | — (drives R1 FIN/WRK/INS detail scope) | FIN-001 scoping |
-| D-21 | Central Snowflake authentication | ARCH | WIF everywhere, dbt-snowflake ≥ 1.12 | FND-002 |
-| D-22 | Query broker placement | ARCH | Separate internal service | API-002 |
-| D-23 | Data residency | BUSINESS/ARCH | Single EU stack R1; regional stacks later | INF-001 |
-| D-24 | Hot path (PRD §37) | PRODUCT | Defer to R2 | ING-012 |
-| D-25 | Compliance posture | BUSINESS · owner input | SOC 2-ready controls in R1; certification timing TBD | SEC-008, OPS-005 |
-| D-26 | Journal/RAW retention for financial sources | ARCH (amends ADR-009) | 400 days for billing/metering sources; 90 days for query-grain sources | ING-005, DBT-004 |
-| D-27 | Default monitor maturity | PRODUCT | Alert on PROVISIONAL by default, label maturity; FINAL opt-in | GOV-003 |
-| D-28 | Frontend hosting and edge | ARCH (refines PRD §5) | SPA on S3 + CloudFront OAC; API via CloudFront VPC origin to internal ALB | INF-005, INF-006 |
-| D-29 | Backfill vs steady state ordering | ARCH (refines PRD §40) | Start steady-state sync first; backfill in a fair background lane; no separate catch-up phase | ING-010 |
-| D-30 | Customer invoicing channel | BUSINESS · owner input | Invoices issued by an accounting tool connected to an approved e-invoicing platform; Bridge stores references only | LCH-001 |
-| D-31 | Availability objectives | PRODUCT | Control plane 99.9 %; analytics 99.5 % (bounded by Snowflake's own SLA) | OPS-003 |
-| D-32 | Non-production spend budget | BUSINESS · owner input | One test estate ≤ 150 credits/month; non-prod ceiling 500 credits/month; one-off benchmarks ≤ 600 credits | INF-101, INF-105, OPS-008 |
-| D-33 | Interactive, export and report job execution | ARCH (refines semantic-api.md, reporting.md) | Long-lived workers claiming PG jobs via the broker; no Dagster report lane; simulations stay Dagster dbt jobs | API-004, RPT-002 |
-| D-34 | Workload classification engine | ARCH (refines PRD §53–§54) | Set-based dbt SQL classifier; Python kept as test oracle | WRK-001 |
+| ID | Decision | Type | Recorded decision | Basis | Blocks |
+|---|---|---|---|---|---|
+| D-01 | Release slicing | PRODUCT | R1 production-grade slice for the first paying customer; R2 breadth | OWNER·REC | Planning |
+| D-02 | Serving authorization identity model | ARCH | Tenant WIF user + per-profile Snowflake role; `CURRENT_ROLE()`-only row policies; secondary roles disabled (amends ADR-005) | OWNER·REC | SEC-005 |
+| D-03 | Snowpipe usage mode | ARCH | Auto-ingest steady state; orchestrated `COPY INTO … FILES=` for replay/repair | OWNER·REC | ING-006 |
+| D-04 | Config publication transport | ARCH | Direct insert-only write by a config-publisher identity + S3 archive (amends ADR-007) | OWNER·REC | CTL-005 |
+| D-05 | Analytical write model | ARCH | Insert-only revisioned partitions + SCD2 publication map (ADR-014) | OWNER·REC | DBT-001 |
+| D-06 | dbt run granularity | ARCH | Multi-tenant set-based runs; per-tenant publication gating (ADR-014) | OWNER·REC | DBT-001, ORC-004 |
+| D-07 | Extraction execution model | ARCH | One ECS task per account-cycle, started by a dedicated launcher; no Dagster run per cycle (amends ADR-008) | OWNER·REC | ORC-002, ING-003 |
+| D-08 | Customer-side extraction footprint | PRODUCT/ARCH | Dedicated XS warehouse + OPERATE, resource monitor, query tag, "Bridge overhead" label, cost shown before consent | OWNER·REC | CON-003 |
+| D-09 | Network reachability | ARCH | Fixed egress IPs + optional network policy in R1; PrivateLink in R2 | OWNER·REC | INF-002, CON-003 |
+| D-10 | Personal data in the immutable journal | ARCH/LEGAL | Per-tenant HMAC pseudonyms; PG identity dictionary; tombstone log; per-tenant KMS key (amends ADR-009) | OWNER·REC | SEC-007, ING-003 |
+| D-11 | Query-level retention | PRODUCT | **365 days of query-level detail** (owner choice, replaces the 90-day recommendation); family × day aggregates with sketches for 400 days; execution-level facts 400 days | OWNER | ING-001, DBT-003 |
+| D-12 | Canonical charge grain | FIN | Billing-bucket identity; family-bucket supersession of estimates; `int_alloc_unit` layer (ADR-015) | DELEGATED | FIN-001 |
+| D-13 | FINAL maturity horizons | FIN | Numeric per-source horizons (+24 h metering, +72 h QAH and daily billing, MONTH_STABLE at month end + 5 days) (ADR-015) | OWNER·REC | ING-001, FIN-001 |
+| D-14 | Temporal attribution of long queries | FIN | Prorate by execution overlap with metering hours; explicit hourly residual (ADR-015) | DELEGATED | FIN-003 |
+| D-15 | Default allocation per charge family | FIN/PRODUCT | Seeded editable default book (query cost, proportional idle, cloud-services driver, storage by database owner, fees to platform) | DELEGATED | ALC-005 |
+| D-16 | Rule evaluation engine | ARCH | Data-driven predicate tables, set-based SQL; R1 operators eq/in/prefix/suffix/contains/is_null; regex R2 | DELEGATED | ALC-002 |
+| D-17 | Commercial plan model | BUSINESS | **Platform fee + band of managed Snowflake spend, priced in USD; no free trial — contracted pilot instead** | OWNER | LCH-001, LCH-101 |
+| D-18 | Localization | PRODUCT | English in R1 with externalized strings and locale formatting; French in R2 | OWNER·REC | UX-001 |
+| D-19 | Delivery capacity | BUSINESS | **Coding agents execute the backlog; 1–2 human reviewers** approve PRs and run live gates | OWNER | Planning |
+| D-20 | Customer coverage | BUSINESS | **All Snowflake editions, organization forms and contract types; all workloads and services in R1** (every former R1\* task becomes R1) | OWNER | FIN, WRK, UX, SEC scope |
+| D-21 | Central Snowflake authentication | ARCH | WIF everywhere, dbt-snowflake ≥ 1.12; only a transient human bootstrap credential at account creation (amends ADR-010) | OWNER·REC | FND-002 |
+| D-22 | Query broker placement | ARCH | Separate internal service, SigV4-authenticated, epoch recheck and query cancellation (amends ADR-005) | OWNER·REC | API-002 |
+| D-23 | Data residency | BUSINESS/ARCH | Single EU deployment in R1; other regions later as separate stacks (ADR-016) | OWNER·REC | INF-001 |
+| D-24 | Hot path (PRD §37) | PRODUCT | Deferred to R2 | OWNER·REC | ING-012 |
+| D-25 | Compliance posture | BUSINESS | SOC 2-ready controls in R1; certification later | OWNER·REC | SEC-008, OPS-108 |
+| D-26 | Journal/RAW retention | ARCH | 400 days for billing/metering/storage sources; 90 days for query-grain sources (amends ADR-009) | OWNER·REC | ING-005, DBT-004 |
+| D-27 | Default monitor maturity | PRODUCT | Alert on PROVISIONAL by default with maturity shown; FINAL opt-in | OWNER·REC | GOV-003 |
+| D-28 | Frontend hosting and edge | ARCH | SPA on S3 + CloudFront OAC; API through CloudFront VPC origin to an internal ALB | OWNER·REC | INF-005, INF-006 |
+| D-29 | Backfill vs steady state | ARCH | Steady-state sync first; fair background backfill; no separate catch-up phase | OWNER·REC | ING-010 |
+| D-30 | Customer invoicing channel | BUSINESS | **Not a priority: manual invoices or a Stripe payment link for now**; automation later under its own ADR; Bridge stores references and payment evidence only | OWNER | LCH-001 |
+| D-31 | Availability objectives | PRODUCT | Control plane 99.9 %; analytics 99.5 % | OWNER·REC | OPS-003 |
+| D-32 | Non-production spend budget | BUSINESS | Approved: test estate ≤ 150 credits/month within a 500 credits/month non-prod ceiling; one-off benchmarks ≤ 600 credits | OWNER·REC | INF-101, INF-105, OPS-008 |
+| D-33 | Interactive, export and report jobs | ARCH | Long-lived workers claiming PG jobs via the broker; no Dagster report lane; simulations stay Dagster dbt jobs | OWNER·REC | API-004, RPT-002 |
+| D-34 | Workload classification engine | ARCH | Set-based dbt SQL classifier; Python reference as test oracle | OWNER·REC | WRK-001 |
+| D-35 | Snowflake trial accounts | PRODUCT | **Accepted for demonstrations only**: excluded from paid scope, financial gates and reconciliation claims | OWNER | CON-005, ONB-001 |
+| D-36 | Invoicing entity | BUSINESS | **French entity**: French VAT and e-invoicing rules apply to whichever tool issues invoices | OWNER | LCH-102 |
+| D-37 | Support model at launch | BUSINESS | EU business hours (Mon–Fri 09:00–18:00 CET), SEV1 best effort outside hours; no contractual 24×7 | OWNER·REC | OPS-010, LCH-104 |
+| D-38 | Onboarding mode | PRODUCT | Complete self-service wizard + a Bridge-led first-value workshop for the first customer | OWNER·REC | ONB-001, ONB-005 |
+
+## Consequences of the owner's choices
+
+- **D-20 (everything in R1).** FIN-004 (Adaptive), FIN-012 (Streaming), FIN-017 (QAS), FIN-018 (Cortex/AI), FIN-019 (SPCS), FIN-020 (Marketplace/native apps), FIN-008 replication, UX-007 (AI/SPCS pages), WRK-003 (Power BI) and SEC-003 (SAML/OIDC SSO) move from R1\* to R1: +247–366 h. Capability degradation for Standard edition (no ACCESS_HISTORY, no native tags), reseller contracts (approved rate tables, FIN-105) and standalone accounts (no organization views) remains mandatory. Insight detector breadth stays per D-01 (8 detectors in R1).
+- **D-11 (365-day query detail).** The COLD extraction tier disappears inside the 365-day Account Usage window: every backfilled day carries sanitized query text. Consequences: ≈ 4× central query-grain storage and dbt volume versus 90 days; more sanitizer CPU and customer warehouse time during backfill (CON-101 estimate updated); `hot_days` stays a plan-configurable parameter (default 365, maximum bounded by Account Usage retention); simulation windows default to 90 days for cost but may extend to 365. Query-grain journal retention stays 90 days (D-26): query facts older than 90 days are rebuilt by re-extraction, which Account Usage allows up to 365 days.
+- **D-17 (fee + spend band, USD, no free trial).** A new task LCH-105 meters each tenant's managed Snowflake spend from MONTH_STABLE ledger totals and assigns the band. Bands are defined per spend currency in the plan catalog (no FX dependency, FIN-109 FX stays R2). The subscription state `TRIAL` becomes `PILOT` (a contracted pilot, possibly discounted), never an unpaid self-service trial.
+- **D-19 (coding agents + 1–2 reviewers).** Hours remain the effort measure; the practical bottleneck becomes human review, live-gate execution with real credentials and external lead times. Run at most ~2–3 concurrent agent lanes per reviewer; every PR carries its task's evidence manifest; live gates (WIF, Snowflake policies, restore drills, payment) are executed or witnessed by a human.
+- **D-30 / D-36.** Manual invoices or Stripe payment links are acceptable for the first customer; the chosen invoicing tool must satisfy French e-invoicing and VAT obligations (confirm with an accountant). Bridge records invoice and payment references (ADR-012) and never card data.
 
 ## Details
 
@@ -113,6 +125,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-11 · Query-level retention tiering
 
+- **Owner decision (2026-09-28).** 365 days of query-level detail instead of the recommended 90; aggregates and execution-level facts keep 400 days. See *Consequences* above.
+
 - **Recommendation.** Query-grain facts hot for 90 days (plan-configurable); query-family × day aggregates keyed by `QUERY_PARAMETERIZED_HASH` for 400 days. UI states which tier a view reads.
 - **Refinements from the API/WRK/INS audits.** A family × day aggregate is not enough on its own: (1) percentiles and distinct counts cannot be re-derived from daily values (fixture: true p95 = 1 s, average of daily p95s = 50.5 s), so aggregates store mergeable sketch states (t-digest / HLL, Snowflake functions VERIFIED) — G-API-04; (2) savings re-measurement after the 90-day purge needs attributed credits, spill and workload identity in the aggregate — G-INS; (3) workload identity (dbt node, Power BI activity) must be extracted for the full 365-day backfill even where SQL text is dropped, by projecting only the trailing dbt comment for older windows — otherwise a year of dbt identity is lost irreversibly (G-WRK-01/15).
 - **Integration ruling ([RECONCILIATION.md](RECONCILIATION.md) C-01).** Three extraction tiers: HOT (sanitized text, ≤ 90 days), COLD (trailing comment only, computed in the customer warehouse, parsed and never stored as text), NONE. One aggregate `fct_query_family_daily` owned by WRK-104 holds the union of the API sketches, INS savings measures and the D-15 cloud-services driver; execution-level facts (dbt invocations, Power BI activities, task-graph runs, dynamic-table refreshes) are 400-day facts. Allocation simulations are capped at the hot tier (90 days).
@@ -149,6 +163,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-17 · Commercial plan model — owner input
 
+- **Owner decision (2026-09-28).** Platform fee + band of managed Snowflake spend, priced in USD. No free trial: prospects enter a contracted pilot. New task LCH-105 (spend-band metering).
+
 - **Question.** How is Bridge priced: per connected Snowflake account, by band of managed Snowflake spend, per seat, flat platform fee, or a combination? What billing currency and cadence?
 - **Engineering default.** Entitlements are plan-agnostic quotas: connected accounts, users, history days, report schedules, API clients, query-level retention days.
 - **Blocks.** LCH-001, CTL-007 (commercial records), OPS-009 margin targets.
@@ -161,10 +177,14 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-19 · Delivery capacity — owner input
 
+- **Owner decision (2026-09-28).** Coding agents implement the backlog under 1–2 human reviewers.
+
 - **Question.** Who implements: how many engineers, which specialties (Snowflake/data, backend, frontend, SRE, security), and whether coding agents execute tasks under human review?
 - **Why.** The backlog totals are in engineer-hours; the calendar and number of parallel lanes depend on this.
 
 ### D-20 · First-customer profile — owner input
+
+- **Owner decision (2026-09-28).** Support all Snowflake editions (Standard, Enterprise, Business Critical, VPS where reachable), organization accounts, ORGADMIN-enabled accounts, multi-account organizations and standalone accounts, direct capacity, on-demand and reseller contracts, and every workload and service family in R1. Snowflake trial accounts: demonstration only (D-35).
 
 - **Questions.** Snowflake edition(s); number of accounts; clouds/regions; organization account or ORGADMIN; reseller or direct contract; currency; use of Cortex, SPCS, Adaptive warehouses, marketplace, Snowpipe Streaming, replication; dbt / Power BI usage; identity provider (Entra ID, Okta, other); network policies/PrivateLink; data residency constraints.
 - **Why.** Determines which FIN/WRK/INS detail tasks are R1 and which onboarding blockers must be solved first.
@@ -214,6 +234,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-30 · Customer invoicing channel — owner input
 
+- **Owner decision (2026-09-28).** Not a priority now: manual invoices or a Stripe payment link; automated billing later with its own ADR. The invoicing entity is French (D-36).
+
 - **Context.** If the invoicing entity is French, the e-invoicing reform has applied since 2026-09-01 (VERIFIED by the LCH audit; obligations depend on company size and must be confirmed with an accountant).
 - **Recommendation.** Do not generate invoices in the product. Issue them from an accounting tool connected to an approved e-invoicing platform; Bridge stores invoice/payment references and verified payment evidence only (consistent with ADR-012).
 
@@ -234,4 +256,20 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 - **Context.** The PRD lists workload classification as a Python algorithm. The classifier's rules (query tags, dbt comments, client application, precedence, confidence) are deterministic and must run over up to a million queries per account per day.
 - **Recommendation.** Implement classification as set-based dbt SQL over parsed metadata columns; keep a Python reference implementation as the test oracle. PRD §2.5's golden rule ("deterministic and efficient in SQL → dbt") supports this. See [backlog/WRK.md](backlog/WRK.md) and [backlog/API.md](backlog/API.md).
+
+### D-35 · Snowflake trial accounts
+
+- **Owner decision (2026-09-28).** A Snowflake trial account may be connected for demonstrations only. The connection carries a `TRIAL_ACCOUNT` capability flag (detected at probe time; exact signals TO VERIFY LIVE), the UI labels all figures as demonstration data, and the account is excluded from paid entitlements, reconciliation claims, close and chargeback.
+
+### D-36 · Invoicing entity
+
+- **Owner decision (2026-09-28).** The entity invoicing customers is French. French VAT rules (EU B2B reverse charge where applicable) and the e-invoicing reform apply to the invoicing tool; accounting-record retention is multi-year. Qualified accounting advice is required before the first invoice.
+
+### D-37 · Support model at launch
+
+- **Decision.** Business-hours support in the EU (Mon–Fri 09:00–18:00 CET), SEV1 best effort outside those hours; no contractual 24×7 commitment until a staffed rota exists (consistent with RUNBOOKS). Published in the support policy (LCH-104) and the runbooks (OPS-010).
+
+### D-38 · Onboarding mode
+
+- **Decision.** The onboarding wizard is fully usable without Bridge staff (PRD §158), and the first customer additionally receives a Bridge-led first-value workshop (ONB-005).
 

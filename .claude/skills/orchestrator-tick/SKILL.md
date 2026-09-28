@@ -9,7 +9,7 @@ Source of truth: docs/23-agentic-delivery/ORCHESTRATION.md. Durable state: deliv
 
 ## 1. Sync
 - `git fetch --all --prune`; `git checkout main && git pull --ff-only`.
-- Read `delivery/state.json`. If `control.paused` is true: do only steps 2 and 6, then stop.
+- Read the ledger state (`/srv/bridge/ledger/delivery/state.json`, branch `delivery-ledger`; bootstrap it from `main` the first time). If `control.paused` is true, or the control issue carries the label `delivery-pause`: do only steps 2 and 6, then stop.
 - List open PRs with label `agent` (`gh pr list --label agent --json number,headRefName,statusCheckRollup,reviewDecision,labels`).
 - Read answered escalations (`delivery/escalations/*.md` with `status: ANSWERED`) and apply them (update decision record if it is a decision; unblock tasks).
 
@@ -20,7 +20,7 @@ Source of truth: docs/23-agentic-delivery/ORCHESTRATION.md. Durable state: deliv
 - Main red → revert the culprit PR (`git revert` via a PR labelled `revert`), reopen its task, pause dispatch this tick.
 
 ## 3. Plan
-- `make packets` then `make next-tasks` (JSON: `uv run tools/delivery/next_tasks.py --json`).
+- `make packets-check` (packets on `main` must be current) then `uv run tools/delivery/next_tasks.py --json --state /srv/bridge/ledger/delivery/state.json`.
 - Admit in rank order while: workers < `max_workers`; lane load < `lane_cap`; no `writes` overlap with running leases; required `locks` free (acquire them in state); today's budget allows `estimate_high × usd_per_estimated_hour`; human gates that block *starting* are satisfied.
 
 ## 4. Dispatch
@@ -38,6 +38,7 @@ For each PR marked ready by its worker:
 - REQUEST_CHANGES → back to the worker with numbered findings (same lease, counts toward attempts only if CI/oracle failed).
 
 ## 6. Report and persist
-- Update `delivery/state.json` (validate with `make state-validate`) and commit alone: `chore(delivery): tick <UTC>`; push to the delivery branch or main per branch protection (state commits go through a PR with auto-merge if main is protected).
+- Update `delivery/state.json` in the ledger worktree (`/srv/bridge/ledger`, branch `delivery-ledger`), validate with `uv run tools/delivery/validate_state.py --state /srv/bridge/ledger/delivery/state.json`, commit alone `chore(delivery): tick <UTC>` and `git push origin delivery-ledger` (ADR-018 §5). Never commit state to `main` or inside a feature PR.
+- Mirror new escalation files found on agent branches (`git diff --name-only origin/main...origin/agt/* -- delivery/escalations/`) into the ledger and open one GitHub issue per escalation (label `escalation`).
 - Append to `delivery/reports/<UTC-date>.md` using the `daily-report` skill (once per day full report; otherwise a short tick log section).
 - Stop conditions: budget exhausted, main red twice, error rate > 30 % of attempts in 24 h, an open `blocking-all` escalation → set `control.paused=true` with reason and report.

@@ -2,7 +2,7 @@
 
 ## 1. `delivery/state.json`
 
-Single durable state of the delivery system, validated by [`delivery/state.schema.json`](../../delivery/state.schema.json). Only the orchestrator writes it, in its own commits (`chore(delivery): tick <UTC>`), never inside a feature PR.
+Single durable state of the delivery system, validated by [`delivery/state.schema.json`](../../delivery/state.schema.json). Only the orchestrator writes it, in its own commits (`chore(delivery): tick <UTC>`) on the unprotected **`delivery-ledger`** branch ([ADR-018](../architecture/adr/ADR-018-agentic-delivery.md) §5), never inside a feature PR and never on `main` (protected). `main` holds the schema and the initial state; the live copy, reports, escalations, metrics and human-gate checklists live on `delivery-ledger` (checked out by the orchestrator as a separate worktree, e.g. `/srv/bridge/ledger`). A weekly PR snapshots the ledger into `main`.
 
 | Key | Meaning |
 |---|---|
@@ -14,7 +14,7 @@ Single durable state of the delivery system, validated by [`delivery/state.schem
 | `tasks.<ID>` | `status`, `attempts`, `pr`, `model`, `steps_done`, `evidence`, `blocked_by`. |
 | `escalations_open`, `reports` | Pointers to files. |
 
-Task status machine: `NOT_STARTED → READY → IN_PROGRESS → IN_REVIEW → (NEEDS_HUMAN →) DONE`; `BLOCKED` from any non-terminal state with `blocked_by` (escalation IDs, missing gates); `MERGED_INTO:<ID>` for merged tasks. `DONE` requires: PR merged, every micro-step in `steps_done`, evidence path recorded, human gates approved.
+Task status machine: `NOT_STARTED → READY → IN_PROGRESS → IN_REVIEW → (NEEDS_HUMAN →) DONE`; `IN_REVIEW → AWAITING_INTEGRATION → IN_PROGRESS` when the task started on contract-only dependencies ([PARALLELISM.md](PARALLELISM.md)): its first PR merges the implementation against fakes, and the orchestrator dispatches the remaining integration micro-steps as a new slice once those dependencies are `DONE`; `BLOCKED` from any non-terminal state with `blocked_by` (escalation IDs, missing gates); `MERGED_INTO:<ID>` for merged tasks. `DONE` requires: PR(s) merged, every micro-step in `steps_done` (integration steps included), evidence path recorded, human gates approved, and every dependency `DONE`.
 
 ## 2. Escalation file
 

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.82", "--headless", "--isolated"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@4.1.1"]
+    },
+    "aws-docs": {
+      "command": "uvx",
+      "args": ["awslabs.aws-documentation-mcp-server@1.2.1"],
+      "env": {"FASTMCP_LOG_LEVEL": "ERROR", "AWS_DOCUMENTATION_PARTITION": "aws"}
+    },
+    "terraform": {
+      "command": "uvx",
+      "args": ["awslabs.terraform-mcp-server@1.0.18"],
+      "env": {"FASTMCP_LOG_LEVEL": "ERROR"}
+    }
+  }
+}

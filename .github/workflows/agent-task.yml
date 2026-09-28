@@ -1,0 +1,52 @@
+# Mode C (ORCHESTRATION §10): run one worker for one task packet on a GitHub-hosted runner.
+# Dispatched by the orchestrator (`gh workflow run agent-task.yml -f task=FIN-003 -f model=claude-sonnet-5 ...`).
+# Disabled unless the repository variable DELIVERY_MODE is "C".
+name: agent-task
+on:
+  workflow_dispatch:
+    inputs:
+      task: {description: "Task ID (e.g. FIN-003)", required: true, type: string}
+      branch: {description: "Agent branch agt/<id>-<slug>", required: true, type: string}
+      model: {description: "Model ID", required: true, default: claude-sonnet-5, type: string}
+      max_turns: {description: "Turn limit", required: true, default: "150", type: string}
+      attempt: {description: "Attempt number", required: true, default: "1", type: string}
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+concurrency:
+  group: agent-task-${{ inputs.task }}
+  cancel-in-progress: false
+jobs:
+  worker:
+    if: vars.DELIVERY_MODE == 'C'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    environment: agents
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Create or reuse the agent branch
+        run: |
+          git fetch origin "${{ inputs.branch }}" 2>/dev/null && git checkout "${{ inputs.branch }}" || git checkout -b "${{ inputs.branch }}"
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v5
+        with: {node-version: "24"}
+      - uses: anthropics/claude-code-action@v1
+        env:
+          BRIDGE_ROLE: worker
+          BRIDGE_ENV: ci
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are a worker agent implementing task ${{ inputs.task }} on branch ${{ inputs.branch }} (attempt ${{ inputs.attempt }}).
+            Follow AGENTS.md and the execute-task skill. Read delivery/packets/${{ inputs.task }}.md first.
+            Implement the micro-steps in order with tests first, one commit per micro-step, stay inside the packet
+            writes, run the packet checks, write the evidence manifest, push the branch and open the PR with
+            .github/pull_request_template.md. Escalate (skill escalate) instead of guessing.
+          claude_args: |
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}

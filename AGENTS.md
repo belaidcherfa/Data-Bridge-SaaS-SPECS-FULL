@@ -5,14 +5,14 @@ Bridge Data FinOps is a production multi-tenant Snowflake FinOps SaaS built by c
 ## 1. Start of every task
 
 1. Read your packet `delivery/packets/<TASK-ID>.md` completely, then the files under **Read first** in order. Do not load the whole repository.
-2. Confirm every dependency in `depends_on` is `DONE` in `delivery/state.json`. If not, stop and report.
+2. The orchestrator dispatches you only when every dependency in `depends_on` is `DONE` (ledger branch `delivery-ledger`, ADR-018 §5). If you were started manually, check with `uv run tools/delivery/next_tasks.py --state <ledger>/delivery/state.json`; if a dependency is not done, stop and report.
 3. Work only in your worktree and branch `agt/<task-id>-<slug>`. Never commit to `main`, never force-push, never rewrite shared history.
 4. Implement micro-steps **in order**, fixture/test first, one commit per micro-step: `<type>(<domain>): <TASK-ID>-Sxx <summary>` (types: feat, fix, test, docs, refactor, chore, perf, build, ci).
 
 ## 2. Sources of truth (in precedence order)
 
 1. Decision record: `docs/22-implementation-readiness/DECISIONS_REQUIRED.md` (D-01…D-38).
-2. ADRs: `docs/architecture/adr/` (ADR-001…ADR-018, with amendments).
+2. ADRs: `docs/architecture/adr/` (ADR-001…ADR-018, with amendments; ADR-018 governs this delivery system).
 3. Contracts: `contracts/` (start with `contracts/CONVENTIONS.md`), `data/contracts/`, `infra/snowflake/migrations/`, package schemas. Only `ACCEPTED` contracts may be depended on outside their owning task.
 4. Reconciliation rulings: `docs/22-implementation-readiness/RECONCILIATION.md`.
 5. Your task packet and its backlog section (`docs/22-implementation-readiness/backlog/<DOM>.md`).

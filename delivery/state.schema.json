@@ -157,7 +157,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "pattern": "^(NOT_STARTED|READY|IN_PROGRESS|IN_REVIEW|NEEDS_HUMAN|BLOCKED|DONE|MERGED_INTO:[A-Z]{2,3}-[0-9]{3})$"
+            "pattern": "^(NOT_STARTED|READY|IN_PROGRESS|IN_REVIEW|NEEDS_HUMAN|AWAITING_INTEGRATION|BLOCKED|DONE|MERGED_INTO:[A-Z]{2,3}-[0-9]{3})$"
           },
           "attempts": {
             "type": "integer"

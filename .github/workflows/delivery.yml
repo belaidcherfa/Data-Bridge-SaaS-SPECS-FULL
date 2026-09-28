@@ -1,0 +1,56 @@
+# Delivery-system and repository guard checks (ADR-018). Product CI (lint/test/build) is added by FND-003.
+name: delivery
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+permissions:
+  contents: read
+concurrency:
+  group: delivery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  delivery-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Contracts, packets, state
+        run: make delivery-check
+      - name: Contract linting (Spectral)
+        run: |
+          if ls contracts/openapi/*.yaml >/dev/null 2>&1; then
+            npx --yes @stoplight/spectral-cli@6 lint --ruleset contracts/.spectral.yaml contracts/openapi/openapi.yaml
+          fi
+  scope-guard:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'agt/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Diff stays inside the packet writes and locks
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: uv run tools/delivery/scope_guard.py --base origin/${{ github.base_ref }}
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  protected-files:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v5
+      - name: PRD and policy files unchanged
+        run: sha256sum --check delivery/protected-files.sha256

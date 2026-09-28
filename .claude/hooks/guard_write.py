@@ -8,12 +8,13 @@ data = json.load(sys.stdin)
 ti = data.get("tool_input") or {}
 path = ti.get("file_path") or ti.get("notebook_path") or ti.get("path") or ""
 p = path.replace("\\", "/")
-content = " ".join(str(ti.get(k, "")) for k in ("content", "new_string"))
+content = " ".join(str(ti.get(k, "")) for k in ("content", "new_string", "new_source"))
+content += " ".join(str(e.get("new_string", "")) for e in ti.get("edits", []) or [] if isinstance(e, dict))
 
 RULES = [
     (r"(^|/)docs/00-project/PRD\.md$", "The PRD is byte-exact and read-only."),
     (r"(^|/)\.claude/(settings(\.local)?\.json|hooks/)", "Agent policy files are owner-controlled; escalate instead."),
-    (r"(^|/)\.env(\.[^/]*)?$", "Never write .env files; use config/environments (non-secret) or Secrets Manager."),
+    (r"(^|/)\.env(\.(?!example$)[^/]*)?$", "Never write .env files; use config/environments (non-secret) or Secrets Manager."),
     (r"\.(pem|key|p12|pfx|jks)$", "Never write key material."),
     (r"(^|/)id_(rsa|ed25519|ecdsa)(\.pub)?$", "Never write SSH keys."),
     (r"(^|/)config/environments/(dev|staging|prod)\.yaml$", "Real environment files are owner-supplied; edit the *.example.yaml template instead."),

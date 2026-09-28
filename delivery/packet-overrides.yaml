@@ -3,7 +3,7 @@ version: 1
 
 # Tier A: implemented by Opus, reviewed by Opus + specialized reviewer + human on merge.
 tier_a_domains: [SEC, FIN, ALC]
-tier_a_tasks: [CTL-101, CTL-004, CTL-005, CTL-006, DBT-101, DBT-004, DBT-006, ORC-005, ORC-101, ORC-105, INF-103, INF-102, ING-005, ING-007, ING-008, ING-106, ING-107, API-002, API-003, API-005, WRK-101, GOV-004, GOV-006, GOV-007, LCH-101, LCH-105, OPS-004, OPS-104, OPS-007, CON-001, CON-003]
+tier_a_tasks: [AGT-003, AGT-004, AGT-007, CTL-101, CTL-004, CTL-005, CTL-006, DBT-101, DBT-004, DBT-006, ORC-005, ORC-101, ORC-105, INF-103, INF-102, ING-005, ING-007, ING-008, ING-106, ING-107, API-002, API-003, API-005, WRK-101, GOV-004, GOV-006, GOV-007, LCH-101, LCH-105, OPS-004, OPS-104, OPS-007, CON-001, CON-003]
 # Tier C: mechanical work.
 tier_c_tasks: []
 
@@ -15,6 +15,11 @@ specialized_reviewers:
 
 # Human-only gates per task (the orchestrator prepares, a human approves/executes).
 human_gates:
+  AGT-001: ["Owner provisions the delivery host, the Anthropic credential and the GitHub App (HUMAN_CHECKPOINTS H2-H3)"]
+  AGT-003: ["Owner authorizes unattended mode B after the 48-hour pilot report"]
+  AGT-004: ["Owner applies branch rulesets, merge queue and CODEOWNERS (HUMAN_CHECKPOINTS H1)"]
+  AGT-006: ["Owner reviews baseline agent quality scores before mode B"]
+  AGT-007: ["Human reviewer approves the contract ratification summary"]
   INF-001: ["Owner creates/authorizes AWS Organization and accounts; fills config/environments/*.yaml"]
   INF-002: ["Human approves first STAGING/PROD network apply (plan reviewed)"]
   INF-006: ["Human approves DNS/ACM changes on the production zone"]

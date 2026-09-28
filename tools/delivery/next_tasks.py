@@ -5,7 +5,9 @@
 # ///
 """List tasks that are ready to dispatch, ranked for the orchestrator (ORCHESTRATION §3 PLAN).
 
-Usage: uv run tools/delivery/next_tasks.py [--json] [--limit N] [--lane A1] [--all-releases]
+Usage: uv run tools/delivery/next_tasks.py [--json] [--limit N] [--lane A1] [--all-releases] [--state PATH]
+
+--state defaults to delivery/state.json; the orchestrator passes the ledger copy (ADR-018 §5).
 
 A task is READY when its status is NOT_STARTED or READY, every dependency is DONE, its release is in
 control.release_scope, and it has no open blocker. Ranking: longest remaining dependency chain (hours,
@@ -34,7 +36,8 @@ def main() -> int:
     limit = int(args[args.index("--limit") + 1]) if "--limit" in args else 30
     lane_filter = args[args.index("--lane") + 1] if "--lane" in args else None
     graph = json.loads(GRAPH.read_text())
-    state = json.loads(STATE.read_text())
+    state_path = Path(args[args.index("--state") + 1]) if "--state" in args else STATE
+    state = json.loads(state_path.read_text())
     scope = set(state["control"]["release_scope"]) if "--all-releases" not in args else {"R1", "R2"}
     tasks = {t["id"]: t for t in graph["tasks"] if not t.get("merged_into")}
     status = {tid: (state["tasks"].get(tid) or {}).get("status", "NOT_STARTED") for tid in tasks}

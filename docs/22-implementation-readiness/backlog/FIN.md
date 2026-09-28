@@ -169,7 +169,7 @@ Why it matters: one person can close and restate a financial period. Explain Thi
 Resolution:
 - Split capabilities: `finance.period.close.request`, `finance.period.close.approve`, `finance.period.restate.request` and `finance.period.restate.approve`. Maker ≠ checker is enforced server-side (tenant policy default ON; owner Q3).
 - The freeze set is listed in §3.5.
-- Statement artifacts go to S3 with Object Lock (compliance mode; retention = owner Q7) and their sha256 is stored in the close record.
+- Statement artifacts go to S3 with Object Lock in **governance** mode (ADR-009 forbids irreversible compliance mode by default; bypass permission restricted to a break-glass role; retention = owner Q7) and their sha256 is stored in the close record.
 - Pinned publication revisions are exempt from D-05 GC. D-11 purge keeps query-family aggregates for pinned periods, and query-level drilldown older than the hot window shows "detail expired by retention policy".
 Affects: FIN-010, FIN-107, SEC-005, DBT-004, OPS.
 
@@ -571,7 +571,7 @@ States of `finance.financial_period(tenant, org, period YYYY-MM, currency)`:
 Storage:
 - PG `finance.period_close` (authoritative control state).
 - Insert-only mirror `ledger.fct_period_close` via the D-04 config publisher.
-- Artifacts in the tenant evidence prefix on S3 with Object Lock compliance mode.
+- Artifacts in the tenant evidence prefix on S3 with Object Lock governance mode (ADR-009; break-glass bypass only).
 - D-05 GC and D-11 purge must skip pinned revisions and family aggregates.
 
 **Worked example F-REST-01** (restatement vs carry-forward):

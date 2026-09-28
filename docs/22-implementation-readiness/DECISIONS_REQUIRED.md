@@ -39,8 +39,8 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 | D-29 | Backfill vs steady state ordering | ARCH (refines PRD §40) | Start steady-state sync first; backfill in a fair background lane; no separate catch-up phase | ING-010 |
 | D-30 | Customer invoicing channel | BUSINESS · owner input | Invoices issued by an accounting tool connected to an approved e-invoicing platform; Bridge stores references only | LCH-001 |
 | D-31 | Availability objectives | PRODUCT | Control plane 99.9 %; analytics 99.5 % (bounded by Snowflake's own SLA) | OPS-003 |
-| D-32 | Non-production spend budget | BUSINESS · owner input | Approve Snowflake test estate (~100–150 credits/month) and a one-off benchmark budget | INF-101, OPS-008 |
-| D-33 | Analysis-job execution | ARCH (refines semantic-api.md) | Dedicated analysis-worker service claiming PG jobs; no Dagster in the interactive path | API-004 |
+| D-32 | Non-production spend budget | BUSINESS · owner input | One test estate ≤ 150 credits/month; non-prod ceiling 500 credits/month; one-off benchmarks ≤ 600 credits | INF-101, INF-105, OPS-008 |
+| D-33 | Interactive, export and report job execution | ARCH (refines semantic-api.md, reporting.md) | Long-lived workers claiming PG jobs via the broker; no Dagster report lane; simulations stay Dagster dbt jobs | API-004, RPT-002 |
 | D-34 | Workload classification engine | ARCH (refines PRD §53–§54) | Set-based dbt SQL classifier; Python kept as test oracle | WRK-001 |
 
 ## Details
@@ -90,7 +90,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 - **Context.** ~216,000 runs/day at the benchmark profile if each (account, source, window) is a run ([X-12](AUDIT_CROSS_CUTTING.md)).
 - **Recommendation.** One ECS task per account-cycle (all due sources, one warehouse resume) using that account's task role; Dagster schedules/sensors enqueue durable work items in PostgreSQL; Dagster run and event-log retention purge.
-- **Refinements from the ORC/INF/ING audits.** dagster-aws `EcsRunLauncher` only sets a per-run task role through the user-writable `ecs/task_overrides` run tag, and ECS RunTask overrides cannot be constrained by IAM (both VERIFIED): anyone able to launch a run could choose any passable customer role. Therefore a dedicated extraction launcher (not Dagster) resolves `connection_id → role` from PostgreSQL and starts the extractor task; Dagster only enqueues; the Dagster webserver is read-only by default. Extractor tasks hold no database credentials and report through an internal `sync-api` authenticated by their AWS role. See G-ORC-03, G-INF-08, G-ING-08/09.
+- **Refinements from the ORC/INF/ING audits.** dagster-aws `EcsRunLauncher` only sets a per-run task role through the user-writable `ecs/task_overrides` run tag, and ECS RunTask overrides cannot be constrained by IAM (both VERIFIED): anyone able to launch a run could choose any passable customer role. Therefore a dedicated extraction launcher (ING-106, not Dagster) resolves `connection_id → role` from PostgreSQL and starts the extractor task; Dagster only enqueues; the Dagster webserver is read-only by default. **There is no Dagster run per account-cycle**: ORC-003 admission marks cycles ADMITTED in PostgreSQL, the launcher claims them and calls `RunTask`, an ECS task-state event completes the cycle, and a Dagster sensor records outcomes as asset observations; only the launcher holds `iam:PassRole` on connection roles ([RECONCILIATION.md](RECONCILIATION.md) C-04). Extractor tasks hold no database credentials and report through an internal `sync-api` authenticated by their AWS role. See G-ORC-03, G-INF-08, G-ING-08/09.
 - **Blocks.** ORC-002, ORC-003, ING-003, ING-010.
 
 ### D-08 · Customer-side extraction footprint
@@ -115,6 +115,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 - **Recommendation.** Query-grain facts hot for 90 days (plan-configurable); query-family × day aggregates keyed by `QUERY_PARAMETERIZED_HASH` for 400 days. UI states which tier a view reads.
 - **Refinements from the API/WRK/INS audits.** A family × day aggregate is not enough on its own: (1) percentiles and distinct counts cannot be re-derived from daily values (fixture: true p95 = 1 s, average of daily p95s = 50.5 s), so aggregates store mergeable sketch states (t-digest / HLL, Snowflake functions VERIFIED) — G-API-04; (2) savings re-measurement after the 90-day purge needs attributed credits, spill and workload identity in the aggregate — G-INS; (3) workload identity (dbt node, Power BI activity) must be extracted for the full 365-day backfill even where SQL text is dropped, by projecting only the trailing dbt comment for older windows — otherwise a year of dbt identity is lost irreversibly (G-WRK-01/15).
+- **Integration ruling ([RECONCILIATION.md](RECONCILIATION.md) C-01).** Three extraction tiers: HOT (sanitized text, ≤ 90 days), COLD (trailing comment only, computed in the customer warehouse, parsed and never stored as text), NONE. One aggregate `fct_query_family_daily` owned by WRK-104 holds the union of the API sketches, INS savings measures and the D-15 cloud-services driver; execution-level facts (dbt invocations, Power BI activities, task-graph runs, dynamic-table refreshes) are 400-day facts. Allocation simulations are capped at the hot tier (90 days).
 - **Owner check.** Confirm that 90-day query-level drilldown is commercially acceptable.
 - **Blocks.** ING-001, DBT-003, WRK-005, UX-005.
 
@@ -138,7 +139,7 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-15 · Default allocation per charge family
 
 - **Recommendation.** Seed an editable default book at onboarding: warehouse compute by query cost; idle proportional to consumers; cloud services proportional to gross cloud-services credits; storage by database owner; serverless by owning object; transfer, replication and organization fees to a platform/shared bucket; anything else unallocated.
-- **Prerequisite found by the ALC audit (G-ALC-11).** The cloud-services driver requires `CREDITS_USED_CLOUD_SERVICES` (and database/schema) in the QUERY_HISTORY projection, which the source catalog does not extract today; ING-001 adds them. Until available, the fallback is a labelled query-cost share.
+- **Prerequisite found by the ALC audit (G-ALC-11).** The cloud-services driver requires `CREDITS_USED_CLOUD_SERVICES` (and database/schema) in the QUERY_HISTORY projection, which the source catalog does not extract today; ING-101 freezes them (with the 16 INS columns, database/schema identity and a new AU.SESSIONS contract) before the first backfill ([RECONCILIATION.md](RECONCILIATION.md) C-10). Until available, the fallback is a labelled query-cost share.
 - **Blocks.** ALC-005, ONB-004.
 
 ### D-16 · Rule evaluation engine
@@ -222,12 +223,12 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 
 ### D-32 · Non-production spend budget — owner input
 
-- **Question.** Approve the Snowflake test estate (two test organizations, several accounts, workload generators: ≈ 100–150 credits/month, [backlog/INF.md](backlog/INF.md) G-INF-01) and a one-off capacity-benchmark budget ([backlog/OPS.md](backlog/OPS.md)). Without them, every "live" gate in the plan is untestable.
+- **Question.** Approve (a) one Snowflake test estate — two test organizations, several accounts, workload generators, canaries and tenant zero — capped at 150 credits/month ([backlog/INF.md](backlog/INF.md) INF-101); (b) an overall non-production ceiling of 500 credits/month covering the estate, central DEV/STAGING builds, dbt CI and developer sandboxes (INF-105); (c) one-off benchmarks of ≤ 200 (DBT-101), ≤ 100 (OPS-105) and ≤ 300 (OPS-008) credits. Without them, every "live" gate in the plan is untestable ([RECONCILIATION.md](RECONCILIATION.md) C-24).
 
 ### D-33 · Analysis-job execution (refines semantic-api.md)
 
 - **Context.** "An outbox schedules Dagster" for heavy interactive analyses puts Dagster run latency and the D-07 run-volume concerns into a user-facing path.
-- **Recommendation.** A dedicated analysis-worker ECS service claims jobs from PostgreSQL with fenced leases, executes through the query broker, writes results to Snowflake and reauthorizes on read; Dagster stays a batch orchestrator. See G-API ([backlog/API.md](backlog/API.md)).
+- **Recommendation.** Long-lived worker services (analysis-worker, render worker) claim interactive analysis, export and report snapshot/render jobs from PostgreSQL with fenced leases, execute reads only through the query broker, write results and reauthorize on read; there is no Dagster `report` lane. Dagster stays a batch orchestrator: allocation simulations are dbt builds under the transform identity, so they run as Dagster dbt jobs (concurrency 1 per tenant) while an API job record gives the user status and cancellation. See G-API ([backlog/API.md](backlog/API.md)) and [RECONCILIATION.md](RECONCILIATION.md) C-05.
 
 ### D-34 · Workload classification engine (refines PRD §53–§54)
 

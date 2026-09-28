@@ -30,26 +30,29 @@ This plan replaces the big-bang path to the first paying customer ([AUDIT X-05](
 | WRK | 001, 002 (dbt), 004 (tasks/procedures), 005 comparison | 003 (Power BI) | 005 on-demand operator evidence |
 | ALC | all | | regex rule operators (D-16) |
 | GOV | 001, 003, 004, 006 (Email, Slack, Webhook), 007, 008; 002 run-rate + seasonal-naive; 005 MAD anomaly | 006 Teams | 002 Theil–Sen selection + calibrated intervals |
-| INS | 001, 006, 007; detector subset from 002/003/004 (see backlog/INS.md) | 005 AI/SPCS detectors | remaining detectors |
-| RPT | 001, 002, 004, 005; 003 with Executive FinOps, Team Showback, Chargeback Statement (+ CFO Monthly if requested) | | remaining templates |
+| INS | 001, 006, 007, 101, 102, 105; detectors WH01 (+WH04), WH02, Q01, Q02, Q03, Q07, ST03, ST04 | | 005 AI/SPCS detectors, INS-103/104/106 remaining detectors |
+| RPT | 001, 002, 004, 005; 003 with Executive FinOps, CFO Monthly, Team Showback, Chargeback Statement (PDF + CSV, secure links) | | RPT-101 other 4 templates + PNG, RPT-102 external recipients/attachments, RPT-103 dashboards |
 | OPS | all, re-milestoned earlier (see backlog/OPS.md) | | multi-region DR |
 | REL, ONB, LCH | all | | self-service payment provider |
 
-The exact per-task R1/R2 tags and hours are in each [backlog](backlog/) file; section 5 consolidates them.
+This table summarizes. The authoritative per-task release tags and hours are in [revised-task-graph.json](revised-task-graph.json) (after the reconciliation rulings) and in each [backlog](backlog/) file. Notable integration rulings: TASK_HISTORY and dynamic-table refresh history are R1 (needed by WRK-004); the R1 insight detectors are WH01 (with WH04 folded in), WH02, Q01, Q02, Q03, Q07, ST03 and ST04; the R1 report templates are Executive FinOps, CFO Monthly, Team Showback and Chargeback Statement.
 
 ## 3. Parallel lanes
 
-| Lane | Domains | Starts | Hard prerequisites from other lanes |
-|---|---|---|---|
-| A · Platform & security | FND, INF, SEC, CTL, OPS (telemetry, alerting, backup) | Day 1 | — |
-| B · Data acquisition | CON, ING, ORC | After FND-002 matrix, INF-001…003, SEC-004 | A: identities, buckets, KMS, PG schema |
-| C · Financial kernel | DBT, FIN (contracts and fixtures from day 1; SQL after RAW exists) | Contracts: day 1 · SQL: after ING-007 | B: accepted RAW; A: central Snowflake |
-| D · Product API & UX | API, UX, WRK | UX-001 day 1; API-001 registry contract after FIN-001 | C: serving views; A: broker identities |
-| E · Allocation & governance | ALC, GOV, RPT | Contracts after FIN-001; engines after FIN-009 | C, D |
-| F · Optimization | INS | After GOV-005 statistics and core FIN | C, D, E |
-| G · Qualification & launch | OPS qualification, REL, ONB, LCH | Legal/commercial pack from day 1 (owner-driven); qualification after lanes converge | all |
+Eight lanes, from [REVISED_CRITICAL_PATH.md §(c)](REVISED_CRITICAL_PATH.md), which lists every task per lane:
 
-Corrected dependency edges enabling these lanes are listed per task under "Dependency changes" in the backlog files.
+| Lane | Scope | R1 tasks | R1 hours | Notes |
+|---|---|---:|---:|---|
+| A1 | Platform, infrastructure & ops foundations (FND, INF, early OPS/REL) | 31 | 783–1,147 | Front-loaded; first 5 chain tasks |
+| A2 | Identity, security & control plane (SEC, CTL, LCH-101 entitlements) | 21 | 833–1,287 | Front-loaded; next 5 chain tasks |
+| B | Data acquisition (CON, ING, extraction orchestration) | 34 | 1,082–1,583 | Capacity bottleneck at M3–M6 |
+| C | Analytical kernel (dbt, publication, ledger) | 41 | 1,209–1,761 | Largest lane; 8 chain tasks; needs a second engineer at peak |
+| D | Product API, UX & workloads | 27 | 847–1,192 | UX-001 starts day 1 against contracts |
+| E | Allocation, governance & reporting | 28 | 934–1,343 | Starts after FIN-001 contracts; engines after FIN-009 |
+| F | Optimization (insights) | 8 | 274–406 | Small and late; staff from C or E |
+| G | Qualification, release, onboarding & launch | 28 | 817–1,255 | Legal/commercial pack from P0 (owner-driven); qualification at the end |
+
+Corrected dependency edges enabling these lanes: [RECONCILIATION.md §3](RECONCILIATION.md) and the "Dependency changes" line of each task in the backlog files.
 
 ## 4. "Tenant zero" and a design partner
 
@@ -58,9 +61,33 @@ Corrected dependency edges enabling these lanes are listed per task under "Depen
 
 ## 5. Estimates
 
-Consolidated from the per-domain backlog files (senior-engineer hours including tests, review fixes and evidence; low–high). Filled in after the domain audits; see the table below.
+Senior-engineer hours including tests, review fixes and evidence (D-19), low–high, after de-duplication of overlapping tasks ([RECONCILIATION.md](RECONCILIATION.md)). Source: [revised-task-graph.json](revised-task-graph.json). R1\* hours exclude the conditional parts of otherwise-R1 tasks (e.g. FIN-008 replication, GOV-006 Teams), which are itemized in the backlog files.
 
-<!-- ESTIMATES_TABLE -->
+| Domain | R1 (tasks · h) | R1\* (tasks · h) | R2 (tasks · h) | Backlog |
+|---|---:|---:|---:|---|
+| FND | 9 · 189–280 | — | — | [FND](backlog/FND.md) |
+| INF | 13 · 379–542 | — | 1 · 16–26 | [INF](backlog/INF.md) |
+| SEC | 12 · 504–786 | 1 · 56–84 | 1 · 40–64 | [SEC](backlog/SEC.md) |
+| CTL | 9 · 332–505 | — | — | [CTL](backlog/CTL.md) |
+| CON | 8 · 284–418 | — | 1 · 40–80 | [CON](backlog/CON.md) |
+| ING | 18 · 608–885 | — | 2 · 110–185 | [ING](backlog/ING.md) |
+| ORC | 11 · 304–435 | — | — | [ORC](backlog/ORC.md) |
+| DBT | 9 · 260–374 | — | 1 · 10–14 | [DBT](backlog/DBT.md) |
+| FIN | 23 · 665–975 | 6 · 131–196 | 1 · 24–36 | [FIN](backlog/FIN.md) |
+| API | 8 · 262–371 | — | 1 · 32–46 | [API](backlog/API.md) |
+| UX | 10 · 330–459 | 1 · 28–40 | 1 · 30–44 | [UX](backlog/UX.md) |
+| WRK | 7 · 198–276 | 1 · 24–34 | 2 · 46–66 | [WRK](backlog/WRK.md) |
+| ALC | 12 · 410–584 | — | — | [ALC](backlog/ALC.md) |
+| GOV | 11 · 345–490 | — | 2 · 40–57 | [GOV](backlog/GOV.md) |
+| INS | 9 · 297–440 | — | 4 · 158–237 | [INS](backlog/INS.md) |
+| RPT | 5 · 179–269 | — | 3 · 79–119 | [RPT](backlog/RPT.md) |
+| OPS | 21 · 690–1,047 | — | 1 · 22–36 | [OPS](backlog/OPS.md) |
+| REL | 8 · 186–283 | — | — | [REL](backlog/REL.md) |
+| ONB | 7 · 195–302 | — | — | [ONB](backlog/ONB.md) |
+| LCH | 8 · 162–253 | — | — | [LCH](backlog/LCH.md) |
+| **Total** | **218 · 6,779–9,974** | **9 · 239–354** | **21 · 647–1,010** | |
+
+Critical path and staffing ([REVISED_CRITICAL_PATH.md](REVISED_CRITICAL_PATH.md)): the longest R1 chain is 42 tasks and 1,360–2,003 hours (11.3–16.7 months for the engineer carrying it). Arithmetic calendar at 120 productive hours per engineer-month: 3 engineers ≈ 19–28 months (capacity-bound), 5 engineers ≈ 12–18 months (balanced), 8 engineers ≈ 11–17 months (chain-bound, 62 % utilization). Owner decisions, vendor lead times and customer elapsed time come on top. The main levers are scope (D-01/D-20), splitting the heaviest chain tasks (FIN-009, ALC-003, SEC-004, FIN-003, ALC-005, API-002, ING-007) and a second engineer on lanes B and C at their peak.
 
 ## 6. Proposed phase gates (replacing M0–M12 ordering, keeping their exit evidence)
 

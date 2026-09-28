@@ -1,0 +1,48 @@
+# contract=state-machine-monitor version=1 status=DRAFT owner_task=GOV-003 decisions=D-02,D-04,D-13,D-17,D-27 last_changed=2026-09-28
+# Lifecycle of a monitor definition (monitor.definition). Every edit creates a monitor.monitor_version;
+# condition_version bumps only when the condition, metric, window, partitioning, scope or coverage policy
+# changes (destinations, name, severity and schedule keep it). A condition_version bump resolves active
+# incidents as DEFINITION_CHANGED (incident machine).
+# Sources: backlog/GOV.md G-GOV-05, G-GOV-06, G-GOV-07, G-GOV-15, GOV-003-S01..S11, GOV-004-S06.
+machine: monitor
+version: 1
+owner_task: GOV-003
+entity: monitor.definition
+state_field: status
+initial: DRAFT
+terminal: [DELETED]
+states:
+  DRAFT: {description: "Saved; validated on save; not scheduled."}
+  ACTIVE: {description: "Scheduled by the planner; evaluated as the owner's current profile role (broker JOB class) or from PostgreSQL ops state (SYNC_OPS/SLA_OPS)."}
+  PAUSED: {description: "Paused by a user; not scheduled; active incidents resolved as MONITOR_DISABLED."}
+  PAUSED_AUTH: {description: "Owner removed or owner's scope no longer covers the monitor scope; not scheduled; never silently narrowed; open incidents stay visible; admins notified to reassign."}
+  DELETED: {description: "Soft-deleted; definition and versions retained for incident history."}
+transitions:
+  - {from: DRAFT, to: DRAFT, event: edited, actors: [monitor.manage], guards: [definition_valid], effects: [insert:monitor.monitor_version]}
+  - {from: DRAFT, to: ACTIVE, event: activated, actors: [monitor.manage], guards: [definition_valid, registry_valid, scope_within_owner_grants, destinations_authorized, partition_cardinality_within_cap, plan_quota_available], effects: [publish_config:MONITOR, schedule, emit:bridge.governance.monitor.activated]}
+  - {from: ACTIVE, to: ACTIVE, event: edited, actors: [monitor.manage], guards: [definition_valid, registry_valid, scope_within_owner_grants, destinations_authorized, partition_cardinality_within_cap], effects: [insert:monitor.monitor_version, resolve_active_incidents_if_condition_version_bumped:DEFINITION_CHANGED, publish_config:MONITOR, emit:bridge.governance.monitor.updated]}
+  - {from: ACTIVE, to: PAUSED, event: paused, actors: [monitor.manage], guards: [], effects: [unschedule, resolve_active_incidents:MONITOR_DISABLED, emit:bridge.governance.monitor.paused]}
+  - {from: PAUSED, to: ACTIVE, event: resumed, actors: [monitor.manage], guards: [registry_valid, scope_within_owner_grants, destinations_authorized], effects: [schedule, emit:bridge.governance.monitor.resumed]}
+  - {from: PAUSED, to: PAUSED, event: edited, actors: [monitor.manage], guards: [definition_valid], effects: [insert:monitor.monitor_version]}
+  - {from: ACTIVE, to: PAUSED_AUTH, event: owner_scope_lost, actors: ["system:membership-watcher", "system:monitor-planner"], guards: [owner_scope_no_longer_covers_monitor], effects: [unschedule, stop_deliveries, notify:tenant_admins, emit:bridge.governance.monitor.paused_auth]}
+  - {from: PAUSED, to: PAUSED_AUTH, event: owner_scope_lost, actors: ["system:membership-watcher"], guards: [owner_scope_no_longer_covers_monitor], effects: [notify:tenant_admins, emit:bridge.governance.monitor.paused_auth]}
+  - {from: PAUSED_AUTH, to: ACTIVE, event: owner_reassigned, actors: [monitor.manage], guards: [new_owner_scope_covers_monitor], effects: [schedule, emit:bridge.governance.monitor.resumed]}
+  - {from: PAUSED_AUTH, to: ACTIVE, event: owner_scope_restored, actors: ["system:membership-watcher"], guards: [owner_scope_covers_monitor], effects: [schedule, emit:bridge.governance.monitor.resumed]}
+  - {from: DRAFT, to: DELETED, event: deleted, actors: [monitor.manage], guards: [], effects: [emit:bridge.governance.monitor.deleted]}
+  - {from: ACTIVE, to: DELETED, event: deleted, actors: [monitor.manage], guards: [], effects: [unschedule, resolve_active_incidents:MONITOR_DISABLED, emit:bridge.governance.monitor.deleted]}
+  - {from: PAUSED, to: DELETED, event: deleted, actors: [monitor.manage], guards: [], effects: [emit:bridge.governance.monitor.deleted]}
+  - {from: PAUSED_AUTH, to: DELETED, event: deleted, actors: [monitor.manage], guards: [], effects: [resolve_active_incidents:MONITOR_DISABLED, emit:bridge.governance.monitor.deleted]}
+guards:
+  definition_valid: "Document validates against data/contracts/monitor.json (≤ 16 KB, additionalProperties false, decimals as strings); else 422 GOV_CONDITION_INVALID / GOV_MONITOR_TOO_LARGE / GOV_SCHEDULE_NOT_ALLOWED / GOV_WINDOW_NOT_ALLOWED."
+  registry_valid: "metric/version exists and serves the dataset (else 422 GOV_METRIC_VERSION_UNSUPPORTED); partition dimensions allowed for the metric; anomaly requires a daily additive metric; missing_activity requires a coverage signal; budget_breach/forecast_breach reference a readable budget."
+  scope_within_owner_grants: "SEC-101 subsumes(owner scope, monitor scope); else 403 GOV_MONITOR_SCOPE_UNAUTHORIZED."
+  destinations_authorized: "Every destination_id is a readable, non-deleted destination of the tenant (foreign id → 404) whose authorized_scope ⊇ monitor scope (else 403 GOV_DESTINATION_NOT_AUTHORIZED_FOR_SCOPE)."
+  partition_cardinality_within_cap: "Dry-run estimate of distinct partition keys (last 30 days, in scope) ≤ max_partitions, unless partition_overflow = TOP_N_PLUS_OTHER; else 422 GOV_PARTITION_CARDINALITY."
+  plan_quota_available: "Active monitors < plan quota (D-17 entitlements); else 409 GOV_MONITOR_QUOTA_EXCEEDED."
+  owner_scope_no_longer_covers_monitor: "Recomputed at every planner tick from durable PG state and at permission_epoch bumps."
+  new_owner_scope_covers_monitor: "New owner ACTIVE, holds monitor.manage, scope subsumes the monitor scope."
+  owner_scope_covers_monitor: "Owner scope again subsumes the monitor scope."
+invariants:
+  - "A monitor never runs under a broader identity than its owner's current normalized profile role."
+  - "Changing destinations keeps condition_version; changing threshold/metric/window/partition/scope/coverage bumps it."
+  - "SYNC_OPS and SLA_OPS monitors issue zero Snowflake queries."

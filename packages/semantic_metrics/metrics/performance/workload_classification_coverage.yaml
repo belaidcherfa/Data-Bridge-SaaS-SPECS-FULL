@@ -1,0 +1,41 @@
+# contract=semantic-metric:workload_classification_coverage version=1 status=DRAFT owner_task=WRK-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: workload_classification_coverage
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.workload_classification_coverage.label
+description_key: metric.workload_classification_coverage.description
+population_key: metric.workload_classification_coverage.population
+category: WORKLOAD
+unit: {kind: RATIO, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: PERCENT}
+relation: v_attribution_daily
+measure:
+  type: RATIO
+  numerator:
+    aggregate: SUM_ABS
+    column_ref: amount
+    population:
+    - {column: target_kind, op: EQ, value: QUERY}
+    - {column: workload_type, op: NE, value: UNKNOWN}
+  denominator:
+    aggregate: SUM_ABS
+    column_ref: amount
+    population:
+    - {column: target_kind, op: EQ, value: QUERY}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, warehouse, evidence_class, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_attribution_daily, requires: SAME_AS_NUMERATOR, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#workload_classification_coverage
+  child_resolvers: [formula_operands]
+screen_keys: [classified]
+owner_task: WRK-001
+notes: 'Σ|query compute with workload_type ≠ UNKNOWN| / Σ|query compute|. Fixture: 14,000 / 14,000 = 1; with one UNKNOWN query of 100 → 13,900 / 14,000 = 0.992857142857…'

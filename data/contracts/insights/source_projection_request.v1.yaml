@@ -1,0 +1,169 @@
+# contract=ins-source-projection-request version=1 status=DRAFT owner_task=INS-001 decisions=D-01,D-08,D-10,D-11,D-20,D-26 last_changed=2026-09-28
+# Source projection change request from INS (INS-001-S02) to ING-001 / ING-101 (registry + QUERY_HISTORY contract,
+# lane K3) and CON-005 (capability probe, lane K3). Normative evidence: docs/22-implementation-readiness/backlog/INS.md
+# §2 (detector input matrix, G-INS-01, G-INS-02, G-INS-04, G-INS-05) and RECONCILIATION C-10 (the union is frozen in
+# ING-101 before the first 365-day backfill; fields not extracted then are lost for history).
+#
+# Machine-readable so that ING-101-S01's CI check ("every INS/ALC/WRK-requested QH field is projected") and the INS
+# detector-manifest loader (INS-001-S02) can both read it. source_id values follow the ING landing-key grammar
+# (^[A-Z][A-Z0-9_]{2,63}$); the registry file is data/contracts/sources/<lower(source_id)>.v1.json.
+# Column existence per account is TO VERIFY LIVE through the CON-005 schema probe (ING-101-S04 records the DESCRIBE).
+
+request_id: INS-PCR-001
+requested_by: {lane: K8, tasks: [INS-001, INS-002, INS-003, INS-004, INS-102]}
+addressed_to:
+  - {lane: K3, task: ING-101, what: "freeze the QUERY_HISTORY projection union (catalog projection + the 16 INS columns below)"}
+  - {lane: K3, task: ING-001, what: "registry field `capability_key` per projected column; loader exposes the active projection per (tenant, account, source)"}
+  - {lane: K3, task: CON-005, what: "probe and publish the capability keys listed in `capability_keys` per (tenant, account)"}
+  - {lane: K3, task: ING-105, what: "put the R2 adapters in `r2_adapters` on the R2 adapter list"}
+  - {lane: K3, task: CON-003, what: "grant model for the warehouse-configuration snapshot (INS-102)"}
+deadline: "before the first 365-day QUERY_HISTORY backfill of any tenant (ING-101 activation gate)"
+
+# ---------------------------------------------------------------------------------------------------------------
+# 1. Additions to the REQUIRED projection of AU.QUERY_HISTORY (16 columns, G-INS-01; RECONCILIATION C-10)
+#    Row count and extraction predicates do not change; added width ≈ +25–35 % Parquet bytes (ING-004 measures it).
+#    privacy_action: all are numeric/short metadata → KEEP (no personal data; ERROR_CODE is a numeric string).
+# ---------------------------------------------------------------------------------------------------------------
+query_history_additions:
+  source_id: AU_QUERY_HISTORY
+  fq_view: SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+  columns:
+    - {column: QUERY_PARAMETERIZED_HASH_VERSION, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_HASH_VERSION, consumers: [Q01, Q02, Q03, "fct_query_family_daily.hash_version (WRK-104)"], why: "families are never compared across hash-algorithm versions (INS-003-S04); without it a version bump is a false new/disappeared family"}
+    - {column: QUERY_HASH_VERSION, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_HASH_VERSION, consumers: [Q01, Q05, WRK-005], why: "same hazard for the exact query hash"}
+    - {column: BYTES_SPILLED_TO_LOCAL_STORAGE, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_SPILL, consumers: [Q03, WH03], why: "Q03 distinguishes local-only from remote spill (fixture: local-only → NOT_QUALIFIED)"}
+    - {column: BYTES_SPILLED_TO_REMOTE_STORAGE, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_SPILL, consumers: [Q03, WH03], why: "Q03 predicate input; INS-001-S02 CI oracle uses this column"}
+    - {column: PARTITIONS_SCANNED, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_PARTITIONS, consumers: [Q04, bytes_scanned evidence], why: "R2 pruning detector; cannot be backfilled later"}
+    - {column: PARTITIONS_TOTAL, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_PARTITIONS, consumers: [Q04], why: "R2 pruning detector"}
+    - {column: COMPILATION_TIME, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_COMPILATION_TIME, consumers: [Q06], why: "R2 compilation-overhead detector"}
+    - {column: QUEUED_OVERLOAD_TIME, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_QUEUE_TIMES, consumers: [WH03, WH06, query_queued_time_sum], why: "queue guardrail blocks downsizing proposals"}
+    - {column: QUEUED_PROVISIONING_TIME, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_QUEUE_TIMES, consumers: [WH06, query_queued_time_sum], why: "resume/provisioning latency evidence"}
+    - {column: CLUSTER_NUMBER, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_CLUSTER_NUMBER, consumers: [WH02, WH05], why: "WH02 busy intervals are per (warehouse, cluster); without it multi-cluster warehouses fail calibration (INS-002-S07)"}
+    - {column: WAREHOUSE_TYPE, snowflake_type: VARCHAR, privacy_action: KEEP, capability_key: QH_WAREHOUSE_TYPE, consumers: [WH01, WH02], why: "credit rate k(size, type) and Adaptive suppression"}
+    - {column: CREDITS_USED_CLOUD_SERVICES, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_CLOUD_SERVICES_CREDITS, consumers: [Q07 contributors, "D-15 cloud-services driver (ALC)"], why: "Q07 contributor evidence (INS-003-S08); shared with ALC G-ALC-11"}
+    - {column: ROWS_INSERTED, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_ROWS_CHANGED, consumers: [PL01, PL02, PL03], why: "change-volume signal for overscheduling detectors (R2)"}
+    - {column: ROWS_UPDATED, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_ROWS_CHANGED, consumers: [PL01, PL02, PL03], why: "change-volume signal"}
+    - {column: ROWS_DELETED, snowflake_type: NUMBER, privacy_action: KEEP, capability_key: QH_ROWS_CHANGED, consumers: [PL01, PL02, PL03], why: "change-volume signal"}
+    - {column: ERROR_CODE, snowflake_type: VARCHAR, privacy_action: KEEP, capability_key: QH_ERROR_CODE, consumers: [Q08, PL04], why: "retry/failure waste classification (R2); ERROR_MESSAGE is NOT requested (may contain literals)"}
+  already_required_and_relied_upon:
+    - {column: QUERY_ID, consumers: [evidence samples]}
+    - {column: QUERY_PARAMETERIZED_HASH, consumers: [Q01, Q02, Q03]}
+    - {column: START_TIME, consumers: [WH02, Q01, Q02]}
+    - {column: END_TIME, consumers: [WH02]}
+    - {column: WAREHOUSE_ID, consumers: [WH02, Q01, Q02, Q03]}
+    - {column: WAREHOUSE_SIZE, consumers: [WH02]}
+    - {column: EXECUTION_TIME, consumers: [WH02, Q06]}
+    - {column: TOTAL_ELAPSED_TIME, consumers: [WH06]}
+    - {column: EXECUTION_STATUS, consumers: [Q01, Q08]}
+    - {column: USER_NAME, consumers: [Q02 identity tuple], note: "HMAC pseudonym per D-10 (SEC-103); never plaintext"}
+    - {column: ROLE_NAME, consumers: [Q02 identity tuple]}
+    - {column: QUERY_TAG, consumers: [Q02 identity tuple, "bridge_finops: exclusion (G-INS-15)"]}
+
+# Additions to other R1 sources (all already REQUIRED in the catalog; listed so the CI check covers them)
+other_r1_inputs:
+  - {source_id: AU_WAREHOUSE_METERING_HISTORY, columns: [START_TIME, END_TIME, WAREHOUSE_ID, WAREHOUSE_NAME, CREDITS_USED_COMPUTE, CREDITS_ATTRIBUTED_COMPUTE_QUERIES, CREDITS_USED_CLOUD_SERVICES], capability_key: WMH, consumers: [WH01, WH02, "INS-102 name→id map"]}
+  - {source_id: AU_QUERY_ATTRIBUTION_HISTORY, columns: [QUERY_ID, WAREHOUSE_ID, QUERY_PARAMETERIZED_HASH, START_TIME, END_TIME, CREDITS_ATTRIBUTED_COMPUTE, CREDITS_USED_QUERY_ACCELERATION], capability_key: QAH, consumers: [Q01, Q03, "attribution coverage (G-INS-15)"]}
+  - {source_id: AU_QUERY_METERING_HISTORY, columns: [QUERY_ID, WAREHOUSE_ID, QUERY_METERING_HOUR, CREDITS_USED_COMPUTE], capability_key: QMH, consumers: [Q01 (Adaptive warehouses)]}
+  - {source_id: AU_METERING_DAILY_HISTORY, columns: [USAGE_DATE, SERVICE_TYPE, CREDITS_USED_CLOUD_SERVICES, CREDITS_ADJUSTMENT_CLOUD_SERVICES, CREDITS_BILLED], capability_key: MDH, consumers: [Q07]}
+  - {source_id: AU_TABLE_STORAGE_METRICS, columns: [ID, TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ACTIVE_BYTES, TIME_TRAVEL_BYTES, FAILSAFE_BYTES, RETAINED_FOR_CLONE_BYTES, CLONE_GROUP_ID, TABLE_DROPPED, IS_TRANSIENT], capability_key: TSM, consumers: [ST03, ST04], note: "opt-in daily snapshot source (G-CON-02); pre-enrollment history unavailable (eligible_on = first snapshot + 13 d). IS_TRANSIENT on TSM TO VERIFY LIVE; otherwise AU.TABLES (R2)."}
+
+# ---------------------------------------------------------------------------------------------------------------
+# 2. New R1 source: warehouse configuration snapshot (INS-102, G-INS-02) — runs inside the D-07 account cycle
+# ---------------------------------------------------------------------------------------------------------------
+new_r1_sources:
+  - source_id: SHOW_WAREHOUSES
+    owner_task: INS-102
+    kind: SNAPSHOT
+    semantics: SNAPSHOT
+    cadence: "hourly, inside the account cycle (ING-106 executor), no warehouse resume (TO VERIFY LIVE)"
+    statement: "SHOW WAREHOUSES; SELECT <explicit columns> FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()))"
+    query_tag: "bridge_finops:config"
+    projection:
+      - {column: '"name"', target: WAREHOUSE_NAME, type: VARCHAR, privacy_action: KEEP, x-privacy: CUSTOMER_METADATA}
+      - {column: '"type"', target: WAREHOUSE_TYPE, type: VARCHAR, enum_map: {STANDARD: STANDARD, SNOWPARK-OPTIMIZED: SNOWPARK_OPTIMIZED, ADAPTIVE: ADAPTIVE}, unknown: "quarantine + capability SCHEMA_MISMATCH"}
+      - {column: '"size"', target: WAREHOUSE_SIZE, type: VARCHAR, enum: [X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large, 6X-Large]}
+      - {column: '"min_cluster_count"', target: MIN_CLUSTER_COUNT, type: NUMBER}
+      - {column: '"max_cluster_count"', target: MAX_CLUSTER_COUNT, type: NUMBER}
+      - {column: '"scaling_policy"', target: SCALING_POLICY, type: VARCHAR, enum: [STANDARD, ECONOMY]}
+      - {column: '"auto_suspend"', target: AUTO_SUSPEND_S, type: NUMBER, nullable: true, note: "0 or NULL = never suspends (treated as disabled)"}
+      - {column: '"auto_resume"', target: AUTO_RESUME, type: BOOLEAN}
+      - {column: '"resource_monitor"', target: RESOURCE_MONITOR, type: VARCHAR, x-privacy: CUSTOMER_METADATA}
+      - {column: '"generation"', target: GENERATION, type: VARCHAR, required: false, note: "BCR 2025_03/2025_07/2026_01 columns TO VERIFY LIVE (INS-102-S01)"}
+      - {column: '"resource_constraint"', target: RESOURCE_CONSTRAINT, type: VARCHAR, required: false, note: "Snowpark-optimized memory class; TO VERIFY LIVE"}
+      - {column: '"state"', target: STATE, type: VARCHAR}
+    identity: "no WAREHOUSE_ID column expected (TO VERIFY LIVE): name → WAREHOUSE_ID via as-of join on WMH/QH (INS-102-S05); renames detected"
+    grant_model:
+      preferred: "account-level MONITOR USAGE if the live probe proves SHOW WAREHOUSES lists all warehouses (TO VERIFY LIVE, INS-102-S01)"
+      fallback: "GRANT MONITOR ON WAREHOUSE <quoted> TO ROLE BRIDGE_FINOPS_READER per warehouse (CON-003 script section), never MODIFY/OPERATE/MANAGE WAREHOUSES"
+    retention_class: FINANCIAL
+    capability_key: WAREHOUSE_CONFIG
+    drift_rule: "warehouse present in WMH but absent from the snapshot → CONFIG_UNKNOWN per warehouse (CON-005 surface, INS-102-S07)"
+
+# ---------------------------------------------------------------------------------------------------------------
+# 3. R2 adapters (ING-105 list); detectors depending on them stay SUPPRESSED(MISSING_CAPABILITY:<key>) until active
+# ---------------------------------------------------------------------------------------------------------------
+r2_adapters:
+  - {source_id: AU_TABLE_QUERY_PRUNING_HISTORY, columns: [START_TIME, END_TIME, WAREHOUSE_ID, TABLE_ID, QUERY_PARAMETERIZED_HASH, PARTITIONS_SCANNED, PARTITIONS_PRUNED, ROWS_SCANNED, ROWS_MATCHED], capability_key: TABLE_QUERY_PRUNING, consumers: [Q04], note: "hourly by table × query_hash × warehouse; edition requirement TO VERIFY LIVE"}
+  - {source_id: AU_WAREHOUSE_EVENTS_HISTORY, columns: [TIMESTAMP, WAREHOUSE_ID, CLUSTER_NUMBER, EVENT_NAME, EVENT_REASON, EVENT_STATE], capability_key: WAREHOUSE_EVENTS, consumers: [WH05, WH07]}
+  - {source_id: AU_WAREHOUSE_LOAD_HISTORY, columns: [START_TIME, END_TIME, WAREHOUSE_ID, AVG_RUNNING, AVG_QUEUED_LOAD, AVG_QUEUED_PROVISIONING, AVG_BLOCKED], capability_key: WAREHOUSE_LOAD, consumers: [WH03, WH06]}
+  - {source_id: AU_TABLES, columns: [TABLE_ID, TABLE_CATALOG_ID, RETENTION_TIME, IS_TRANSIENT, DELETED], capability_key: TABLE_RETENTION, consumers: [ST03 estimate, ST04 transient eligibility]}
+  - {source_id: AU_COPY_HISTORY, columns: [PIPE_ID, LAST_LOAD_TIME, FILE_SIZE, ROW_COUNT, STATUS], capability_key: COPY_HISTORY, consumers: [PI01, PI02]}
+  - source_id: AU_ACCESS_DAILY_AGG
+    kind: SOURCE_SIDE_AGGREGATE
+    note: "requires the ING amendment 'source-side aggregate' (INS-104-S01): LATERAL FLATTEN(BASE_OBJECTS_ACCESSED / OBJECTS_MODIFIED) per UTC day, or AU.AGGREGATE_ACCESS_HISTORY where equivalence is proven"
+    columns: [ACCOUNT_ID, OBJECT_ID, OBJECT_DOMAIN, USAGE_DATE, READ_QUERY_COUNT, DISTINCT_USER_HMAC_COUNT, LAST_READ_AT, WRITE_QUERY_COUNT]
+    capability_key: ACCESS_HISTORY_AGG
+    consumers: [ST01, ST02, PL05]
+  - {source_id: AU_TASK_HISTORY, columns: [NAME, QUERY_ID, SCHEDULED_TIME, COMPLETED_TIME, STATE, ROOT_TASK_ID, GRAPH_RUN_GROUP_ID], capability_key: TASK_HISTORY, consumers: [PL02, PL03, PL04], note: "activated in R1 by ING-104 for WRK-004 (RECONCILIATION C-10); INS use is R2"}
+  - {source_id: AU_SERVICES, columns: [SERVICE_ID, COMPUTE_POOL_ID, STATUS, CREATED_ON, DELETED_ON], capability_key: SPCS_SERVICE_STATE, consumers: [SP02], note: "status history availability TO VERIFY LIVE"}
+  - {source_id: AU_SHARES_SNAPSHOT, columns: [SHARE_NAME, KIND, OBJECT_ID], capability_key: SHARES_METADATA, consumers: [ST01, ST02 suppression], note: "SHOW SHARES / SHARES view TO VERIFY LIVE (G-INS-04)"}
+
+# ---------------------------------------------------------------------------------------------------------------
+# 4. Capability keys INS resolves per (tenant, account) — CON-005 publishes AVAILABLE | DENIED | NOT_SUPPORTED |
+#    NOT_ENABLED | NOT_YET_AVAILABLE per key; INS-001-S03 turns a non-AVAILABLE key into
+#    SUPPRESSED(MISSING_CAPABILITY:<key>) evaluation rows (never silence).
+# ---------------------------------------------------------------------------------------------------------------
+capability_keys:
+  WMH: {source: "AU_WAREHOUSE_METERING_HISTORY active", probe_owner: CON-005}
+  QH: {source: "AU_QUERY_HISTORY active", probe_owner: CON-005}
+  QAH: {source: "AU_QUERY_ATTRIBUTION_HISTORY active (Enterprise+ availability TO VERIFY)", probe_owner: CON-005}
+  QMH: {source: "AU_QUERY_METERING_HISTORY active (Adaptive warehouses)", probe_owner: CON-005}
+  MDH: {source: "AU_METERING_DAILY_HISTORY active", probe_owner: CON-005}
+  TSM: {source: "AU_TABLE_STORAGE_METRICS opt-in snapshot active", probe_owner: CON-005}
+  QH_HASH_VERSION: {source: "QUERY_PARAMETERIZED_HASH_VERSION and QUERY_HASH_VERSION in the active QH projection", probe_owner: ING-001}
+  QH_SPILL: {source: "BYTES_SPILLED_TO_* in the active QH projection", probe_owner: ING-001}
+  QH_PARTITIONS: {source: "PARTITIONS_* in the active QH projection", probe_owner: ING-001}
+  QH_COMPILATION_TIME: {source: "COMPILATION_TIME in the active QH projection", probe_owner: ING-001}
+  QH_QUEUE_TIMES: {source: "QUEUED_* in the active QH projection", probe_owner: ING-001}
+  QH_CLUSTER_NUMBER: {source: "CLUSTER_NUMBER in the active QH projection", probe_owner: ING-001}
+  QH_WAREHOUSE_TYPE: {source: "WAREHOUSE_TYPE in the active QH projection", probe_owner: ING-001}
+  QH_CLOUD_SERVICES_CREDITS: {source: "CREDITS_USED_CLOUD_SERVICES in the active QH projection", probe_owner: ING-001}
+  QH_ROWS_CHANGED: {source: "ROWS_INSERTED/UPDATED/DELETED in the active QH projection", probe_owner: ING-001}
+  QH_ERROR_CODE: {source: "ERROR_CODE in the active QH projection", probe_owner: ING-001}
+  WAREHOUSE_CONFIG: {source: "SHOW_WAREHOUSES snapshot active and the warehouse visible in it", probe_owner: "CON-005 + INS-102-S07 (per warehouse)"}
+  ADAPTIVE_WAREHOUSE: {source: "warehouse type ADAPTIVE (flag, not a gate: Adaptive → ADAPTIVE_UNSUPPORTED for idle detectors)", probe_owner: "CON-005 (RECONCILIATION C-22)"}
+  COMPLETE_QUERY_COUNTS: {source: "probe finds NO AU.AGGREGATE_QUERY_HISTORY rows for the account (semantics TO VERIFY LIVE, INS-003-S11)", probe_owner: CON-005}
+  TABLE_QUERY_PRUNING: {source: "AU_TABLE_QUERY_PRUNING_HISTORY active (R2)", probe_owner: CON-005}
+  WAREHOUSE_EVENTS: {source: "AU_WAREHOUSE_EVENTS_HISTORY active (R2)", probe_owner: CON-005}
+  WAREHOUSE_LOAD: {source: "AU_WAREHOUSE_LOAD_HISTORY active (R2)", probe_owner: CON-005}
+  TABLE_RETENTION: {source: "AU_TABLES active (R2)", probe_owner: CON-005}
+  COPY_HISTORY: {source: "AU_COPY_HISTORY active (R2)", probe_owner: CON-005}
+  PIPE_USAGE: {source: "AU_PIPE_USAGE_HISTORY active", probe_owner: CON-005}
+  ACCESS_HISTORY_AGG: {source: "AU_ACCESS_DAILY_AGG active (Enterprise edition, R2)", probe_owner: CON-005}
+  SHARES_METADATA: {source: "outbound shares / replication groups / external+Iceberg tables metadata (R2)", probe_owner: CON-005}
+  TASK_HISTORY: {source: "AU_TASK_HISTORY active", probe_owner: CON-005}
+  DBT_INVOCATIONS: {source: "WRK-002 exact dbt invocation facts published", probe_owner: WRK-002}
+  LOGICAL_EXECUTIONS: {source: "WRK-004 logical execution graph published", probe_owner: WRK-004}
+  CORTEX_USAGE: {source: "FIN-018 Cortex authority layer active (AISQL/agent/search views)", probe_owner: FIN-018}
+  SPCS_USAGE: {source: "FIN-019 SPCS history active", probe_owner: FIN-019}
+  SPCS_SERVICE_STATE: {source: "AU_SERVICES status history (R2, TO VERIFY LIVE)", probe_owner: CON-005}
+  SPCS_PLATFORM_METRICS_EVENT_TABLE: {source: "none — requires an ADR for reading a customer event table (G-INS-06); permanently unavailable in R1/R2", probe_owner: none}
+  CUSTOMER_DENOMINATOR: {source: "customer-uploaded business_transaction_daily (INS-005-S02, R2)", probe_owner: INS-005}
+  MODEL_QUALITY_EVALUATION: {source: "customer-uploaded model_quality_evaluation (INS-005-S02, R2)", probe_owner: INS-005}
+  TENANT_ISOLATION_POLICY: {source: "tenant isolation/SLA policy input (CTL config, R2)", probe_owner: CTL}
+  STORAGE_RATE: {source: "FIN-006 storage rate per TB-month resolvable for the account/currency", probe_owner: FIN-006}
+
+loader_rule: >-
+  services/intelligence/registry.py (INS-001-S02) fails CI when a detector with release R1 (or any detector whose
+  status is ACTIVE) lists a required_inputs entry with used_for DETECTION whose (source_id, column) is absent from the
+  ING-001 registry projection of that source; the oracle is a manifest requiring
+  AU_QUERY_HISTORY.BYTES_SPILLED_TO_REMOTE_STORAGE failing while the column is not projected.

@@ -1,0 +1,74 @@
+# contract=semantic-metric:spend version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: spend
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.spend.label
+description_key: metric.spend.description
+population_key: metric.spend.population
+category: FINANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_charge_daily
+measure:
+  type: SUM
+  column_ref: cost_effective
+  population:
+  - {column: measure_role, op: EQ, value: CHARGE}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, scope_kind, service_category, service_family, service_type, sub_service, rating_type, billing_type, currency, is_adjustment,
+  data_status, price_basis]
+incompatible_dimensions:
+- dimension: group
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: group_ancestor
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: group_set
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: book
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: allocation_method
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: component_kind
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: schema
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [database]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.no_attribution_path
+- dimension: tag
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+required_sources: [ou.usage_in_currency_daily, au.metering_daily_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO, scope_not_applicable_reason: NOT_APPLICABLE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+substitution:
+  when_dimensions_any_of: [warehouse, warehouse_type, warehouse_size, database, compute_pool, spcs_service, pipe, task, dynamic_table, ai_family, ai_model, storage_class, user, role,
+    client_application, workload_type, workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class]
+  use: {metric: attributed_cost, version: 1}
+  residual_row_key: __UNATTRIBUTED__
+  banner_key: analytics.substitution.attributed_cost.banner
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#spend
+  child_resolvers: [charge_by_service, charge_bucket]
+screen_keys: [spend, accountcost, orgnet, storage, serverless, cortex, spcs, taskcost, pipecost, otherServerless, aifunctioncost, aisearchcost, aianalystcost, appfees]
+owner_task: API-001
+notes: 'Signed net Σ fct_charge.cost_effective at D-12 bucket grain (canonical: semantic-api.md ''spend''). Grouping by any resource/actor/workload dimension is rewritten to attributed_cost@1
+  and returns meta.metric_substitution; group/tag dimensions are refused (use allocated_spend). Organization-only adjustments are never copied to accounts: at account scope they are
+  absent, and a tile that asks for them gets null NOT_APPLICABLE.'

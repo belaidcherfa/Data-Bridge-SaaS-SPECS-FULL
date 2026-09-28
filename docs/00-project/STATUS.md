@@ -78,3 +78,12 @@ BLOCKED: none for design delivery.
 DECISIONS MADE: separate clean prototype; synthetic fixtures; explicit fixed scopes; no reference backend/code import; no production task completion implied.
 RISKS: mock identity/denial states cannot establish real tenant security; required-only prototype forms do not replace server validation.
 OPEN VALIDATIONS: production APIs, authentication/authorization, WIF/Snowflake/AWS, real financial reconciliation, notification/report jobs, payment and assistive-technology qualification remain in the original validation register.
+
+## Implementation-readiness review — 2026-09-28
+
+DONE: full-specification deep review in [docs/22-implementation-readiness](../22-implementation-readiness/README.md) — cross-cutting audit (X-01…X-47), 317 domain findings (29 BLOCKER, 151 HIGH), 34 decisions with recommended defaults, 233 contract-first artifacts, per-domain production backlogs (249 tasks, 2,792 micro-steps with oracles and hours), reconciliation of cross-domain overlaps/contradictions and a validated revised task graph (critical path 73 → 42 tasks).
+DECISIONS: all 38 decisions recorded by the owner on 2026-09-28 ([decision record](../22-implementation-readiness/DECISIONS_REQUIRED.md)); ADRs amended and ADR-014 to ADR-016 added; canonical contracts updated; the revised task graph is the execution plan.
+NEXT: order the Snowflake test estate (INF-101, budget approved), author the P0 contract-first artifacts, write AGENTS.md (FND-006), then start lanes A1 and A2 with coding agents under human review.
+BLOCKED: none for starting P0. Live gates need the test estate; the first customer path needs a contracted pilot customer.
+RISKS: R1 estimate 7,116–10,488 senior-engineer-equivalent hours (R2 614–948) after D-20 put every edition, contract and service family in R1; critical path 42 tasks (1,362–2,006 h); reviewer capacity and live gates bound an agent-driven calendar; real-data surprises (mitigated by tenant zero and a contracted pilot); vendor behaviors marked TO VERIFY LIVE.
+

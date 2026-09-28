@@ -1,0 +1,21 @@
+# contract=semantic-join-path:jp_allocation_group_ancestor version=1 status=DRAFT owner_task=ALC-102 decisions=D-05 last_changed=2026-09-28
+# Allowlisted join (API-001-S02 loader rejects any join not declared here).
+id: jp_allocation_group_ancestor
+version: 1
+status: ACTIVE
+from_relation: v_allocation_daily
+to_relation: v_dim_group_closure
+cardinality: MANY_TO_ONE
+join_type: INNER
+'on':
+- {from_column: tenant_id, to_column: tenant_id}
+- {from_column: book_id, to_column: book_id}
+- {from_column: target_group_id, to_column: descendant_group_id}
+tenant_bound: true
+as_of: {from_time_column: usage_date, valid_from_column: valid_from, valid_to_column: valid_to}
+purpose: Roll allocated_spend up to every ancestor group (dimension group_ancestor). One output row per (row, ancestor); valid only when group_ancestor is the only group-hierarchy dimension
+  and a single ancestor depth is selected (the planner adds depth = :p to keep the join MANY_TO_ONE).
+required_params: [ancestor_depth]
+param_predicates:
+- {to_column: depth, param: ancestor_depth}
+owner_task: ALC-102

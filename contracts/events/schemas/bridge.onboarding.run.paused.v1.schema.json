@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.run.paused:v1",
+  "$comment": "contract=event-bridge.onboarding.run.paused version=1 status=DRAFT owner_task=ONB-001 decisions=D-29 last_changed=2026-09-28",
+  "title": "bridge.onboarding.run.paused v1 payload",
+  "description": "The run was paused by a member or by subscription suspension; sync pause is delegated to CON-006/ING-010.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "run_revision",
+    "reason_code",
+    "paused_at"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "run_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "CUSTOMER_REQUEST",
+        "CUSTOMER_CHANGE_WINDOW",
+        "BUDGET_REVIEW",
+        "SUBSCRIPTION_SUSPENDED",
+        "OPERATOR_HOLD"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "paused_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "run_revision": 4,
+      "reason_code": "CUSTOMER_CHANGE_WINDOW",
+      "paused_at": "2026-10-02T09:15:00.000Z"
+    }
+  ]
+}

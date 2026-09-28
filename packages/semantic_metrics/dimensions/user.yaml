@@ -1,0 +1,26 @@
+# contract=semantic-dimension:user version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: user
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.user.label
+description_key: dimension.user.description
+group: ACTOR
+kind: ENTITY
+value_type: STRING
+cardinality_class: HIGH
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: PERSONAL, pseudonymized: true, resolve_capability: identity.resolve}
+filter_ops: [EQ, IN, NOT_IN, IS_NULL]
+max_filter_values: 100
+autocomplete: {enabled: true, min_prefix: 2, max_results: 20, source_relation: v_attribution_daily, match_column: user_pseudonym}
+label: {source: PG_IDENTITY_DICTIONARY}
+bindings:
+- {relation: v_attribution_daily, column_ref: user_pseudonym}
+- {relation: v_query_exec, column_ref: user_pseudonym}
+- {relation: v_ai_usage, column_ref: user_pseudonym}
+sortable: true
+owner_task: API-001
+notes: Values are D-10 pseudonyms (u1_…). Name search (identity.resolve only) maps names → pseudonyms in privacy.identity_dictionary first, then the broker confirms the pseudonyms exist
+  in authorized rows; without identity.resolve labels are the pseudonym. R1 filter ops eq/in only on names (SEC G.2).

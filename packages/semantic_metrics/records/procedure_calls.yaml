@@ -1,0 +1,115 @@
+# contract=semantic-records:procedure_calls version=1 status=DRAFT owner_task=WRK-004 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: procedure_calls
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.procedure_calls.label
+relation: v_workload_exec
+population:
+- {column: execution_kind, op: EQ, value: PROCEDURE_CALL}
+tier: FULL
+row_key: [account_id, execution_id]
+default_sort:
+- {column: start_time, direction: DESC}
+page_max: 200
+sync_max_range_days: 92
+privacy: {capability: analytics.read}
+columns:
+- id: execution_id
+  column_ref: execution_id
+  type: HASH
+  label_key: records.procedure_calls.column.execution_id
+  sortable: false
+  filter_ops: [EQ]
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.procedure_calls.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: start_time
+  column_ref: start_time
+  type: TIMESTAMP
+  label_key: records.procedure_calls.column.start_time
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: end_time
+  column_ref: end_time
+  type: TIMESTAMP
+  label_key: records.procedure_calls.column.end_time
+  sortable: true
+  filter_ops: []
+- id: status
+  column_ref: status
+  type: ENUM
+  label_key: records.procedure_calls.column.status
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: query_status
+- id: basis
+  column_ref: basis
+  type: ENUM
+  label_key: records.procedure_calls.column.basis
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: complete
+  column_ref: complete
+  type: BOOLEAN
+  label_key: records.procedure_calls.column.complete
+  sortable: false
+  filter_ops: [EQ]
+- id: query_count
+  column_ref: query_count
+  type: INTEGER
+  label_key: records.procedure_calls.column.query_count
+  sortable: true
+  filter_ops: []
+- id: compute_cost
+  column_ref: compute_cost
+  type: MONEY
+  label_key: records.procedure_calls.column.compute_cost
+  sortable: true
+  filter_ops: []
+  currency_column: currency
+- id: cost_basis
+  column_ref: cost_basis
+  type: ENUM
+  label_key: records.procedure_calls.column.cost_basis
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: wall_time_ms
+  column_ref: wall_time_ms
+  type: DURATION_MS
+  label_key: records.procedure_calls.column.wall_time_ms
+  sortable: true
+  filter_ops: []
+- id: exec_sum_ms
+  column_ref: exec_sum_ms
+  type: DURATION_MS
+  label_key: records.procedure_calls.column.exec_sum_ms
+  sortable: true
+  filter_ops: []
+- id: evidence_class
+  column_ref: evidence_class
+  type: ENUM
+  label_key: records.procedure_calls.column.evidence_class
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: evidence_class
+- id: linkage_coverage
+  column_ref: linkage_coverage
+  type: DECIMAL
+  label_key: records.procedure_calls.column.linkage_coverage
+  sortable: true
+  filter_ops: []
+- id: warehouse
+  column_ref: warehouse_id
+  type: UUID
+  label_key: records.procedure_calls.column.warehouse
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: warehouse
+owner_task: WRK-004
+notes: Procedure cost is a lower bound (cost_basis LOWER_BOUND) with explicit linkage coverage (G-WRK-04).

@@ -1,0 +1,112 @@
+# contract=insights-config-catalog version=1 status=DRAFT owner_task=INS-001 decisions=D-01,D-11,D-13 last_changed=2026-09-28
+# Config catalog for insights, workflow and savings measurement (INS-001-S04, INS-006-S04/S05, INS-007-S01).
+# Every detector parameter key in services/intelligence/detectors.v1.yaml and every key referenced by
+# data/contracts/savings-measurement.json exists here (registry loader rule).
+#
+# Semantics
+# - type: DECIMAL (decimal string, Decimal precision 38), INTEGER, DATE, DURATION_S (integer seconds per CONVENTIONS §4),
+#   BYTES (integer bytes). Ratios are DECIMAL in [0, 1] unless stated.
+# - currency_scoped: true → one value per ISO 4217 currency; `default` gives the value for the tenant billing currency
+#   and for any other currency without an explicit override. Values are never converted between currencies.
+# - tenant_overridable: true → overrides live in PostgreSQL workflow.insight_parameter_override and are published as
+#   immutable config versions of kind INSIGHT_PARAMETERS through CTL-005 (D-04); detector runs pin the config_version.
+# - test_value: the value used by contract fixtures (INS-001 tests); production uses `default`.
+# - Changing a default is a registry minor version; detectors record the effective parameter set hash per observation.
+catalog: insights-parameters
+catalog_version: 1.0.0
+config_kind: INSIGHT_PARAMETERS
+parameters:
+  # --------------------------------------------------------------------------------------------------------- shared
+  - {key: insights.impact_floor_30d, type: DECIMAL, unit: CURRENCY, currency_scoped: true, default: "25.00", test_value: "0.00", min: "0.00", max: "1000000.00", tenant_overridable: true, owner_task: INS-001, description: "Monetary floor on the 30-day run-rate impact (strict >). Applied via GOV-101 impact_floor(currency, tenant) (RECONCILIATION U-09). Detectors with impact_kind NONE are exempt."}
+  - {key: insights.evidence_max_rows, type: INTEGER, default: 200, min: 1, max: 200, tenant_overridable: false, owner_task: INS-001, description: "Evidence rows per observation, ordered by cost desc then stable key; truncated_count recorded (INS-001-S09)."}
+  - {key: insights.run_rate_days, type: INTEGER, default: 30, min: 30, max: 30, tenant_overridable: false, owner_task: INS-001, description: "Horizon of every potential/impact: 30-day run-rate (G-INS-11)."}
+  - {key: insights.tracking_days, type: INTEGER, default: 30, min: 7, max: 365, tenant_overridable: false, owner_task: INS-001, description: "Observations are emitted for every QUALIFIED resource and, with their non-qualified status, for every fingerprint QUALIFIED within the last value days (so NO_LONGER_OBSERVED can count 3 complete NOT_QUALIFIED evaluations); all other resources appear only as counts in insight_detector_evaluation."}
+  - {key: insights.family_timeout_s, type: DURATION_S, default: 900, min: 60, max: 3600, tenant_overridable: false, owner_task: INS-001, description: "Engine timeout per detector family run; timeout → FAILED, last accepted publication untouched (INS-001-S07)."}
+  # ------------------------------------------------------------------------------------------------------ warehouse
+  - {key: wh01.idle_share_threshold, type: DECIMAL, default: "0.25", min: "0.05", max: "0.95", tenant_overridable: true, owner_task: INS-002, description: "WH01 qualifies when idle share > value."}
+  - {key: wh01.high_tier_threshold, type: DECIMAL, default: "0.50", min: "0.10", max: "0.99", tenant_overridable: true, owner_task: INS-002, description: "WH01 severity HIGH (WH04 alias) when idle share > value."}
+  - {key: wh01.window_hours, type: INTEGER, default: 336, min: 336, max: 336, tenant_overridable: false, owner_task: INS-002, description: "Complete metering hours in the WH01 window (14 days)."}
+  - {key: wh01.short_burst_auto_suspend_s, type: DURATION_S, default: 60, min: 0, max: 600, tenant_overridable: false, owner_task: INS-002, description: "Known AUTO_SUSPEND at or below this value sets WH01 severity LOW with the short-burst template (INS-002-S04)."}
+  - {key: wh02.target_auto_suspend_s, type: DURATION_S, default: 60, min: 60, max: 3600, tenant_overridable: true, owner_task: INS-002, description: "AS_tgt for the WH02 simulation (owner question Q1: proposed 60 s)."}
+  - {key: wh02.qualifying_auto_suspend_s, type: DURATION_S, default: 300, min: 60, max: 3600, tenant_overridable: true, owner_task: INS-002, description: "WH02 qualifies only when AS_cur > value or auto-suspend is disabled."}
+  - {key: wh02.min_gaps, type: INTEGER, default: 3, min: 1, max: 1000, tenant_overridable: false, owner_task: INS-002, description: "Minimum gaps ≥ AS_tgt in the window."}
+  - {key: wh02.window_days, type: INTEGER, default: 14, min: 14, max: 14, tenant_overridable: false, owner_task: INS-002, description: "WH02 simulation window."}
+  - {key: wh02.calibration_max_rel_error, type: DECIMAL, default: "0.10", min: "0.01", max: "0.50", tenant_overridable: false, owner_task: INS-002, description: "Modeled vs metered credits per warehouse-day; above → numeric potential null, CALIBRATION_FAILED."}
+  - {key: wh02.resume_minimum_s, type: DURATION_S, default: 60, min: 60, max: 60, tenant_overridable: false, owner_task: INS-002, description: "Snowflake bills a 60-second minimum each time a warehouse resumes (resume penalty in the WH02 formula)."}
+  - {key: wh03.low_load_running, type: DECIMAL, default: "0.30", min: "0.01", max: "1.00", tenant_overridable: true, owner_task: INS-106, description: "R2: p95 AVG_RUNNING below value marks low load."}
+  - {key: wh05.standing_idle_share, type: DECIMAL, default: "0.50", min: "0.10", max: "0.95", tenant_overridable: true, owner_task: INS-106, description: "R2: standing cluster idle share threshold."}
+  - {key: wh05.median_cluster_lifetime_s, type: DURATION_S, default: 300, min: 60, max: 3600, tenant_overridable: false, owner_task: INS-106, description: "R2: STANDARD scaling review when median cluster lifetime < value."}
+  - {key: wh06.queue_share_threshold, type: DECIMAL, default: "0.20", min: "0.01", max: "0.90", tenant_overridable: true, owner_task: INS-106, description: "R2: queue-time share threshold."}
+  - {key: wh06.min_cohorts, type: INTEGER, default: 3, min: 1, max: 14, tenant_overridable: false, owner_task: INS-106, description: "R2: qualifying daily cohorts."}
+  - {key: wh06.min_queries, type: INTEGER, default: 100, min: 10, max: 100000, tenant_overridable: false, owner_task: INS-106, description: "R2: minimum queries per daily cohort."}
+  - {key: wh07.resume_events_per_hour, type: INTEGER, default: 6, min: 2, max: 60, tenant_overridable: false, owner_task: INS-106, description: "R2: resume events per hour."}
+  - {key: wh07.min_hours, type: INTEGER, default: 3, min: 1, max: 24, tenant_overridable: false, owner_task: INS-106, description: "R2: distinct qualifying hours."}
+  - {key: wh07.median_active_interval_s, type: DURATION_S, default: 300, min: 60, max: 3600, tenant_overridable: false, owner_task: INS-106, description: "R2: median active interval below value."}
+  - {key: wh08.idle_share_threshold, type: DECIMAL, default: "0.50", min: "0.10", max: "0.95", tenant_overridable: true, owner_task: INS-106, description: "R2: both warehouses idle above value."}
+  # ---------------------------------------------------------------------------------------------------------- query
+  - {key: q01.min_executions, type: INTEGER, default: 10, min: 5, max: 100000, tenant_overridable: false, owner_task: INS-003, description: "Minimum attributed executions per cohort."}
+  - {key: q01.min_attribution_coverage, type: DECIMAL, default: "0.90", min: "0.50", max: "1.00", tenant_overridable: false, owner_task: INS-003, description: "executions_attributed / executions_success in both cohorts (G-INS-15)."}
+  - {key: q01.unit_cost_rise_threshold, type: DECIMAL, default: "0.20", min: "0.05", max: "5.00", tenant_overridable: true, owner_task: INS-003, description: "u_C / u_B − 1 > value."}
+  - {key: q01.cohort_days, type: INTEGER, default: 14, min: 14, max: 14, tenant_overridable: false, owner_task: INS-003, description: "Cohort length B = [D−27, D−14], C = [D−13, D]."}
+  - {key: q02.frequency_ratio_threshold, type: DECIMAL, default: "1.5", min: "1.1", max: "10", tenant_overridable: true, owner_task: INS-003, description: "executions/day ratio C/B > value."}
+  - {key: q02.min_baseline_executions, type: INTEGER, default: 10, min: 5, max: 100000, tenant_overridable: false, owner_task: INS-003, description: "Minimum baseline executions."}
+  - {key: q02.identity_dominance, type: DECIMAL, default: "0.80", min: "0.50", max: "1.00", tenant_overridable: false, owner_task: INS-003, description: "Dominant identity tuple share required in both cohorts."}
+  - {key: q03.min_spilling_executions, type: INTEGER, default: 3, min: 1, max: 1000, tenant_overridable: false, owner_task: INS-003, description: "Remote-spilling executions in C."}
+  - {key: q04.scan_fraction, type: DECIMAL, default: "0.80", min: "0.10", max: "1.00", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: q04.selectivity, type: DECIMAL, default: "0.10", min: "0.001", max: "0.50", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: q04.min_rows, type: INTEGER, default: 3, min: 1, max: 100, tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: q05.join_ratio, type: DECIMAL, default: "10", min: "2", max: "1000", tenant_overridable: false, owner_task: INS-103, description: "R2 on-demand evidence."}
+  - {key: q06.compilation_share, type: DECIMAL, default: "0.50", min: "0.10", max: "0.95", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: q06.min_executions, type: INTEGER, default: 100, min: 10, max: 100000, tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: q07.baseline_days, type: INTEGER, default: 28, min: 28, max: 28, tenant_overridable: false, owner_task: INS-003, description: "Anomaly baseline length (GOV-005 evaluator)."}
+  - {key: q07.robust_z, type: DECIMAL, default: "3.5", min: "2.0", max: "10.0", tenant_overridable: false, owner_task: INS-003, description: "Robust z threshold (0.6745 × |x − median| / MAD)."}
+  - {key: q07.min_relative_impact, type: DECIMAL, default: "0.10", min: "0.01", max: "1.00", tenant_overridable: false, owner_task: INS-003, description: "|x − median| ≥ max(value × |median|, one minor unit)."}
+  - {key: q07.mad_zero_relative_deviation, type: DECIMAL, default: "0.20", min: "0.01", max: "1.00", tenant_overridable: false, owner_task: INS-003, description: "MAD = 0 → ABSOLUTE_DEVIATION ≥ max(value × |median|, one minor unit)."}
+  # --------------------------------------------------------------------------------------------------------- storage
+  - {key: st01.window_days, type: INTEGER, default: 30, min: 30, max: 365, tenant_overridable: false, owner_task: INS-104, description: "R2."}
+  - {key: st03.tt_fraction_threshold, type: DECIMAL, default: "0.30", min: "0.05", max: "0.95", tenant_overridable: true, owner_task: INS-004, description: "Time-travel fraction threshold (every snapshot)."}
+  - {key: st03.min_snapshots, type: INTEGER, default: 14, min: 14, max: 14, tenant_overridable: false, owner_task: INS-004, description: "Consecutive complete daily snapshots; eligible_on = first_snapshot_date + (value − 1) days."}
+  - {key: st04.fs_fraction_threshold, type: DECIMAL, default: "0.30", min: "0.05", max: "0.95", tenant_overridable: true, owner_task: INS-004, description: "Fail-safe fraction threshold."}
+  - {key: st05.growth, type: DECIMAL, default: "0.25", min: "0.05", max: "10", tenant_overridable: true, owner_task: INS-104, description: "R2."}
+  - {key: st05.byte_floor, type: BYTES, default: 107374182400, min: 0, max: 1125899906842624, tenant_overridable: true, owner_task: INS-104, description: "R2: absolute byte increase floor (default 100 GiB)."}
+  # -------------------------------------------------------------------------------------------------------- pipeline
+  - {key: pl01.frequency_rise, type: DECIMAL, default: "0.50", min: "0.10", max: "10", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: pl01.change_rise, type: DECIMAL, default: "0.10", min: "0.00", max: "1.00", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: pl03.min_executions_per_day, type: INTEGER, default: 24, min: 1, max: 100000, tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: pl03.zero_change_share, type: DECIMAL, default: "0.90", min: "0.50", max: "1.00", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  - {key: pl04.failure_share, type: DECIMAL, default: "0.10", min: "0.01", max: "0.90", tenant_overridable: false, owner_task: INS-103, description: "R2."}
+  # ------------------------------------------------------------------------------------------------------- ingestion
+  - {key: pi01.median_file_bytes, type: BYTES, default: 16777216, min: 1048576, max: 1073741824, tenant_overridable: false, owner_task: INS-104, description: "R2: 16 MiB."}
+  - {key: pi01.min_files, type: INTEGER, default: 100, min: 1, max: 1000000, tenant_overridable: false, owner_task: INS-104, description: "R2."}
+  - {key: pi02.min_ops_per_hour, type: INTEGER, default: 60, min: 1, max: 100000, tenant_overridable: false, owner_task: INS-104, description: "R2."}
+  - {key: pi04.rate_tolerance, type: DECIMAL, default: "0.05", min: "0.01", max: "0.50", tenant_overridable: false, owner_task: INS-104, description: "R2 reconciliation check tolerance."}
+  - {key: pi04.credits_per_gb, type: DECIMAL, default: "0.0037", min: "0", max: "1", tenant_overridable: false, owner_task: INS-104, description: "Snowpipe per-GB rate since 2025-12-08 (VERIFIED in INS backlog G-INS-03; rate sheet wins when present)."}
+  - {key: pi04.pricing_effective_date, type: DATE, default: "2025-12-08", tenant_overridable: false, owner_task: INS-104, description: "Windows before this date are excluded."}
+  # ------------------------------------------------------------------------------------------------------------- AI
+  - {key: ai03.rise, type: DECIMAL, default: "0.25", min: "0.05", max: "10", tenant_overridable: false, owner_task: INS-005, description: "R2."}
+  - {key: ai04.top_user_share, type: DECIMAL, default: "0.50", min: "0.10", max: "0.99", tenant_overridable: false, owner_task: INS-005, description: "R2."}
+  - {key: ai07.rise, type: DECIMAL, default: "0.25", min: "0.05", max: "10", tenant_overridable: false, owner_task: INS-005, description: "R2 gated."}
+  - {key: sp01.cpu, type: DECIMAL, default: "0.20", min: "0.01", max: "0.90", tenant_overridable: false, owner_task: INS-005, description: "Gated."}
+  - {key: sp02.min_minutes, type: INTEGER, default: 60, min: 1, max: 1440, tenant_overridable: false, owner_task: INS-005, description: "R2."}
+  - {key: sp02.min_days, type: INTEGER, default: 3, min: 1, max: 14, tenant_overridable: false, owner_task: INS-005, description: "R2."}
+  - {key: sp03.rise, type: DECIMAL, default: "0.50", min: "0.05", max: "10", tenant_overridable: false, owner_task: INS-005, description: "Gated."}
+  - {key: sp04.rise, type: DECIMAL, default: "0.25", min: "0.05", max: "10", tenant_overridable: false, owner_task: INS-005, description: "R2."}
+  # -------------------------------------------------------------------------------------------- workflow (INS-006)
+  - {key: dismiss.default_days, type: INTEGER, default: 90, min: 1, max: 365, tenant_overridable: true, owner_task: INS-006, description: "Default dismissal expiry (owner question Q3)."}
+  - {key: dismiss.max_days, type: INTEGER, default: 365, min: 1, max: 365, tenant_overridable: false, owner_task: INS-006, description: "Maximum dismissal expiry; above → 422 INS_EXPIRY_OUT_OF_RANGE."}
+  - {key: accepted_risk.max_days, type: INTEGER, default: 180, min: 1, max: 180, tenant_overridable: false, owner_task: INS-006, description: "ACCEPTED_RISK requires an expiry ≤ value and capability insight.accept_risk."}
+  - {key: no_longer_observed_after, type: INTEGER, default: 3, min: 1, max: 30, tenant_overridable: false, owner_task: INS-006, description: "Consecutive complete NOT_QUALIFIED evaluations → NO_LONGER_OBSERVED; INSUFFICIENT_DATA never counts."}
+  - {key: reopen.materiality_multiplier, type: DECIMAL, default: "2", min: "1.1", max: "100", tenant_overridable: false, owner_task: INS-006, description: "Dismissed/accepted insight reopens when impact_amount_30d ≥ value × impact_at_dismissal."}
+  - {key: owner_scope.recheck_hours, type: INTEGER, default: 24, min: 1, max: 24, tenant_overridable: false, owner_task: INS-006, description: "Daily owner-scope recheck (INS-006-S10)."}
+  # ------------------------------------------------------------------------------------------- savings (INS-007)
+  - {key: savings.baseline_days, type: INTEGER, default: 28, min: 14, max: 91, tenant_overridable: false, owner_task: INS-007, description: "Default baseline window: complete days ending the day before the intervention."}
+  - {key: savings.min_baseline_days, type: INTEGER, default: 14, min: 14, max: 14, tenant_overridable: false, owner_task: INS-007, description: "Custom/short baselines below this are refused; shorter than baseline_days is labelled."}
+  - {key: savings.max_wait_days, type: INTEGER, default: 30, min: 1, max: 90, tenant_overridable: false, owner_task: INS-007, description: "After post-window end + value days without full FINAL coverage → INCONCLUSIVE_COVERAGE."}
+  - {key: savings.min_post_days_after_rollback, type: INTEGER, default: 14, min: 7, max: 28, tenant_overridable: false, owner_task: INS-007, description: "Truncated post window below value → INCONCLUSIVE (ROLLBACK)."}
+  - {key: savings.implementation_discrepancy_hours, type: INTEGER, default: 24, min: 1, max: 168, tenant_overridable: false, owner_task: INS-006, description: "|attested − detected| > value requires the confirmation flag (INS-006-S08)."}
+  - {key: bootstrap.b, type: INTEGER, default: 2000, min: 2000, max: 2000, tenant_overridable: false, owner_task: INS-007, description: "Moving-block bootstrap resamples."}
+  - {key: bootstrap.block_days, type: INTEGER, default: 7, min: 7, max: 7, tenant_overridable: false, owner_task: INS-007, description: "Block length."}
+  - {key: bootstrap.lower_quantile, type: DECIMAL, default: "0.05", min: "0.05", max: "0.05", tenant_overridable: false, owner_task: INS-007, description: "Interval lower bound."}
+  - {key: bootstrap.upper_quantile, type: DECIMAL, default: "0.95", min: "0.95", max: "0.95", tenant_overridable: false, owner_task: INS-007, description: "Interval upper bound."}
+  - {key: confounder.volume_shift, type: DECIMAL, default: "0.50", min: "0.10", max: "2.00", tenant_overridable: false, owner_task: INS-007, description: "|n_post / n_base − 1| > value → VOLUME_SHIFT → INCONCLUSIVE unless an approved covariate applies."}
+  - {key: confounder.mix_shift, type: DECIMAL, default: "0.20", min: "0.05", max: "0.90", tenant_overridable: false, owner_task: INS-007, description: "> value of post cost from families without baseline → MIX_SHIFT."}

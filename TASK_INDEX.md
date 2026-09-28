@@ -1,5 +1,7 @@
 # Implementation task index
 
+> **Superseded for execution (2026-09-28).** The owner recorded all decisions of the [implementation-readiness review](docs/22-implementation-readiness/README.md). Execute from the [revised task graph](docs/22-implementation-readiness/revised-task-graph.json) (249 tasks: 151 original + 98 new, release tags, hours, corrected dependencies) and the per-domain [backlog files](docs/22-implementation-readiness/backlog/) (micro-steps, oracles, task-specific acceptance). This index is kept as the historical baseline; its dependencies and micro-task IDs are no longer authoritative.
+
 151 tasks;20 domains; all implementation statuses **NOT_STARTED**. This is a stable topological order, not a promise that every task must run serially. A task becomes ready only when all dependencies have accepted implementation evidence. Parallel work may use independent ready tasks while respecting database/schema ownership and release gates.
 
 The [machine index](docs/00-project/task-index.json) owns IDs, hierarchy, dependencies and status. Each domain has one named delivery epic; each listed feature has a concrete user story and independently validated implementation task. Numbered micro-tasks have stable IDs `<task>.<ordinal>` in the machine index; their detailed steps, validation and DoD are in the linked task. Split a task into explicitly indexed children before coding if its independently deployable work exceeds a focused session; never hide extra work in an untracked checklist.

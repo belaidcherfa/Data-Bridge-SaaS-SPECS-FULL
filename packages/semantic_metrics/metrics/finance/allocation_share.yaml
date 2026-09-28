@@ -1,0 +1,38 @@
+# contract=semantic-metric:allocation_share version=1 status=DRAFT owner_task=ALC-102 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: allocation_share
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.allocation_share.label
+description_key: metric.allocation_share.description
+population_key: metric.allocation_share.population
+category: ALLOCATION
+unit: {kind: RATIO, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: PERCENT}
+relation: v_allocation_daily
+measure:
+  type: RATIO
+  numerator: {aggregate: SUM, column_ref: allocated_amount}
+  denominator:
+    aggregate: SUM
+    column_ref: allocated_amount
+    grain_excludes: [group, group_ancestor]
+params:
+- {name: book_id, type: UUID, required: true, binds_column: book_id, floating_default: NONE}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, service_category, group, group_ancestor, component_kind, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_allocation_daily, requires: BOOK_WIDE, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#allocation_share
+  child_resolvers: [formula_operands]
+screen_keys: [financeweight, marketingweight]
+owner_task: ALC-102
+notes: 'Group allocated / book total in the same non-group scope. Group-restricted profiles get null DENOMINATOR_OUTSIDE_SCOPE (canonical semantic-api.md rule; ALC-101-S06''s ''403''
+  wording is superseded for ratios — hand-off K7). Fixture: Finance 12,000 / 20,000 = 0.6.'

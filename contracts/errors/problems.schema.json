@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:errors:problem-catalog:v1",
+  "$comment": "contract=problem-catalog-schema version=1 status=ACCEPTED owner_task=FND-103 last_changed=2026-09-28",
+  "title": "Problem catalog",
+  "type": "object",
+  "required": ["version", "problems"],
+  "properties": {
+    "version": {"type": "integer"},
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "http_status", "title", "retryable", "domain", "owner_task"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$"},
+          "http_status": {"type": "integer", "minimum": 400, "maximum": 599},
+          "title": {"type": "string", "maxLength": 120},
+          "detail_template": {"type": "string"},
+          "retryable": {"type": "boolean"},
+          "domain": {"type": "string"},
+          "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+          "customer_action": {"type": "string", "description": "What the user can do; shown in UI."},
+          "log_level": {"type": "string", "enum": ["DEBUG", "INFO", "WARNING", "ERROR"]}
+        }
+      }
+    }
+  }
+}

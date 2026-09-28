@@ -3,8 +3,8 @@
 ## How an implementation session starts
 
 1. Read [the master plan](PROJECT_MASTER_PLAN.md) and `docs/00-project/STATUS.md` when available.
-2. Load the task index. Select the earliest `NOT_STARTED` task whose dependencies have accepted implementation evidence. Documentation publication is not dependency completion.
-3. Read that task, its canonical domain contract and linked ADRs. Do not load the whole repository as a substitute for explicit dependencies.
+2. Load the [revised task graph](docs/22-implementation-readiness/revised-task-graph.json) (authoritative since 2026-09-28; the original `docs/00-project/task-index.json` is the historical baseline). Select a `NOT_STARTED` R1 task on your lane whose dependencies have accepted implementation evidence, preferring critical-path tasks ([REVISED_CRITICAL_PATH](docs/22-implementation-readiness/REVISED_CRITICAL_PATH.md)). Documentation publication is not dependency completion.
+3. Read that task's section in its [backlog file](docs/22-implementation-readiness/backlog/) (micro-steps, oracles, acceptance), the relevant [decision record](docs/22-implementation-readiness/DECISIONS_REQUIRED.md) entries, [RECONCILIATION](docs/22-implementation-readiness/RECONCILIATION.md) rulings that name it, the original task file, its canonical domain contract and linked ADRs. Do not load the whole repository as a substitute for explicit dependencies. Coding agents follow `AGENTS.md` (FND-006) and hand live gates to a human reviewer (D-19).
 4. Inspect current code and tests. Record baseline commit, task owner, assumptions and worktree. Never overwrite unrelated work.
 5. Set implementation state to `IN_PROGRESS`, record the next micro-task and evidence paths. Only one owner changes an interface at a time.
 

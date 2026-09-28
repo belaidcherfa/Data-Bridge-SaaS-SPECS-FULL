@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.deletion_request.status_changed:v1",
+  "$comment": "contract=event-bridge.ops.deletion_request.status_changed version=1 status=DRAFT owner_task=OPS-005 decisions=D-10,D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.deletion_request.status_changed v1 payload",
+  "description": "A privacy request changed status (deletion_request.yaml). TENANT_DELETION CERTIFIED lets CTL-102 move the tenant to DELETED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deletion_request_id",
+    "request_type",
+    "origin",
+    "from_status",
+    "to_status",
+    "event",
+    "due_at",
+    "request_revision"
+  ],
+  "properties": {
+    "deletion_request_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "SUBJECT_ACCESS",
+        "SUBJECT_ERASURE",
+        "TENANT_DELETION"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "TENANT_MEMBER",
+        "TENANT_OFFBOARDING",
+        "OPERATOR_CONTRACT_END"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "RECEIVED",
+        "PREVIEWED",
+        "APPROVED",
+        "HELD",
+        "EXECUTING",
+        "VERIFIED",
+        "CERTIFIED",
+        "REJECTED",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "RECEIVED",
+        "PREVIEWED",
+        "APPROVED",
+        "HELD",
+        "EXECUTING",
+        "VERIFIED",
+        "CERTIFIED",
+        "REJECTED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "event": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[a-z_]+$"
+    },
+    "due_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "request_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    }
+  },
+  "examples": [
+    {
+      "deletion_request_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e31",
+      "request_type": "SUBJECT_ERASURE",
+      "origin": "TENANT_MEMBER",
+      "from_status": "APPROVED",
+      "to_status": "EXECUTING",
+      "event": "execution_started",
+      "due_at": "2026-11-18T12:00:00.000Z",
+      "request_revision": 4
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+# contract=semantic-metric:realized_savings version=1 status=DRAFT owner_task=INS-007 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: realized_savings
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.realized_savings.label
+description_key: metric.realized_savings.description
+population_key: metric.realized_savings.population
+category: OPTIMIZATION
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_insight_summary
+measure:
+  type: SUM
+  column_ref: realized_amount
+  population:
+  - {column: row_kind, op: EQ, value: REALIZED}
+  - {column: realized_status, op: EQ, value: VERIFIED}
+  - {column: is_counted_realized, op: EQ, value: true}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, warehouse, workload, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: false, maturity_filter: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#realized_savings
+  child_resolvers: [savings_study]
+screen_keys: [verifiedsavings]
+owner_task: INS-007
+notes: 'Verified normalized savings for non-overlapping action scopes and measurement windows; negative (adverse) values are kept, never clamped. Fixture: expected 24,000 − observed
+  18,000 = 6,000; adverse 24,000 − 26,000 = −2,000.'

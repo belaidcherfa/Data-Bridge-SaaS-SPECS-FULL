@@ -1,0 +1,200 @@
+# contract=semantic-relation:v_attribution_daily version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_attribution_daily
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_attribution_daily
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: bridge_charge_attribution aggregated to UTC day, including exactly one explicit residual row per parent charge (target_id '__UNATTRIBUTED__', attribution_method NONE) so
+  that Σ amount by any resource dimension equals spend of the same buckets (G-API-02). Query-level attribution is aggregated to (warehouse, user, role, workload, dbt model, hash) per
+  day; individual queries live in v_query_exec.
+serving_view: bridge.serving.serving_attribution_daily
+dataset_id: attribution_daily
+dbt_model: serving_attribution_daily
+upstream_owner_tasks: [FIN-001, FIN-003, FIN-006, FIN-018, FIN-019, WRK-001, DBT-006]
+grain_keys: [tenant_id, attribution_row_key]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [au.warehouse_metering_history, au.query_attribution_history, au.database_storage_usage_history, au.pipe_usage_history]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: attribution_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL, description: 'sha256 over (charge_row_id, attribution_set, target_kind, target_id and
+    every dimension column) — unique per revision.'}
+- {name: charge_row_id, type: VARCHAR(64), nullable: false, role: PROVENANCE, privacy: INTERNAL, description: Parent charge; Σ amount per charge_row_id = parent cost_effective exactly
+    (control C6).}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- name: scope_kind
+  type: VARCHAR(12)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [ACCOUNT, ORGANIZATION]
+- {name: account_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: Internal account id; NULL iff scope_kind = ORGANIZATION (D-12).}
+- {name: region, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA, description: Snowflake region id of the account (e.g. AWS_EU_CENTRAL_1); NULL for organization-scope
+    rows.}
+- name: cloud
+  type: VARCHAR(8)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [AWS, AZURE, GCP]
+- name: service_family
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: &id001 [WAREHOUSE_COMPUTE, CLOUD_SERVICES, STORAGE, SNOWPIPE_FILE, SNOWPIPE_STREAMING, SERVERLESS_TASK, SERVERLESS_ALERT, AUTO_CLUSTERING, SEARCH_OPTIMIZATION, MATERIALIZED_VIEW,
+    QUERY_ACCELERATION, AI_SERVICES, SPCS, DATA_TRANSFER, REPLICATION, MARKETPLACE, ORGANIZATION_FEES, ADJUSTMENTS, HYBRID_TABLE_REQUESTS, UNMAPPED_BILLABLE_SERVICE]
+  description: FIN crosswalk family (ref_service_crosswalk, crosswalk_version on the charge).
+- name: service_category
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [COMPUTE, CLOUD_SERVICES, STORAGE, SERVERLESS, AI, SPCS, DATA_TRANSFER, REPLICATION, APPLICATIONS_MARKETPLACE, ORGANIZATION, ADJUSTMENT, OTHER]
+  description: Deterministic grouping of service_family (dimensions/service_category.yaml).
+- {name: service_type, type: VARCHAR, nullable: false, role: DIMENSION, privacy: INTERNAL, description: 'Raw Snowflake SERVICE_TYPE (service_type_raw), upper-cased and trimmed.'}
+- {name: sub_service, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL, description: Raw USAGE_TYPE (usage_type_raw) or the AI/serverless sub-type where the source provides
+    it.}
+- {name: currency, type: VARCHAR(3), nullable: false, role: DIMENSION, privacy: INTERNAL, description: ISO 4217 currency of the money columns of the row.}
+- name: price_basis
+  type: VARCHAR(32)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [BILLED_SOURCE, CONTRACT_RATE_ESTIMATE, CUSTOMER_APPROVED_RATE, UNKNOWN]
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- name: attribution_set
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: *id001
+  description: Attribution set = service family of the parent charge.
+- name: target_kind
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [QUERY, WAREHOUSE_IDLE, WAREHOUSE, DATABASE, STAGE, TABLE, PIPE, HIDDEN_PIPE, STREAMING_CHANNEL, TASK, ALERT, DYNAMIC_TABLE, MATERIALIZED_VIEW, COMPUTE_POOL, SPCS_SERVICE,
+    AI_FUNCTION, AI_SEARCH_SERVICE, AI_ANALYST, AI_AGENT, TRANSFER_DIRECTION, REPLICATION_GROUP, LISTING, APPLICATION, ACCOUNT, ORGANIZATION, RESIDUAL]
+- {name: target_id, type: VARCHAR, nullable: false, role: DIMENSION, privacy: INTERNAL, description: Resource id of the target; '__UNATTRIBUTED__' on residual rows.}
+- {name: is_residual, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: TRUE on the explicit residual row of a parent charge (target_id = '__UNATTRIBUTED__').}
+- name: residual_kind
+  type: VARCHAR(24)
+  nullable: true
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [UNATTRIBUTED, PRORATION_RESIDUAL, OVER_ATTRIBUTED, HIDDEN_RESOURCE]
+- name: attribution_method
+  type: VARCHAR(24)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [QAH, QMH, CLASSIC_IDLE, WMH_WAREHOUSE, CS_DRIVER_D15, DSUH_TWA, STAGE_BYTES, TABLE_STORAGE, PIPE_CREDITS, STREAMING_DETAIL, SERVERLESS_DETAIL, AI_DETAIL, SPCS_POOL_HOUR,
+    TRANSFER_DETAIL, REPLICATION_DETAIL, MARKETPLACE_DETAIL, NONE]
+- name: attribution_status
+  type: VARCHAR(24)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [EXACT, PRORATED, APPROXIMATE_OVERLAP, RESIDUAL]
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: warehouse_type
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [CLASSIC, ADAPTIVE]
+- {name: warehouse_size, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: database_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: 'Set only on storage attribution rows (FIN-006); compute rows are NULL (no attribution
+    path, G-API-02 (4)).'}
+- {name: compute_pool_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: spcs_service_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: pipe_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: '''__UNKNOWN__'' sentinel for hidden pipes (NULL PIPE_ID, FIN-011).'}
+- {name: task_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: dynamic_table_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: application_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: ai_family
+  type: VARCHAR(24)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [AI_FUNCTIONS, CORTEX_SEARCH, CORTEX_ANALYST, CORTEX_AGENTS, DOCUMENT_AI, FINE_TUNING, OTHER_AI]
+- {name: ai_model, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- name: storage_class
+  type: VARCHAR(24)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [ACTIVE, TIME_TRAVEL, FAILSAFE, RETAINED_FOR_CLONE, STAGE, HYBRID, ARCHIVE_COOL, ARCHIVE_COLD]
+- {name: user_pseudonym, type: VARCHAR, nullable: true, role: DIMENSION, privacy: PERSONAL, description: D-10 pseudonym u1_…; names resolved in the API only with identity.resolve.}
+- {name: role_name, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: client_application, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- name: workload_type
+  type: VARCHAR(24)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT, POWER_BI, TASK, PROCEDURE, DYNAMIC_TABLE, SNOWPIPE, NATIVE_APP, SPCS, CORTEX, CUSTOM_APP, BI_OTHER, AD_HOC, BRIDGE_OVERHEAD, UNKNOWN]
+- {name: workload_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: environment
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [PRODUCTION, STAGING, DEV, OTHER, UNKNOWN]
+- {name: dbt_project_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: dbt_model_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: dbt_resource_type
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [MODEL, TEST, SEED, SNAPSHOT, OPERATION, ANALYSIS, SQL_OPERATION, UNIT_TEST, SOURCE, OVERHEAD]
+- name: pbi_mode
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [IMPORT, DIRECT_QUERY, UNKNOWN]
+- {name: query_parameterized_hash, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL, description: QUERY_PARAMETERIZED_HASH; '__NO_HASH__' when absent (WRK-104-S04).}
+- {name: query_hash_version, type: 'NUMBER(38,0)', nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: evidence_class
+  type: VARCHAR(24)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [VERIFIED, DECLARED_CORROBORATED, DECLARED, OBSERVED, INFERRED, UNKNOWN]
+- {name: amount, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Signed money share of the parent charge; NULL iff the parent cost_effective is
+    NULL.}
+- {name: credits, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Credit share (credit-rated families); operational pre-adjustment credits for WAREHOUSE_COMPUTE.}
+- {name: ai_tokens, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Native token units where the AI source emits them; NULL otherwise.}
+- {name: ai_requests, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: spcs_node_hours, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: files_loaded, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: bytes_loaded, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: is_trial_account, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: 'D-35: TRUE for Snowflake trial accounts (demonstration only); excluded from reconciliation
+    claims.'}
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001
+notes: DBT-006 must name this dataset; DBT-006-S01's serving_warehouse_daily and serving_workload_daily are projections of this relation (hand-off K4).

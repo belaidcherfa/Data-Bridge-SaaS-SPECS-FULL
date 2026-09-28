@@ -1,0 +1,33 @@
+# contract=semantic-metric:unattributed_cost version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: unattributed_cost
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.unattributed_cost.label
+description_key: metric.unattributed_cost.description
+population_key: metric.unattributed_cost.population
+category: FINANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: amount
+  population:
+  - {column: is_residual, op: EQ, value: true}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, scope_kind, service_category, service_family, service_type, sub_service, currency, data_status, price_basis, warehouse,
+  compute_pool]
+required_sources: [au.warehouse_metering_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#unattributed_cost
+  child_resolvers: [attribution_by_target]
+screen_keys: [spcsunallocated]
+owner_task: API-001
+notes: Residual rows only (UNATTRIBUTED, PRORATION_RESIDUAL, OVER_ATTRIBUTED, HIDDEN_RESOURCE kinds).

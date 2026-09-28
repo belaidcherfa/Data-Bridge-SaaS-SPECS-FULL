@@ -1,0 +1,42 @@
+# contract=semantic-metric:execution_failure_rate version=1 status=DRAFT owner_task=WRK-002 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: execution_failure_rate
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.execution_failure_rate.label
+description_key: metric.execution_failure_rate.description
+population_key: metric.execution_failure_rate.population
+category: WORKLOAD
+unit: {kind: RATIO, currency_policy: NOT_APPLICABLE, display_hint: PERCENT}
+relation: v_workload_exec
+measure:
+  type: RATIO
+  numerator:
+    aggregate: COUNT_DISTINCT
+    column_ref: execution_id
+    population:
+    - &id001 {column: basis, op: EQ, value: VERIFIED}
+    - {column: has_failed_leaf, op: EQ, value: true}
+  denominator:
+    aggregate: COUNT_DISTINCT
+    column_ref: execution_id
+    population:
+    - *id001
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, execution_kind, workload_type, workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, warehouse, dynamic_table,
+  task, evidence_class, query_status, data_status]
+required_filter_or_dimension: [execution_kind]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_workload_exec, requires: SAME_AS_NUMERATOR, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#execution_failure_rate
+  child_resolvers: [formula_operands]
+screen_keys: [modelfailure]
+owner_task: WRK-002

@@ -1,0 +1,32 @@
+# contract=state-machine-reconciliation-run version=1 status=DRAFT owner_task=FIN-009 decisions=D-12,D-13,D-33,D-35 last_changed=2026-09-28
+# Reconciliation control run (job) lifecycle — FIN-009-S02/S12. The business outcome (worst required-control status) is
+# a separate field (outcome_status), never a state of this machine.
+machine: reconciliation_run
+version: 1
+owner_task: FIN-009
+entity: finance.reconciliation_run
+state_field: status
+initial: QUEUED
+terminal: [SUCCEEDED, ERRORED, CANCELLED]
+states:
+  QUEUED: {description: "Accepted (POST /v1/reconciliation/runs returns 202, or nightly/publication/reference/explanation trigger); waiting for the orchestrator."}
+  RUNNING: {description: "Dagster dbt job (reconciliation selector) executing against the pinned ledger publication."}
+  SUCCEEDED: {description: "Every requested control produced a result per currency (possibly PENDING/FAILED or NOT_APPLICABLE); outcome_status and is_reconciled set."}
+  ERRORED: {description: "Technical failure (build error, timeout); no control result is trusted; error_code set."}
+  CANCELLED: {description: "Superseded by a newer run of the same scope and trigger, or cancelled by a user before it started."}
+transitions:
+  - {from: QUEUED, to: RUNNING, event: started, actors: ["system:orchestrator"], guards: [ledger_publication_pinned], effects: ["write:ledger_pub_seq", "emit:bridge.finance.reconciliation_run.started"]}
+  - {from: QUEUED, to: CANCELLED, event: cancelled, actors: [finance.reconciliation.run, "system:finance-worker"], guards: [], effects: ["emit:bridge.finance.reconciliation_run.completed"]}
+  - {from: QUEUED, to: ERRORED, event: failed_to_start, actors: ["system:orchestrator"], guards: [], effects: ["emit:bridge.finance.reconciliation_run.completed"]}
+  - {from: RUNNING, to: SUCCEEDED, event: completed, actors: ["system:orchestrator"], guards: [all_requested_controls_have_results_per_currency], effects: ["write:finance.reconciliation_control_result", "write:finance.financial_period(reconciliation summary)", "open:finance.correction_case(C9 drift)", "invalidate:finance.reconciliation_explanation(changed differences)", "emit:bridge.finance.reconciliation_run.completed"]}
+  - {from: RUNNING, to: ERRORED, event: failed, actors: ["system:orchestrator"], guards: [], effects: ["emit:bridge.finance.reconciliation_run.completed"]}
+  - {from: RUNNING, to: CANCELLED, event: cancelled, actors: ["system:finance-worker"], guards: [newer_run_same_scope_started], effects: ["emit:bridge.finance.reconciliation_run.completed"]}
+guards:
+  ledger_publication_pinned: "The run pins the tenant's current pub_seq (ADR-014 pinned reads); all controls of the run read that publication"
+  all_requested_controls_have_results_per_currency: "One fct_reconciliation_run row per (control, currency) exists for the run in Snowflake (status or NULL + status_reason)"
+  newer_run_same_scope_started: "A later run for the same (organization, period, currency, trigger) reached RUNNING"
+invariants:
+  - "A run never writes fct_charge (no balancing plug); only fct_reconciliation, fct_reconciliation_run and PG summaries."
+  - "Controls run per currency; no USD+EUR aggregate is produced."
+  - "Duplicate POST with the same Idempotency-Key returns the same run_id (FIN-009-S12)."
+  - "Trial-account-only scopes (D-35) complete with outcome_status NULL + TRIAL_ACCOUNT and is_reconciled = false."

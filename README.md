@@ -4,6 +4,8 @@ Implementation-ready specification for the journey from an empty repository to t
 
 A new authorized design phase adds [87 detailed ASCII screens](docs/21-ui-ux/SCREEN_INDEX.md) and a [standalone React prototype](prototypes/finops-react/README.md), with shared components, synthetic KPI fixtures and interactive review states. [Design workbench](docs/21-ui-ux/README.md).
 
+**Before implementing, read the [implementation-readiness review](docs/22-implementation-readiness/README.md)** (2026-09-28): 317 findings including 29 blockers, 38 decisions (all recorded by the owner), 234 contract-first artifacts, ADR-014 to ADR-016, and a revised 249-task backlog with 2,809 verifiable micro-steps. It supersedes the original task files' micro-steps, dependencies and acceptance criteria.
+
 Start with [PROJECT_MASTER_PLAN](PROJECT_MASTER_PLAN.md), [DELIVERY_METHODOLOGY](DELIVERY_METHODOLOGY.md), [ARCHITECTURE_OVERVIEW](ARCHITECTURE_OVERVIEW.md), [DEPENDENCY_GRAPH](DEPENDENCY_GRAPH.md) and [MILESTONES](MILESTONES.md).
 
 - [151 implementation tasks in construction order](TASK_INDEX.md), with prerequisites, micro-tasks, data/interfaces, security, failures, UX, tests and DoD.

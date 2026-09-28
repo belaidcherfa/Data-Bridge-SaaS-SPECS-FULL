@@ -1,0 +1,99 @@
+# contract=state-machine-incident version=1 status=DRAFT owner_task=GOV-004 decisions=D-05,D-10,D-27 last_changed=2026-09-28
+# Incident episode (monitor.incident) and the condition tracker fold that creates it (monitor.condition_tracker).
+# This file IS the transition table of backlog/GOV.md G-GOV-08 (GOV-004-S06), with the corrected confirmation
+# semantics of G-GOV-01 / AUDIT X-30: counters advance only on a NEW DISTINCT WINDOW; a newer publication for an
+# already counted window SUPERSEDES its result and adds no count; ticks are attributes, never identity.
+#
+# Keys
+#   tracker key  = (tenant_id, monitor_id, condition_version, partition_key_hash)             -- monitor.condition_tracker
+#   episode key  = same as tracker key; at most one incident with status <> RESOLVED per key   -- partial unique index
+#   observation  = (tenant, monitor_id, monitor_version, condition_version, partition_key_hash,
+#                   window_start, window_end, input_publication_id)                            -- Snowflake observation
+#   event_id     = uuid5(NS_incident_transition, incident_id ␟ transition_seq)                 -- see contracts/_handoffs/K7.md
+#
+# Parameters (from the monitor version): N_b = breach_evaluations (1–10, default 2), N_r = recovery_evaluations
+# (1–10, default 2), cooldown_seconds (0–604800, default 3600), reminder_interval 24 h.
+#
+# Tracker fold (pure; deterministic replay): order the LATEST result of each distinct window (window_end ascending)
+# since the last episode boundary; walk it with (breach_count, ok_count); BREACH → breach_count+1, ok_count=0;
+# OK → ok_count+1 (and breach_count=0 when no episode is active); INSUFFICIENT_DATA → no counter change.
+machine: incident
+version: 1
+owner_task: GOV-004
+entity: monitor.incident
+state_field: status
+initial: OPEN
+terminal: [RESOLVED]
+states:
+  OPEN: {description: "Episode active; created by the tracker when breach_count reaches N_b on a new distinct window (or by a correction re-fold)."}
+  ACKNOWLEDGED: {description: "A member whose scope ⊇ the partition acknowledged the incident."}
+  INVESTIGATING: {description: "A member whose scope ⊇ the partition started an investigation."}
+  RESOLVED: {description: "Terminal. resolution_kind ∈ OBSERVED_RECOVERY, DATA_CORRECTION, MANUAL, DEFINITION_CHANGED, MONITOR_DISABLED. A new sustained breach creates a new episode id."}
+creation:
+  - {event: breach_observed, when: "no active episode for the key", window: new_distinct_window, guards: ["breach_count + 1 >= N_b", "now >= cooldown_until"], to: OPEN, effects: [create:monitor.incident, "set:occurrence_count=breach_count+1", "emit:bridge.governance.incident.opened (unless silenced: delivery SUPPRESSED_SILENCE, event still emitted)"]}
+  - {event: breach_observed, when: "no active episode for the key", window: new_distinct_window, guards: ["otherwise (breach_count + 1 < N_b or now < cooldown_until)"], to: null, effects: ["breach_count++ (saturating at N_b while cooling down)", "ok_count = 0"]}
+  - {event: window_superseded, when: "no active episode for the key", guards: ["re-fold over latest results reaches N_b", "now >= cooldown_until"], to: OPEN, effects: [create:monitor.incident, "set:opened_by_correction=true", emit:bridge.governance.incident.opened]}
+  - {event: ok_observed, when: "no active episode for the key", window: new_distinct_window, guards: [], to: null, effects: ["breach_count = 0", "ok_count++"]}
+  - {event: insufficient_data_observed, when: "no active episode for the key", guards: [], to: null, effects: ["counters unchanged", "monitor-level insufficient > 48 h → owner notice (not an incident)"]}
+transitions:
+  # --- evaluation-driven (actor = system:monitor-tracker) -------------------------------------------------
+  - {from: OPEN, to: OPEN, event: breach_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window], effects: ["occurrence_count++ (saturating 10000)", "ok_count=0", emit_updated_on_escalation_or_reminder]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: breach_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window], effects: ["occurrence_count++ (saturating 10000)", "ok_count=0", emit_updated_on_escalation_or_reminder]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: breach_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window], effects: ["occurrence_count++ (saturating 10000)", "ok_count=0", emit_updated_on_escalation_or_reminder]}
+  - {from: OPEN, to: RESOLVED, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_confirmed], effects: ["resolution_kind=OBSERVED_RECOVERY", set_cooldown_until, reset_tracker_counters, emit:bridge.governance.incident.recovered]}
+  - {from: ACKNOWLEDGED, to: RESOLVED, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_confirmed], effects: ["resolution_kind=OBSERVED_RECOVERY", set_cooldown_until, reset_tracker_counters, emit:bridge.governance.incident.recovered]}
+  - {from: INVESTIGATING, to: RESOLVED, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_confirmed], effects: ["resolution_kind=OBSERVED_RECOVERY", set_cooldown_until, reset_tracker_counters, emit:bridge.governance.incident.recovered]}
+  - {from: OPEN, to: OPEN, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_not_confirmed], effects: ["ok_count++", "breach_count=0"]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_not_confirmed], effects: ["ok_count++", "breach_count=0"]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: ok_observed, actors: ["system:monitor-tracker"], guards: [new_distinct_window, recovery_not_confirmed], effects: ["ok_count++", "breach_count=0"]}
+  - {from: OPEN, to: OPEN, event: insufficient_data_observed, actors: ["system:monitor-tracker"], guards: [], effects: ["counters unchanged", add_timeline_note]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: insufficient_data_observed, actors: ["system:monitor-tracker"], guards: [], effects: ["counters unchanged", add_timeline_note]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: insufficient_data_observed, actors: ["system:monitor-tracker"], guards: [], effects: ["counters unchanged", add_timeline_note]}
+  - {from: OPEN, to: RESOLVED, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_below_breach_threshold], effects: ["resolution_kind=DATA_CORRECTION", reset_tracker_counters, emit_recovered_data_correction_at_most_once_per_24h]}
+  - {from: ACKNOWLEDGED, to: RESOLVED, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_below_breach_threshold], effects: ["resolution_kind=DATA_CORRECTION", reset_tracker_counters, emit_recovered_data_correction_at_most_once_per_24h]}
+  - {from: INVESTIGATING, to: RESOLVED, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_below_breach_threshold], effects: ["resolution_kind=DATA_CORRECTION", reset_tracker_counters, emit_recovered_data_correction_at_most_once_per_24h]}
+  - {from: OPEN, to: OPEN, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_still_breaching], effects: [recompute_occurrence_count, add_timeline_note]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_still_breaching], effects: [recompute_occurrence_count, add_timeline_note]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: window_superseded, actors: ["system:monitor-tracker"], guards: [refold_still_breaching], effects: [recompute_occurrence_count, add_timeline_note]}
+  # --- workflow actions (If-Match on the incident revision; scope ⊇ partition) ------------------------------
+  - {from: OPEN, to: ACKNOWLEDGED, event: acknowledge, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.acknowledged]}
+  - {from: OPEN, to: INVESTIGATING, event: investigate, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.investigation_started]}
+  - {from: ACKNOWLEDGED, to: INVESTIGATING, event: investigate, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.investigation_started]}
+  - {from: OPEN, to: OPEN, event: assign, actors: [monitor.manage], guards: [actor_scope_covers_partition, assignee_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.assigned]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: assign, actors: [monitor.manage], guards: [actor_scope_covers_partition, assignee_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.assigned]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: assign, actors: [monitor.manage], guards: [actor_scope_covers_partition, assignee_scope_covers_partition], effects: [audit, emit:bridge.governance.incident.assigned]}
+  - {from: OPEN, to: RESOLVED, event: manual_resolve, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition, reason_at_least_10_chars], effects: ["resolution_kind=MANUAL", reset_tracker_counters, set_cooldown_until, audit, emit:bridge.governance.incident.resolved]}
+  - {from: ACKNOWLEDGED, to: RESOLVED, event: manual_resolve, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition, reason_at_least_10_chars], effects: ["resolution_kind=MANUAL", reset_tracker_counters, set_cooldown_until, audit, emit:bridge.governance.incident.resolved]}
+  - {from: INVESTIGATING, to: RESOLVED, event: manual_resolve, actors: [monitor.manage, incident.respond], guards: [actor_scope_covers_partition, reason_at_least_10_chars], effects: ["resolution_kind=MANUAL", reset_tracker_counters, set_cooldown_until, audit, emit:bridge.governance.incident.resolved]}
+  # --- definition / lifecycle driven -------------------------------------------------------------------------
+  - {from: OPEN, to: RESOLVED, event: condition_version_bumped, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=DEFINITION_CHANGED", "new tracker key starts at zero", emit:bridge.governance.incident.resolved]}
+  - {from: ACKNOWLEDGED, to: RESOLVED, event: condition_version_bumped, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=DEFINITION_CHANGED", "new tracker key starts at zero", emit:bridge.governance.incident.resolved]}
+  - {from: INVESTIGATING, to: RESOLVED, event: condition_version_bumped, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=DEFINITION_CHANGED", "new tracker key starts at zero", emit:bridge.governance.incident.resolved]}
+  - {from: OPEN, to: RESOLVED, event: monitor_disabled, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=MONITOR_DISABLED", emit:bridge.governance.incident.resolved]}
+  - {from: ACKNOWLEDGED, to: RESOLVED, event: monitor_disabled, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=MONITOR_DISABLED", emit:bridge.governance.incident.resolved]}
+  - {from: INVESTIGATING, to: RESOLVED, event: monitor_disabled, actors: ["system:monitor-service"], guards: [], effects: ["resolution_kind=MONITOR_DISABLED", emit:bridge.governance.incident.resolved]}
+  - {from: OPEN, to: OPEN, event: owner_scope_lost, actors: ["system:membership-watcher"], guards: [], effects: ["monitor → PAUSED_AUTH", stop_deliveries, notify:tenant_admins]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: owner_scope_lost, actors: ["system:membership-watcher"], guards: [], effects: ["monitor → PAUSED_AUTH", stop_deliveries, notify:tenant_admins]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: owner_scope_lost, actors: ["system:membership-watcher"], guards: [], effects: ["monitor → PAUSED_AUTH", stop_deliveries, notify:tenant_admins]}
+  - {from: OPEN, to: OPEN, event: silence_expired, actors: ["system:silence-reaper"], guards: [last_event_suppressed_by_this_silence], effects: ["emit:bridge.governance.incident.updated {update_reason: STILL_ACTIVE} exactly once"]}
+  - {from: ACKNOWLEDGED, to: ACKNOWLEDGED, event: silence_expired, actors: ["system:silence-reaper"], guards: [last_event_suppressed_by_this_silence], effects: ["emit:bridge.governance.incident.updated {update_reason: STILL_ACTIVE} exactly once"]}
+  - {from: INVESTIGATING, to: INVESTIGATING, event: silence_expired, actors: ["system:silence-reaper"], guards: [last_event_suppressed_by_this_silence], effects: ["emit:bridge.governance.incident.updated {update_reason: STILL_ACTIVE} exactly once"]}
+guards:
+  new_distinct_window: "(window_start, window_end) has no prior result in monitor.tracker_window_result for this tracker. A re-tick of an observed (window, publication) is skipped by the planner before any Snowflake query; a retry of the same evaluation yields the same observation_id (uuid5) and is a no-op."
+  recovery_confirmed: "ok_count + 1 >= N_r."
+  recovery_not_confirmed: "ok_count + 1 < N_r."
+  refold_below_breach_threshold: "Re-folding the latest result per distinct window (after replacing the superseded window's result) no longer reaches N_b consecutive breaching windows ending at or after the episode's first window."
+  refold_still_breaching: "Re-fold still reaches N_b."
+  actor_scope_covers_partition: "The actor's scope (SEC-101) ⊇ the incident's partition scope and the actor holds monitor.manage (or is an explicit assignee with analytics.read over the partition); foreign or invisible incident → 404."
+  assignee_scope_covers_partition: "Assignee is an ACTIVE member whose scope ⊇ partition; else 422 GOV_ASSIGNEE_SCOPE_INSUFFICIENT."
+  reason_at_least_10_chars: "resolution_reason length >= 10 characters; else 422 GOV_INCIDENT_RESOLVE_REASON_REQUIRED."
+  last_event_suppressed_by_this_silence: "The incident is still active and its last notification-worthy event was suppressed (delivery SUPPRESSED_SILENCE) by the expiring silence."
+invariants:
+  - "At most one incident with status <> RESOLVED per (tenant, monitor_id, condition_version, partition_key_hash) — enforced transactionally (SELECT … FOR UPDATE on the tracker + partial unique index)."
+  - "RESOLVED is terminal; a later sustained breach creates a new incident id."
+  - "INSUFFICIENT_DATA never increments either counter and never resolves an incident."
+  - "Re-ticks and retries add no observation, no occurrence and no notification."
+  - "incident.updated is emitted only on severity escalation or as a 24-hour reminder (and once on silence expiry); occurrence increments alone do not notify."
+  - "A DATA_CORRECTION recovery notification is emitted at most once per 24 h per incident key."
+  - "Silence is an overlay on delivery only (scope monitor or monitor+partition, owner, reason, expiry ≤ 30 days, default 24 h); it never changes incident state."
+  - "Every transition increments transition_seq and writes one monitor.incident_event row; event_id = uuid5(NS_incident_transition, incident_id␟transition_seq), so a duplicated transition cannot emit a second event."

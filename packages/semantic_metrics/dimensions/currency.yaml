@@ -1,0 +1,33 @@
+# contract=semantic-dimension:currency version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: currency
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.currency.label
+description_key: dimension.currency.description
+group: BILLING
+kind: ATTRIBUTE
+value_type: STRING
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: VALUE}
+bindings:
+- {relation: v_charge_daily, column_ref: currency}
+- {relation: v_attribution_daily, column_ref: currency}
+- {relation: v_allocation_daily, column_ref: currency}
+- {relation: v_allocation_coverage_daily, column_ref: currency}
+- {relation: v_query_exec, column_ref: currency}
+- {relation: v_query_family_daily, column_ref: currency}
+- {relation: v_budget_daily, column_ref: currency}
+- {relation: v_forecast, column_ref: currency}
+- {relation: v_insight_summary, column_ref: currency}
+- {relation: v_workload_exec, column_ref: currency}
+- {relation: v_ai_usage, column_ref: currency}
+sortable: true
+owner_task: API-001
+notes: 'Filter, never conversion (G-API-14): a multi-currency scope without a currency filter forces currency into the output dimensions of money metrics.'

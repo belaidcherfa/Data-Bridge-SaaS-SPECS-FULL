@@ -1,0 +1,42 @@
+# contract=state-machine-period-close-request version=1 status=DRAFT owner_task=FIN-010 decisions=D-13,D-25 last_changed=2026-09-28
+# Close request (preview) lifecycle — FIN-010-S03/S04/S08. Drives the CLOSE_PREVIEWED leg of machine `period`.
+machine: period_close_request
+version: 1
+owner_task: FIN-010
+entity: finance.period_close_request
+state_field: status
+initial: PREVIEW_PENDING
+terminal: [APPROVED, REJECTED, EXPIRED, STALE, FAILED]
+states:
+  PREVIEW_PENDING: {description: "Request accepted (202); the close worker evaluates preconditions and computes the freeze set and statement preview against the current publication."}
+  PREVIEWED: {description: "Preview ready: manifest_sha256, statement preview and ordered remedy list stored; awaiting approval until preview_expires_at (<= 24 h)."}
+  APPROVED: {description: "A second authorized user approved; the period moved to CLOSING_ARTIFACTS and a finance.period_close v1 exists."}
+  REJECTED: {description: "Cancelled by the requester or rejected by an approver."}
+  EXPIRED: {description: "Preview TTL elapsed without decision."}
+  STALE: {description: "A pinned input changed after the preview (late billing revision, new control run, stability revoked); a new request is needed (FIN_STALE_PREVIEW)."}
+  FAILED: {description: "Preview computation failed (technical error); failure_code set; a new request may be made."}
+transitions:
+  - {from: PREVIEW_PENDING, to: PREVIEWED, event: preview_computed, actors: ["system:finance-worker"], guards: [manifest_complete, statement_preview_balances], effects: ["emit:bridge.finance.period.close_previewed"]}
+  - {from: PREVIEW_PENDING, to: FAILED, event: preview_failed, actors: ["system:finance-worker"], guards: [], effects: ["write:finance.financial_period(status=MONTH_STABLE)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: PREVIEW_PENDING, to: REJECTED, event: request_cancelled, actors: [finance.period.close.request], guards: [actor_is_requester], effects: ["write:finance.financial_period(status=MONTH_STABLE)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: PREVIEW_PENDING, to: STALE, event: inputs_changed, actors: ["system:finance-worker", "system:finance-maturity-evaluator"], guards: [stability_revoked_or_pins_changed], effects: ["write:finance.financial_period(status=MONTH_STABLE|OPEN)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: PREVIEWED, to: APPROVED, event: approved, actors: [finance.period.close.approve], guards: [preview_not_expired, pins_unchanged_since_preview, preconditions_still_hold, approver_differs_from_requester_or_waiver, fresh_durable_authz_check, step_up_recent], effects: ["write:finance.financial_period(status=CLOSING_ARTIFACTS)", "write:finance.period_close(version=1)"]}
+  - {from: PREVIEWED, to: REJECTED, event: rejected, actors: [finance.period.close.approve, finance.period.close.request], guards: [], effects: ["write:finance.financial_period(status=MONTH_STABLE)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: PREVIEWED, to: EXPIRED, event: preview_expired, actors: ["system:finance-worker"], guards: [now_ge_preview_expires_at], effects: ["write:finance.financial_period(status=MONTH_STABLE)", "emit:bridge.finance.period.close_rejected"]}
+  - {from: PREVIEWED, to: STALE, event: inputs_changed, actors: ["system:finance-worker", "system:finance-maturity-evaluator", finance.period.close.approve], guards: [stability_revoked_or_pins_changed], effects: ["write:finance.financial_period(status=MONTH_STABLE|OPEN)", "emit:bridge.finance.period.close_rejected"]}
+guards:
+  manifest_complete: "Every freeze-set member of data/contracts/finance/close_manifest.schema.json is resolved (no null pin except fx_version in R1)"
+  statement_preview_balances: "Sum of rounded statement lines = rounded total (round_statement_lines postcondition) per currency"
+  actor_is_requester: "actor membership = requested_by"
+  stability_revoked_or_pins_changed: "The period left MONTH_STABLE, or the recomputed manifest hash differs from the stored one (an approve attempt that detects it returns 409 FIN_STALE_PREVIEW and records this transition)"
+  preview_not_expired: "now() < preview_expires_at"
+  pins_unchanged_since_preview: "Recomputed manifest sha256 = manifest_sha256"
+  preconditions_still_hold: "See machine `period`"
+  approver_differs_from_requester_or_waiver: "See machine `period`"
+  fresh_durable_authz_check: "See machine `period`"
+  step_up_recent: "See machine `period`"
+  now_ge_preview_expires_at: "now() >= preview_expires_at"
+invariants:
+  - "At most one request per period is PREVIEW_PENDING or PREVIEWED (unique partial index period_close_request_one_active_uq)."
+  - "The preview is deterministic: identical inputs yield an identical manifest_sha256 (FIN-010-S04)."
+  - "A duplicate approve with the same Idempotency-Key, or after APPROVED, returns the same close record (FIN-010-S06/S10)."

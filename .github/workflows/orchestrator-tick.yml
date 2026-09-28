@@ -1,0 +1,44 @@
+# Mode C/D scheduled orchestrator tick (ORCHESTRATION §3). Disabled unless DELIVERY_MODE is "C".
+# In mode B the tick runs on the delivery server (tools/orchestrator) instead.
+name: orchestrator-tick
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+concurrency:
+  group: orchestrator-tick
+  cancel-in-progress: false
+jobs:
+  tick:
+    if: vars.DELIVERY_MODE == 'C'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: orchestrator
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Ledger worktree
+        run: |
+          git fetch origin delivery-ledger && git worktree add ../ledger delivery-ledger || \
+            (git worktree add -b delivery-ledger ../ledger origin/main)
+      - uses: astral-sh/setup-uv@v6
+      - uses: anthropics/claude-code-action@v1
+        env:
+          BRIDGE_ROLE: orchestrator
+          BRIDGE_LEDGER: ../ledger
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.ORCHESTRATOR_GITHUB_TOKEN }}
+          prompt: |
+            Run one orchestration tick with the orchestrator-tick skill. The ledger worktree is ../ledger
+            (branch delivery-ledger). Dispatch workers with `gh workflow run agent-task.yml` (mode C).
+            Write the tick log, and the daily report in French once per day (skill daily-report).
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 120

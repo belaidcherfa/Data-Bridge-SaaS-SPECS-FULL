@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:insights:insight-observation:v1",
+  "$comment": "contract=insight-observation version=1 status=DRAFT owner_task=INS-001 decisions=D-05,D-06,D-10,D-11,D-12,D-13 last_changed=2026-09-28. One row per (fingerprint, evaluation) emitted by the detector engine and landed through the ORC-103 writer into py_outputs.insight_observation_r (V0700). Observations are emitted for every QUALIFIED resource and for fingerprints QUALIFIED within insights.tracking_days (with their non-qualified status); everything else is counted in insight_detector_evaluation. Identity: fingerprint = sha256 hex of 'ins-fp-v1|tenant_id|detector_id|detector_major|account_id|resource.type|native_resource_id|variant' (G-INS-10); observation_id = UUIDv5(namespace insight_observation, fingerprint␟window_end_date␟detector_version␟input_publications_sha256) — namespace requested in contracts/_handoffs/K8.md.",
+  "title": "InsightObservation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tenant_id", "organization_id", "account_id", "observation_id", "fingerprint", "detector_id", "detector_version", "detector_major", "detector_family", "algorithm_run_id", "as_of", "window_start", "window_end", "current_window", "baseline_window", "input_pub_seq", "input_publication_ids", "config_version", "parameter_set_sha256", "feature_snapshot_hash", "eligibility_status", "reason_code", "metrics", "impact_kind", "impact_amount_window", "impact_amount_30d", "currency", "potential_30d", "potential_reason", "potential_method", "cost_pool_key", "opportunity_group_key", "sample_count", "confidence_method", "severity", "severity_tier", "evidence_ids", "evidence_truncated_count", "resource", "recommendation_template", "data_status", "revision_id"],
+  "properties": {
+    "tenant_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "organization_id": {"type": ["string", "null"], "format": "uuid", "x-privacy": "INTERNAL", "description": "Bridge organization of the account (row access policy RAP_ACCOUNT_SCOPED argument); null for a standalone account without an organization record."},
+    "account_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL", "description": "Bridge account UUID (backlog name account_uuid)."},
+    "observation_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$", "x-privacy": "INTERNAL"},
+    "detector_id": {"type": "string", "pattern": "^(WH|Q|ST|PL|PI|AI|SP)[0-9]{2}$", "x-privacy": "PUBLIC"},
+    "detector_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "x-privacy": "PUBLIC"},
+    "detector_major": {"type": "integer", "minimum": 0, "x-privacy": "PUBLIC"},
+    "detector_family": {"enum": ["WAREHOUSE", "QUERY", "STORAGE", "PIPELINE", "INGESTION", "AI", "SPCS"], "x-privacy": "PUBLIC"},
+    "algorithm_run_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL", "description": "ORC-103 run_id (= build_id of the revisioned partition)."},
+    "as_of": {"type": "string", "format": "date", "x-privacy": "INTERNAL", "description": "Evaluation day D (last complete UTC day of the pinned financial publication)."},
+    "window_start": {"type": "string", "format": "date-time", "x-privacy": "INTERNAL", "description": "Start of the union of evaluated windows (half-open)."},
+    "window_end": {"type": "string", "format": "date-time", "x-privacy": "INTERNAL"},
+    "current_window": {"$ref": "#/$defs/interval"},
+    "baseline_window": {"oneOf": [{"$ref": "#/$defs/interval"}, {"type": "null"}]},
+    "input_pub_seq": {"type": "integer", "minimum": 1, "x-privacy": "INTERNAL", "description": "Financial publication P pinned by the run (ADR-014 two-phase publication)."},
+    "input_publication_ids": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer", "minimum": 1}, "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"}, "x-privacy": "INTERNAL", "description": "dataset_id → dataset_version (pub_seq at which the dataset's map last changed) read by the run; its sorted canonical JSON sha256 enters observation_id."},
+    "config_version": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL", "description": "CTL-005 INSIGHT_PARAMETERS config version pinned (0 = catalog defaults only)."},
+    "parameter_set_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "x-privacy": "INTERNAL"},
+    "feature_snapshot_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$", "x-privacy": "INTERNAL", "description": "sha256 of the canonical feature rows the detector read for this resource."},
+    "eligibility_status": {"enum": ["QUALIFIED", "NOT_QUALIFIED", "SUPPRESSED", "INSUFFICIENT_DATA"], "x-privacy": "PUBLIC"},
+    "reason_code": {"oneOf": [{"$ref": "urn:bridge:schema:insights:reason-code:v1"}, {"type": "null"}], "x-privacy": "PUBLIC", "description": "null only when eligibility_status = QUALIFIED."},
+    "metrics": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/metric"},
+      "x-privacy": "INTERNAL"
+    },
+    "impact_kind": {"enum": ["ESTIMATE", "CEILING", "EXPOSURE", "OBSERVED_EXCESS", "NONE"], "x-privacy": "PUBLIC"},
+    "impact_amount_window": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}], "x-privacy": "INTERNAL"},
+    "impact_amount_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}], "x-privacy": "INTERNAL", "description": "impact_amount_window × 30 / window_days, Decimal precision 38, quantized to 12 dp HALF_EVEN."},
+    "currency": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/currency_code"}, {"type": "null"}], "x-privacy": "PUBLIC"},
+    "potential_30d": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}], "x-privacy": "INTERNAL"},
+    "potential_reason": {"oneOf": [{"$ref": "urn:bridge:schema:insights:reason-code:v1"}, {"type": "null"}], "x-privacy": "PUBLIC", "description": "Why potential_30d is null (e.g. NOT_ESTIMABLE_BY_DESIGN, CALIBRATION_FAILED, NO_PRICE); null iff potential_30d is non-null."},
+    "potential_method": {"enum": ["WH02_GAP_SIMULATION", "Q01_UNIT_COST_RETURN", "ST_RETENTION_REDUCTION", "WH03_EXPERIMENT", null], "x-privacy": "PUBLIC"},
+    "cost_pool_key": {"type": ["string", "null"], "maxLength": 512, "x-privacy": "INTERNAL", "description": "Instantiated key_template of the detector's cost pool kind; null for non-monetary detectors."},
+    "opportunity_group_key": {"type": ["string", "null"], "maxLength": 512, "x-privacy": "INTERNAL", "description": "Root pool key of the group this observation belongs to (per tenant, account, currency)."},
+    "sample_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "confidence_method": {"enum": ["DETERMINISTIC_THRESHOLD", "ROBUST_Z_MAD", "SIMULATION_CALIBRATED", "COHORT_DECOMPOSITION"], "x-privacy": "PUBLIC"},
+    "severity": {"enum": ["INFO", "LOW", "MEDIUM", "HIGH"], "x-privacy": "PUBLIC", "description": "INFO for non-qualified tracking rows."},
+    "severity_tier": {"enum": ["LOW", "MEDIUM", "HIGH", null], "x-privacy": "PUBLIC"},
+    "evidence_ids": {"type": "array", "maxItems": 200, "items": {"type": "string", "format": "uuid"}, "x-privacy": "INTERNAL"},
+    "evidence_truncated_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account_id", "type", "native_id", "variant", "name_at_observation"],
+      "properties": {
+        "account_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+        "type": {"enum": ["WAREHOUSE", "QUERY_FAMILY", "TABLE", "ACCOUNT", "PIPE", "DBT_MODEL", "TASK", "PIPELINE", "AI_SERVICE", "AI_MODEL", "COMPUTE_POOL", "APPLICATION", "LOGICAL_EXECUTION"], "x-privacy": "PUBLIC"},
+        "native_id": {"type": "string", "maxLength": 512, "x-privacy": "CUSTOMER_METADATA", "description": "native_resource_id (e.g. WAREHOUSE_ID, TSM ID, '<param_hash>:<hash_version>')."},
+        "variant": {"type": ["string", "null"], "maxLength": 256, "x-privacy": "CUSTOMER_METADATA"},
+        "name_at_observation": {"type": ["string", "null"], "maxLength": 512, "x-privacy": "CUSTOMER_METADATA", "description": "Display name at observation time (warehouse/table name); never part of the fingerprint."}
+      }
+    },
+    "recommendation_template": {"type": ["string", "null"], "pattern": "^[a-z0-9_.]+\\.v[0-9]+$", "x-privacy": "PUBLIC"},
+    "data_status": {"$ref": "urn:bridge:schema:common:maturity:v1#/$defs/data_status", "x-privacy": "PUBLIC", "description": "Least mature data_status among inputs (D-13)."},
+    "is_trial_account": {"type": "boolean", "default": false, "x-privacy": "INTERNAL", "description": "D-35: demonstration only; excluded from portfolio totals."},
+    "revision_id": {"type": "integer", "minimum": 1, "x-privacy": "INTERNAL", "description": "ADR-014 revision of the (tenant, detector_family, as_of) partition."}
+  },
+  "allOf": [
+    {"if": {"properties": {"eligibility_status": {"const": "QUALIFIED"}}}, "then": {"properties": {"reason_code": {"type": "null"}}}, "else": {"properties": {"reason_code": {"not": {"type": "null"}}}}},
+    {"if": {"properties": {"potential_30d": {"type": "string"}}, "required": ["potential_30d"]}, "then": {"properties": {"potential_method": {"not": {"const": null}}, "potential_reason": {"type": "null"}, "currency": {"type": "string"}}}, "else": {"properties": {"potential_reason": {"not": {"type": "null"}}}}},
+    {"if": {"properties": {"impact_amount_30d": {"type": "string"}}, "required": ["impact_amount_30d"]}, "then": {"properties": {"currency": {"type": "string"}}}},
+    {"if": {"properties": {"impact_kind": {"const": "NONE"}}}, "then": {"properties": {"impact_amount_window": {"type": "null"}, "impact_amount_30d": {"type": "null"}, "potential_30d": {"type": "null"}, "cost_pool_key": {"type": "null"}}}},
+    {"if": {"properties": {"impact_kind": {"enum": ["CEILING", "EXPOSURE", "OBSERVED_EXCESS"]}}}, "then": {"properties": {"potential_30d": {"type": "null"}}}}
+  ],
+  "$defs": {
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {"start": {"type": "string", "format": "date-time"}, "end": {"type": "string", "format": "date-time"}},
+      "description": "Half-open UTC interval [start, end)."
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "unit"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "value": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]},
+        "value_reason": {"$ref": "urn:bridge:schema:common:unknown-reason:v1"},
+        "unit": {"enum": ["CREDIT", "BYTE", "BYTE_DAY", "SECOND", "MILLISECOND", "QUERY", "EXECUTION", "FILE", "TOKEN", "REQUEST", "RATIO", "COUNT", "CURRENCY", "DAY", "HOUR", "NODE_HOUR", "Z_SCORE"]},
+        "currency": {"$ref": "urn:bridge:schema:common:money:v1#/$defs/currency_code"}
+      },
+      "allOf": [
+        {"if": {"properties": {"unit": {"const": "CURRENCY"}}}, "then": {"required": ["currency"]}},
+        {"if": {"properties": {"value": {"type": "null"}}}, "then": {"required": ["value_reason"]}}
+      ]
+    }
+  },
+  "examples": [
+    {
+      "tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80",
+      "organization_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a81",
+      "account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82",
+      "observation_id": "5b3c1f0e-8a1d-5c2e-9f3a-1b2c3d4e5f60",
+      "fingerprint": "3f1e2d4c5b6a79880a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071",
+      "detector_id": "WH02",
+      "detector_version": "1.0.0",
+      "detector_major": 1,
+      "detector_family": "WAREHOUSE",
+      "algorithm_run_id": "01923f6b-0000-7000-8000-000000000001",
+      "as_of": "2026-09-27",
+      "window_start": "2026-09-14T00:00:00.000Z",
+      "window_end": "2026-09-28T00:00:00.000Z",
+      "current_window": {"start": "2026-09-14T00:00:00.000Z", "end": "2026-09-28T00:00:00.000Z"},
+      "baseline_window": null,
+      "input_pub_seq": 48211,
+      "input_publication_ids": {"fct_ins_wh_hourly": 48211, "fct_ins_wh_busy_intervals": 48190, "dim_warehouse_config": 48205},
+      "config_version": 3,
+      "parameter_set_sha256": "9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+      "feature_snapshot_hash": "0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c",
+      "eligibility_status": "QUALIFIED",
+      "reason_code": null,
+      "metrics": [
+        {"name": "auto_suspend_current_s", "value": "600", "unit": "SECOND"},
+        {"name": "qualifying_gap_count", "value": "42", "unit": "COUNT"},
+        {"name": "saving_credits", "value": "25.2", "unit": "CREDIT"},
+        {"name": "calibration_rel_error", "value": "0.04", "unit": "RATIO"}
+      ],
+      "impact_kind": "ESTIMATE",
+      "impact_amount_window": "50.40",
+      "impact_amount_30d": "108.00",
+      "currency": "USD",
+      "potential_30d": "108.00",
+      "potential_reason": null,
+      "potential_method": "WH02_GAP_SIMULATION",
+      "cost_pool_key": "WAREHOUSE_IDLE:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD",
+      "opportunity_group_key": "WAREHOUSE_TOTAL:01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82:1234:USD",
+      "sample_count": 42,
+      "confidence_method": "SIMULATION_CALIBRATED",
+      "severity": "MEDIUM",
+      "severity_tier": "MEDIUM",
+      "evidence_ids": ["01923f6b-0000-7000-8000-0000000000e1"],
+      "evidence_truncated_count": 0,
+      "resource": {"account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82", "type": "WAREHOUSE", "native_id": "1234", "variant": null, "name_at_observation": "TRANSFORM_WH"},
+      "recommendation_template": "wh.auto_suspend.v1",
+      "data_status": "PROVISIONAL",
+      "is_trial_account": false,
+      "revision_id": 7
+    }
+  ],
+  "x-negative-examples": [
+    {"why": "float money", "patch": {"impact_amount_30d": 108.0}},
+    {"why": "missing metric unit", "patch": {"metrics": [{"name": "saving_credits", "value": "25.2"}]}},
+    {"why": "unknown reason code", "patch": {"eligibility_status": "SUPPRESSED", "reason_code": "NOT_A_CODE"}},
+    {"why": "potential without potential_method", "patch": {"potential_method": null}},
+    {"why": "CEILING with a numeric potential", "patch": {"impact_kind": "CEILING"}},
+    {"why": "foreign tenant row inside a run for tenant 01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80 (schema-valid; rejected at runtime by the ORC-103 tenant guard: whole run REJECTED, 0 rows landed)", "runtime": true, "patch": {"tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7b99"}}
+  ]
+}

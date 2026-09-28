@@ -1,0 +1,35 @@
+# contract=semantic-metric:failed_query_count version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: failed_query_count
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.failed_query_count.label
+description_key: metric.failed_query_count.description
+population_key: metric.failed_query_count.population
+category: PERFORMANCE
+unit: {kind: COUNT, currency_policy: NOT_APPLICABLE, quantity_unit: QUERY, display_hint: INTEGER}
+relation: v_query_exec
+measure:
+  type: COUNT
+  population:
+  - {column: status_class, op: EQ, value: FAILED}
+aggregate_binding:
+  relation: v_query_family_daily
+  measure: {type: SUM, column_ref: failed_count}
+  unsupported_dimensions: [database, user, role, client_application, dbt_model, dbt_resource_type, pbi_mode, evidence_class, query_status, execution_kind]
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, warehouse, warehouse_type, warehouse_size, database, user, role, client_application, workload_type, workload, environment, dbt_project,
+  dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class, query_status, execution_kind]
+required_sources: [au.query_history, au.query_attribution_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#failed_query_count
+  child_resolvers: [query_set]
+screen_keys: [failed]
+owner_task: API-001

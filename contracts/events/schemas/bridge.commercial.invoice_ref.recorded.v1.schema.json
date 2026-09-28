@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.invoice_ref.recorded:v1",
+  "$comment": "contract=event-bridge.commercial.invoice_ref.recorded version=1 status=DRAFT owner_task=LCH-001 decisions=D-30,D-36 last_changed=2026-09-28",
+  "title": "bridge.commercial.invoice_ref.recorded v1 payload",
+  "description": "An invoice or credit note reference was recorded by a finance operator (manual form or CSV import).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invoice_ref_id",
+    "document_kind",
+    "credit_note_of",
+    "subscription_id",
+    "amount_incl_tax",
+    "amount_excl_tax",
+    "due_on",
+    "service_period_start",
+    "service_period_end",
+    "collection_channel"
+  ],
+  "properties": {
+    "invoice_ref_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "document_kind": {
+      "type": "string",
+      "enum": [
+        "INVOICE",
+        "CREDIT_NOTE"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "credit_note_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "subscription_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "amount_incl_tax": {
+      "allOf": [
+        {
+          "$ref": "../../common/money.schema.json"
+        }
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "amount_excl_tax": {
+      "allOf": [
+        {
+          "$ref": "../../common/money.schema.json"
+        }
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "due_on": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "x-privacy": "INTERNAL"
+    },
+    "service_period_start": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "x-privacy": "INTERNAL"
+    },
+    "service_period_end": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "x-privacy": "INTERNAL"
+    },
+    "collection_channel": {
+      "type": "string",
+      "enum": [
+        "BANK_TRANSFER",
+        "STRIPE_PAYMENT_LINK"
+      ],
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "invoice_ref_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e24",
+      "document_kind": "INVOICE",
+      "credit_note_of": null,
+      "subscription_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e20",
+      "amount_incl_tax": {
+        "amount": "12000.00",
+        "currency": "USD"
+      },
+      "amount_excl_tax": {
+        "amount": "12000.00",
+        "currency": "USD"
+      },
+      "due_on": "2026-11-30",
+      "service_period_start": "2026-11-01",
+      "service_period_end": "2027-11-01",
+      "collection_channel": "BANK_TRANSFER"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.deployment.recorded:v1",
+  "$comment": "contract=event-bridge.ops.deployment.recorded version=1 status=DRAFT owner_task=REL-002 decisions=D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.deployment.recorded v1 payload",
+  "description": "A deployment record was written or closed (deployment-record.v1.json). Platform event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deployment_id",
+    "release_id",
+    "env",
+    "decision",
+    "duration_s",
+    "new_manifest_sha256"
+  ],
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "release_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "env": {
+      "type": "string",
+      "enum": [
+        "dev",
+        "staging",
+        "production"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "IN_PROGRESS",
+        "COMPLETED",
+        "ROLLED_BACK",
+        "FORWARD_FIXED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "duration_s": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "minimum": 0
+    },
+    "new_manifest_sha256": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "examples": [
+    {
+      "deployment_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e38",
+      "release_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e37",
+      "env": "production",
+      "decision": "COMPLETED",
+      "duration_s": 1260,
+      "new_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

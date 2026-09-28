@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.feature_flag.changed:v1",
+  "$comment": "contract=event-bridge.ops.feature_flag.changed version=1 status=DRAFT owner_task=REL-102 decisions=D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.feature_flag.changed v1 payload",
+  "description": "A feature flag or kill switch value changed (platform event, tenant_id null; the scope carries tenant/account ids).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flag_id",
+    "key",
+    "flag_kind",
+    "scope_type",
+    "scope_id",
+    "old_value",
+    "new_value",
+    "flag_revision"
+  ],
+  "properties": {
+    "flag_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "key": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){1,4}$"
+    },
+    "flag_kind": {
+      "type": "string",
+      "enum": [
+        "RELEASE",
+        "KILL_SWITCH",
+        "OPERATIONAL"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": [
+        "GLOBAL",
+        "TENANT",
+        "ACCOUNT",
+        "CONNECTION",
+        "SOURCE",
+        "CHANNEL",
+        "ROUTE"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "scope_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "maxLength": 128
+    },
+    "old_value": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "new_value": {
+      "type": "boolean",
+      "x-privacy": "INTERNAL"
+    },
+    "flag_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    }
+  },
+  "examples": [
+    {
+      "flag_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e35",
+      "key": "extraction.tenant.paused",
+      "flag_kind": "KILL_SWITCH",
+      "scope_type": "TENANT",
+      "scope_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e36",
+      "old_value": false,
+      "new_value": true,
+      "flag_revision": 2
+    }
+  ]
+}

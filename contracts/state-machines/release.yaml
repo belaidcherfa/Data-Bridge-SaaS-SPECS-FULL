@@ -1,0 +1,67 @@
+# contract=state-machine-release version=1 status=DRAFT owner_task=REL-001 decisions=D-19,D-21,D-25 last_changed=2026-09-28
+# Release lifecycle of one immutable release manifest (docs/releases/release-manifest.v1.json). Entity: ops.release (contracts/postgres/ops.sql).
+# Weekly train: BUILT -> STAGING -> VERIFIED -> APPROVED_FOR_PRODUCTION -> PRODUCTION (dark production until go-live, REL-104).
+# Go-live candidate (REL-004): VERIFIED -> CANDIDATE -> APPROVED_FOR_PRODUCTION (GO) | NO_GO, recorded in docs/production/go-no-go.yaml.
+machine: release
+version: 1
+owner_task: REL-001
+entity: ops.release
+state_field: status
+initial: BUILT
+terminal: [REJECTED, NO_GO, ROLLED_BACK, SUPERSEDED]
+states:
+  BUILT: {description: "Images built once per commit, pushed by digest, signed (cosign, KMS key), SBOM + provenance attested; manifest generated and validated."}
+  STAGING: {description: "Deployed to staging by the pipeline (auto on merge to main)."}
+  VERIFIED: {description: "All required checks green for exactly these digests and every required evidence class fresh (docs/releases/evidence-impact.yaml)."}
+  REJECTED: {description: "Build/manifest invalid or required evidence failed; the release never reaches production."}
+  CANDIDATE: {description: "Tagged vX.Y.Z-rc.N; manifest frozen (immutable object, sha recorded); go/no-go evaluation in progress (REL-004)."}
+  NO_GO: {description: "Go/no-go computed NO_GO (failed gate, missing approval, forbidden waiver, stale evidence). signup.enabled stays false."}
+  APPROVED_FOR_PRODUCTION: {description: "Promotion approved (weekly train) or GO decided (go-live candidate); production deployment may start."}
+  PRODUCTION: {description: "Production deployment COMPLETED (deployment record); this release serves production."}
+  ROLLED_BACK: {description: "Production deployment rolled back (automatic blue/green rollback or RB-13); previous release keeps serving."}
+  SUPERSEDED: {description: "A newer release reached PRODUCTION."}
+transitions:
+  - {from: BUILT, to: STAGING, event: deployed_to_staging, actors: ["system:release-pipeline"], guards: [manifest_valid_and_complete, signatures_and_attestations_verified, migration_lint_passed], effects: ["emit:bridge.ops.release.status_changed", "emit:bridge.ops.deployment.recorded"]}
+  - {from: BUILT, to: REJECTED, event: build_rejected, actors: ["system:release-pipeline"], guards: [manifest_or_signature_invalid], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: STAGING, to: VERIFIED, event: evidence_passed, actors: ["system:release-pipeline"], guards: [required_checks_green_for_digests, required_evidence_fresh, n_minus_1_compatibility_passed, serving_compatibility_ok], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: STAGING, to: REJECTED, event: evidence_failed, actors: ["system:release-pipeline"], guards: [a_required_check_failed], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: VERIFIED, to: APPROVED_FOR_PRODUCTION, event: promotion_approved, actors: [ops.release.approve], guards: [required_evidence_fresh, month_close_freeze_respected, go_live_already_decided_or_signup_disabled, serving_compatibility_ok, approver_is_not_author], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: VERIFIED, to: CANDIDATE, event: rc_tagged, actors: [ops.release.manage], guards: [version_is_rc_tag, manifest_frozen], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: CANDIDATE, to: APPROVED_FOR_PRODUCTION, event: go_decided, actors: [ops.release.approve], guards: [all_fourteen_gates_pass_or_accepted, four_distinct_approvals_with_evidence, security_approver_not_suite_implementer, no_forbidden_waiver, rollback_owner_named, required_evidence_fresh], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: CANDIDATE, to: NO_GO, event: no_go_decided, actors: [ops.release.approve, "system:release-gate"], guards: [a_blocking_gate_failed_or_missing], effects: ["emit:bridge.ops.release.status_changed"]}
+  - {from: APPROVED_FOR_PRODUCTION, to: PRODUCTION, event: production_deploy_completed, actors: ["system:release-pipeline"], guards: [deployment_record_completed, production_smoke_suite_green], effects: ["emit:bridge.ops.release.status_changed", "emit:bridge.ops.deployment.recorded"]}
+  - {from: APPROVED_FOR_PRODUCTION, to: ROLLED_BACK, event: production_deploy_rolled_back, actors: ["system:release-pipeline"], guards: [deployment_record_rolled_back], effects: ["emit:bridge.ops.release.status_changed", "emit:bridge.ops.deployment.recorded"]}
+  - {from: PRODUCTION, to: ROLLED_BACK, event: rollback_executed, actors: [ops.release.rollback], guards: [previous_release_compatible], effects: ["emit:bridge.ops.release.status_changed", "emit:bridge.ops.deployment.recorded"]}
+  - {from: PRODUCTION, to: SUPERSEDED, event: superseded, actors: ["system:release-pipeline"], guards: [newer_release_in_production], effects: ["emit:bridge.ops.release.status_changed"]}
+guards:
+  manifest_valid_and_complete: "manifest validates against release-manifest.v1.json and names every component of infra/services.yaml; a component missing from the manifest fails the build (REL-001-S01)"
+  signatures_and_attestations_verified: "cosign verify + verify-attestation succeed for every digest with the expected workflow identity; tags are rejected"
+  migration_lint_passed: "CTL-002 linter (rules docs/releases/migration-lint-rules.yaml) passed for every migration in the release"
+  manifest_or_signature_invalid: "negation of manifest_valid_and_complete or signatures_and_attestations_verified"
+  required_checks_green_for_digests: "every required check of FND-006 ci-checks for the manifest commit/digests is green (unit/contract, dbt state:modified+, oasdiff, migration gate, security scans, OPS-011 evidence gate)"
+  required_evidence_fresh: "every evidence class impacted since the last accepted evidence (evidence-impact.yaml path globs) is re-run and no evidence exceeds its max age"
+  n_minus_1_compatibility_passed: "REL-101-S04 job: previous release's integration tests pass against the new schema head"
+  serving_compatibility_ok: "every tenant's current publication serving_schema_version is in the API build's supported_serving_schema_versions (docs/releases/serving-compatibility.md pre-deploy check)"
+  a_required_check_failed: "any required check red or any required evidence failed for the digests"
+  month_close_freeze_respected: "if the change set touches financial-logic paths and today is in [last business day of month M, month_end + 5 days], a FinOps approval label is present (REL-001-S12)"
+  go_live_already_decided_or_signup_disabled: "either a previous release passed go_decided, or production feature flag signup.enabled = false (dark production)"
+  approver_is_not_author: "the approving operator did not author a commit of the change set (D-19 human review)"
+  version_is_rc_tag: "version matches ^vX.Y.Z-rc.N$"
+  manifest_frozen: "manifest object stored immutably and its sha256 recorded in ops.release.manifest_sha256"
+  all_fourteen_gates_pass_or_accepted: "docs/production/go-no-go.yaml: all 14 gates PASS, or a risk acceptance with scope, compensating control, owner and unexpired expiry exists for a waivable gate"
+  four_distinct_approvals_with_evidence: "ops.release_approval has APPROVE rows for ENGINEERING, SECURITY, FINOPS, OPERATIONS by four distinct operators, each with an evidence link"
+  security_approver_not_suite_implementer: "the SECURITY approver is not an author of the OPS-004 security suite commits"
+  no_forbidden_waiver: "no risk acceptance waives a forbidden class (tenant exposure, fabricated financial result, core architecture boundary)"
+  rollback_owner_named: "go-no-go.yaml rollback_owner set and RB-13 dry run succeeded (REL-004-S04)"
+  a_blocking_gate_failed_or_missing: "any blocking gate FAIL or NOT_RUN without acceptance, a missing approval, or any failed isolation/financial invariant (computed NO_GO without human override, REL-004-S07)"
+  deployment_record_completed: "ops.deployment for env production with decision COMPLETED and new_manifest_sha256 = this manifest"
+  production_smoke_suite_green: "tests/smoke/production suite green (canary login, isolation probe, 270 fixture, report download, alarm test)"
+  deployment_record_rolled_back: "ops.deployment for env production with decision ROLLED_BACK"
+  previous_release_compatible: "the release to roll back to is in the supported serving schema window and its migrations are compatible (expand-only since)"
+  newer_release_in_production: "another release transitioned to PRODUCTION after this one"
+invariants:
+  - "The same signed digests reach staging and production (build once); tags and unsigned images never deploy."
+  - "A release that has not passed VERIFIED never reaches production."
+  - "One failed tenant-isolation or financial invariant yields NO_GO without human override (REL-004 acceptance)."
+  - "signup.enabled can only become true after a go_decided transition (kill-switches.md)."
+  - "At most one production deployment is IN_PROGRESS (ops.deployment partial unique index)."

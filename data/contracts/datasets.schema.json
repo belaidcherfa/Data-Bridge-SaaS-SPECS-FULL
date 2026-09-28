@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:data:datasets:v1",
+  "$comment": "contract=datasets-schema version=1 status=DRAFT owner_task=DBT-101 decisions=D-05,D-06,D-11,D-12,D-26 last_changed=2026-09-28. Validates data/contracts/datasets.yaml (ADR-014 dataset catalog). The catalog is synced into BRIDGE.OPS_META.DATASET and OPS_META.DATASET_PARTITION_RULE by the release pipeline.",
+  "title": "Analytical dataset catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "version", "registry_version", "status", "owner_task", "defaults", "partition_rules", "source_rules", "retention_classes", "datasets", "views", "external_tables"],
+  "properties": {
+    "contract": {"const": "datasets"},
+    "version": {"type": "integer", "minimum": 1},
+    "registry_version": {"type": "integer", "minimum": 1, "description": "Bumped on every catalog change; recorded in OPS_META.DATASET.registry_version and in each BUILD."},
+    "status": {"enum": ["DRAFT", "ACCEPTED", "DEPRECATED"]},
+    "owner_task": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+    "decisions": {"type": "array", "items": {"type": "string", "pattern": "^D-[0-9]{2}$"}},
+    "last_changed": {"type": "string", "format": "date"},
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "partition_columns", "revision_columns", "clustering", "time_travel_days", "superseded_retention_days", "orphan_retention_hours", "automatic_clustering", "all_partition_start"],
+      "properties": {
+        "database": {"const": "bridge"},
+        "partition_columns": {"const": ["tenant_id", "scope_id", "partition_start"]},
+        "revision_columns": {"const": ["revision_id", "build_id"]},
+        "clustering": {"$ref": "#/$defs/column_list"},
+        "time_travel_days": {"const": 1},
+        "superseded_retention_days": {"type": "integer", "minimum": 7},
+        "orphan_retention_hours": {"type": "integer", "minimum": 1},
+        "automatic_clustering": {"enum": ["SUSPENDED_INITIALLY", "ENABLED"]},
+        "all_partition_start": {"const": "1970-01-01T00:00:00"}
+      }
+    },
+    "partition_rules": {
+      "type": "object",
+      "description": "Vocabulary of dataset-to-dataset partition mapping rules (OPS_META.DATASET_PARTITION_RULE.rule).",
+      "propertyNames": {"$ref": "#/$defs/partition_rule"},
+      "additionalProperties": {"type": "string", "minLength": 10}
+    },
+    "source_rules": {
+      "type": "object",
+      "description": "Vocabulary of accepted-batch window to dataset-partition impact rules (ORC-101-S03 impact map).",
+      "propertyNames": {"$ref": "#/$defs/source_rule"},
+      "additionalProperties": {"type": "string", "minLength": 10}
+    },
+    "retention_classes": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/retention_class"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["retention_days", "rebuild_horizon_days", "beyond_horizon", "policy_owner", "basis"],
+        "properties": {
+          "retention_days": {"oneOf": [{"type": "integer", "minimum": 1}, {"const": "hot_days"}]},
+          "rebuild_horizon_days": {"type": "integer", "minimum": 0},
+          "beyond_horizon": {"$ref": "#/$defs/beyond_horizon"},
+          "policy_owner": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}$"},
+          "basis": {"type": "string"}
+        }
+      }
+    },
+    "datasets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dataset"}},
+    "views": {"type": "array", "items": {"$ref": "#/$defs/view"}},
+    "external_tables": {"type": "array", "items": {"$ref": "#/$defs/external_table"}}
+  },
+  "$defs": {
+    "column_list": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/column_name"}},
+    "column_name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$"},
+    "dataset_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{2,62}(@[1-9][0-9]*)?$", "description": "dbt model name (or versioned id `<model>@<n>`, DBT-104 R2). Equals PUBLICATION_MAP.dataset_id and PARTITION_REVISION.dataset_id."},
+    "task_id": {"type": "string", "pattern": "^[A-Z]{2,3}-[0-9]{3}(-S[0-9]{2})?$"},
+    "partition_rule": {"enum": ["identity", "hour_to_day", "day_to_month", "account_to_org", "org_to_accounts", "tenant_all_open", "scope_all_open"]},
+    "source_rule": {"enum": ["window_hours", "window_hours_to_day", "window_days", "org_day_fanout", "snapshot_scope_all", "config_version_tenant_open"]},
+    "retention_class": {"enum": ["FINANCIAL", "QUERY_GRAIN", "EXECUTION", "AGGREGATE", "DIMENSION", "PY_OUTPUT", "QUALITY_INTERNAL"]},
+    "beyond_horizon": {"enum": ["REFUSE", "RE_EXTRACT", "CARRY_FORWARD"], "description": "REFUSE → DBT_REBUILD_HORIZON_EXCEEDED; RE_EXTRACT → planner requests re-extraction (Account Usage ≤ 365 d) before rebuild; CARRY_FORWARD → partition is kept as published and never rebuilt."},
+    "scope": {"enum": ["ACCOUNT", "ORGANIZATION", "ACCOUNT_OR_ORGANIZATION", "TENANT"], "description": "scope_id = account_id | organization_id | coalesce(account_id, organization_id) | tenant_id."},
+    "granularity": {"enum": ["HOUR", "DAY", "MONTH", "ALL"], "description": "partition_start = DATE_TRUNC(granularity, time_column) as TIMESTAMP_NTZ(9) UTC; ALL = constant 1970-01-01T00:00:00 (small whole-scope datasets)."},
+    "rap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "args"],
+      "properties": {
+        "policy": {"enum": ["security.rap_account_scoped", "security.rap_group_scoped", "security.rap_tenant_only", "security.rap_scoped_object"]},
+        "args": {"$ref": "#/$defs/column_list"},
+        "masking": {
+          "type": "array",
+          "items": {"type": "object", "additionalProperties": false, "required": ["column", "policy"], "properties": {"column": {"$ref": "#/$defs/column_name"}, "policy": {"const": "security.mp_sql_text_full"}}}
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"policy": {"const": "security.rap_account_scoped"}}}, "then": {"properties": {"args": {"minItems": 3, "maxItems": 3, "prefixItems": [{"const": "tenant_id"}]}}}},
+        {"if": {"properties": {"policy": {"const": "security.rap_group_scoped"}}}, "then": {"properties": {"args": {"minItems": 5, "maxItems": 5, "prefixItems": [{"const": "tenant_id"}]}}}},
+        {"if": {"properties": {"policy": {"const": "security.rap_scoped_object"}}}, "then": {"properties": {"args": {"minItems": 5, "maxItems": 5, "prefixItems": [{"const": "tenant_id"}]}}}},
+        {"if": {"properties": {"policy": {"const": "security.rap_tenant_only"}}}, "then": {"properties": {"args": {"const": ["tenant_id"]}}}}
+      ]
+    },
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_id", "rule"],
+      "properties": {
+        "dataset_id": {"$ref": "#/$defs/dataset_id"},
+        "rule": {"$ref": "#/$defs/partition_rule"},
+        "note": {"type": "string"}
+      }
+    },
+    "source_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "rule"],
+      "properties": {
+        "source_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$", "description": "ING-001 registry source_id (landing-key grammar)."},
+        "rule": {"$ref": "#/$defs/source_rule"},
+        "overlap_hours": {"type": "integer", "minimum": 0, "description": "Extra hours re-selected on each side of the window (registry overlap / late arrival)."}
+      }
+    },
+    "config_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_kind", "rule"],
+      "properties": {
+        "config_kind": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+        "rule": {"const": "config_version_tenant_open"}
+      }
+    },
+    "serving": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_relation", "namespace"],
+      "properties": {
+        "api_relation": {"type": ["string", "null"], "pattern": "^v_[a-z0-9_]+$"},
+        "namespace": {"type": "string", "pattern": "^serving_v[1-9][0-9]*$"},
+        "union_group": {"type": "string", "description": "Datasets with the same union_group are exposed through one serving view (UNION ALL of identical column lists)."}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_id", "owner_task", "domain", "layer", "materialization", "physical", "grain", "unique_key", "tenant_key", "partition", "measure_role", "retention_class", "rap", "publication_phase", "consumers", "release"],
+      "properties": {
+        "dataset_id": {"$ref": "#/$defs/dataset_id"},
+        "owner_task": {"$ref": "#/$defs/task_id"},
+        "domain": {"enum": ["FIN", "ALC", "WRK", "GOV", "INS", "DBT", "API"]},
+        "layer": {"enum": ["intermediate", "ledger", "allocation", "marts", "serving", "py_outputs"]},
+        "materialization": {"enum": ["revisioned", "python_output"], "description": "revisioned = dbt custom materialization (data/dbt/macros/materializations/revisioned.md); python_output = ORC-103 writer (data/contracts/py_outputs.json). Both register PARTITION_REVISION rows and publish through PUBLISH_BATCH."},
+        "physical": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "table"],
+          "properties": {
+            "schema": {"enum": ["intermediate", "ledger", "allocation", "marts", "serving", "py_outputs"]},
+            "table": {"type": "string", "pattern": "^[a-z][a-z0-9_]{2,60}_r$"}
+          }
+        },
+        "grain": {"type": "string", "minLength": 5},
+        "unique_key": {"$ref": "#/$defs/column_list", "description": "Unique among the rows of one revision of one partition (Snowflake does not enforce it; check chk_unique_key enforces it)."},
+        "tenant_key": {"const": "tenant_id"},
+        "partition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scope", "granularity", "time_column"],
+          "properties": {
+            "scope": {"$ref": "#/$defs/scope"},
+            "granularity": {"$ref": "#/$defs/granularity"},
+            "time_column": {"oneOf": [{"$ref": "#/$defs/column_name"}, {"type": "null"}]}
+          },
+          "if": {"properties": {"granularity": {"const": "ALL"}}},
+          "then": {"properties": {"time_column": {"type": "null"}}},
+          "else": {"properties": {"time_column": {"$ref": "#/$defs/column_name"}}}
+        },
+        "clustering": {"$ref": "#/$defs/column_list"},
+        "measure_role": {"enum": ["CHARGE", "ATTRIBUTION", "MEASUREMENT", "ALLOCATION", "AGGREGATE", "DIMENSION", "OBSERVATION", "RECONCILIATION", "FORECAST", "SERVING"]},
+        "retention_class": {"$ref": "#/$defs/retention_class"},
+        "retention_days_override": {"type": "integer", "minimum": 1},
+        "rap": {"$ref": "#/$defs/rap"},
+        "publication_phase": {"enum": ["CORE", "INTELLIGENCE"], "description": "CORE = dbt financial publication P; INTELLIGENCE = Python outputs and their dbt descendants published in P′ > P with input_pub_seq = P (ADR-014 §8)."},
+        "homogeneity_required": {"type": "boolean", "default": true, "description": "Tenant publishes only when all of its affected partitions of this dataset are at the build code_version during shadow cutover (gate CODE_VERSION_MIXED)."},
+        "companions": {
+          "type": "array",
+          "items": {"type": "object", "additionalProperties": false, "required": ["table", "owner_task"], "properties": {"table": {"type": "string", "pattern": "^[a-z_]+\\.[a-z][a-z0-9_]+$"}, "owner_task": {"$ref": "#/$defs/task_id"}}},
+          "description": "Tables written in the same materialization transaction with the same revision_id; published and garbage-collected with this dataset's map rows."
+        },
+        "upstream": {"type": "array", "items": {"$ref": "#/$defs/upstream"}},
+        "sources": {"type": "array", "items": {"$ref": "#/$defs/source_impact"}},
+        "config": {"type": "array", "items": {"$ref": "#/$defs/config_impact"}},
+        "serving": {"$ref": "#/$defs/serving"},
+        "consumers": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "release": {"enum": ["R1", "R2"]},
+        "notes": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"layer": {"const": "serving"}}}, "then": {"required": ["serving"]}},
+        {"if": {"properties": {"materialization": {"const": "python_output"}}}, "then": {"properties": {"layer": {"const": "py_outputs"}, "publication_phase": {"const": "INTELLIGENCE"}}}}
+      ]
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "owner_task", "kind", "members", "notes"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z_]+\\.[a-z][a-z0-9_]*\\*?$", "description": "schema.view; a trailing * denotes a family of views (e.g. staging.stg_*)."},
+        "owner_task": {"$ref": "#/$defs/task_id"},
+        "kind": {"enum": ["UNION_REGISTRY", "PROJECTION", "STAGING_DEDUP"]},
+        "members": {"type": "array", "items": {"$ref": "#/$defs/dataset_id"}},
+        "notes": {"type": "string"}
+      }
+    },
+    "external_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "owner_task", "write_path", "versioning", "consumed_by", "notes"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z_]+\\.[a-z][a-z0-9_]+$"},
+        "owner_task": {"$ref": "#/$defs/task_id"},
+        "write_path": {"enum": ["CONFIG_PUBLISHER", "INGEST_ACCEPTOR", "MONITOR_EVALUATOR", "STATEMENT_ISSUER", "QUALITY_WRITER"]},
+        "versioning": {"enum": ["INSERT_ONLY_VERSIONED", "INSERT_ONLY_EVENTS"]},
+        "consumed_by": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,1047 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:config:environment:v1",
+  "$comment": "contract=owner-environment-config version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-21,D-23,D-25,D-32 last_changed=2026-09-28. Owner-supplied, NON-SECRET identifiers per environment (ADR-017 §5). Validated by `make config-validate`. Every property carries x-bridge-secret=false: secrets (passwords, private keys, PATs, webhook URLs with embedded tokens, IdP signing keys, API keys) NEVER go in this file; only the NAME of the AWS Secrets Manager secret or SSM parameter that holds them. Placeholders `<UPPER_SNAKE>` are accepted by this schema so that *.example.yaml templates validate; `make config-validate` rejects any remaining placeholder in a real (non-example) file.",
+  "title": "Bridge environment configuration (owner-supplied)",
+  "description": "One file per environment: config/environments/<env>.yaml (template <env>.example.yaml). Holds AWS/Snowflake/GitHub/DNS identifiers, budgets and feature toggles that Terraform, the Snowflake migration runner, CI and the validation dispatcher resolve at plan/apply time. Commit real values only after the repository is private (ADR-017 §5).",
+  "type": "object",
+  "additionalProperties": false,
+  "x-bridge-secret": false,
+  "required": [
+    "schema_version",
+    "environment",
+    "organization",
+    "aws",
+    "dns",
+    "github",
+    "snowflake",
+    "notifications",
+    "budgets",
+    "egress",
+    "features"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Version of this configuration schema. Bumped only with a new schema major (CONVENTIONS §13).",
+      "const": 1,
+      "x-bridge-secret": false
+    },
+    "environment": {
+      "description": "Environment this file configures. Must equal the file name stem (dev.yaml → dev).",
+      "type": "string",
+      "enum": [
+        "dev",
+        "staging",
+        "prod"
+      ],
+      "x-bridge-secret": false
+    },
+    "organization": {
+      "description": "AWS Organization-wide identifiers (INF-001, G-INF-12). Identical in every environment file; `make config-validate` checks cross-file equality.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "aws_organization_id",
+        "management_account_id",
+        "security_account_id",
+        "log_archive_account_id",
+        "shared_services_account_id",
+        "account_email_domain",
+        "identity_center"
+      ],
+      "properties": {
+        "aws_organization_id": {
+          "description": "AWS Organizations ID (o-...).",
+          "$ref": "#/$defs/aws_organization_id",
+          "x-bridge-secret": false
+        },
+        "management_account_id": {
+          "description": "Management (payer) account: billing and Organizations only; SCPs do not apply to it.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "security_account_id": {
+          "description": "Security account: GuardDuty / Security Hub / IAM Access Analyzer delegated administrator.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "log_archive_account_id": {
+          "description": "Log-archive account: organization CloudTrail bucket, Config aggregator, flow/resolver log archive.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "shared_services_account_id": {
+          "description": "Shared-services account: ECR, image-signing KMS key, apex Route 53 zone, release-evidence bucket.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "recovery_account_id": {
+          "description": "Optional separate recovery account for the ADR-011/OPS-007 recovery bucket. Omit to use the log-archive account.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "account_email_domain": {
+          "description": "Domain of the root e-mail aliases of member accounts (aws+<account-name>@<domain>). A role mailbox domain, not a personal address.",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "identity_center": {
+          "description": "IAM Identity Center instance used for human AWS access (permission sets BridgeAdmin/BridgeOperator/BridgeDeveloper/BridgeReadOnly/BridgeBilling).",
+          "type": "object",
+          "additionalProperties": false,
+          "x-bridge-secret": false,
+          "required": [
+            "instance_arn",
+            "identity_store_id",
+            "region"
+          ],
+          "properties": {
+            "instance_arn": {
+              "description": "arn:aws:sso:::instance/ssoins-...",
+              "$ref": "#/$defs/identity_center_instance_arn",
+              "x-bridge-secret": false
+            },
+            "identity_store_id": {
+              "description": "d-xxxxxxxxxx",
+              "$ref": "#/$defs/identity_store_id",
+              "x-bridge-secret": false
+            },
+            "region": {
+              "description": "Home region of the Identity Center instance.",
+              "$ref": "#/$defs/aws_region",
+              "x-bridge-secret": false
+            },
+            "external_idp": {
+              "description": "External SAML IdP feeding Identity Center, if any (FND owner question 1). NONE = Identity Center directory.",
+              "type": "string",
+              "enum": [
+                "NONE",
+                "OKTA",
+                "ENTRA_ID",
+                "GOOGLE_WORKSPACE",
+                "OTHER_SAML"
+              ],
+              "x-bridge-secret": false
+            }
+          }
+        }
+      }
+    },
+    "aws": {
+      "description": "Workload account of this environment (dev, staging or prod).",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "account_id",
+        "region",
+        "global_region",
+        "az_ids",
+        "reserved_az_id"
+      ],
+      "properties": {
+        "account_id": {
+          "description": "12-digit AWS account ID of this environment. Terraform `allowed_account_ids` and tools/tf/tf.sh refuse any other caller account.",
+          "$ref": "#/$defs/aws_account_id",
+          "x-bridge-secret": false
+        },
+        "region": {
+          "description": "Primary region. R1 is a single EU deployment (D-23): eu-west-1.",
+          "const": "eu-west-1",
+          "x-bridge-secret": false
+        },
+        "global_region": {
+          "description": "Region for CloudFront-scoped resources (ACM for CloudFront and Cognito custom domain, CLOUDFRONT WAF, CloudFront alarms). Always us-east-1.",
+          "const": "us-east-1",
+          "x-bridge-secret": false
+        },
+        "az_ids": {
+          "description": "Exactly two AZ IDs (not names) used for subnets a and b, e.g. euw1-az1, euw1-az2. AZ IDs are stable across accounts; AZ names are not.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/az_id"
+          },
+          "x-bridge-secret": false
+        },
+        "reserved_az_id": {
+          "description": "Third AZ ID whose CIDR blocks are reserved (AZ-c, infra/network/cidr-plan.yaml).",
+          "$ref": "#/$defs/az_id",
+          "x-bridge-secret": false
+        },
+        "support_plan": {
+          "description": "AWS Support plan of this account (INF owner question 5).",
+          "type": "string",
+          "enum": [
+            "BASIC",
+            "DEVELOPER",
+            "BUSINESS",
+            "ENTERPRISE_ON_RAMP",
+            "ENTERPRISE"
+          ],
+          "x-bridge-secret": false
+        }
+      }
+    },
+    "dns": {
+      "description": "Public DNS names (INF-006-S01). The apex zone lives in shared-services; each environment gets a delegated sub-zone.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "apex_domain",
+        "apex_hosted_zone_id",
+        "environment_zone_name",
+        "app_hostname",
+        "auth_hostname",
+        "email"
+      ],
+      "properties": {
+        "apex_domain": {
+          "description": "Product apex domain (INF owner question 2).",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "apex_hosted_zone_id": {
+          "description": "Route 53 public hosted zone ID of the apex domain in the shared-services account.",
+          "$ref": "#/$defs/hosted_zone_id",
+          "x-bridge-secret": false
+        },
+        "environment_zone_name": {
+          "description": "Delegated environment zone, e.g. dev.<apex> / staging.<apex>; prod may use <apex> itself.",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "environment_hosted_zone_id": {
+          "description": "Filled after INF-006 apply when the environment zone is a separate hosted zone.",
+          "$ref": "#/$defs/hosted_zone_id",
+          "x-bridge-secret": false
+        },
+        "app_hostname": {
+          "description": "SPA + /api/* CloudFront hostname (D-28).",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "auth_hostname": {
+          "description": "Cognito custom domain (certificate in us-east-1, INF-006-S12).",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "docs_hostname": {
+          "description": "Optional public documentation/marketing site hostname (SAS).",
+          "$ref": "#/$defs/domain_name",
+          "x-bridge-secret": false
+        },
+        "email": {
+          "description": "SES sending identity (INF-006-S11; single owner per RECONCILIATION U-07).",
+          "type": "object",
+          "additionalProperties": false,
+          "x-bridge-secret": false,
+          "required": [
+            "sender_domain",
+            "mail_from_domain",
+            "from_address",
+            "dmarc_report_address"
+          ],
+          "properties": {
+            "sender_domain": {
+              "description": "SES domain identity, the sending subdomain notify.<domain>.",
+              "$ref": "#/$defs/domain_name",
+              "x-bridge-secret": false
+            },
+            "mail_from_domain": {
+              "description": "Custom MAIL FROM domain (MX + SPF), e.g. mail.notify.<domain>.",
+              "$ref": "#/$defs/domain_name",
+              "x-bridge-secret": false
+            },
+            "from_address": {
+              "description": "Envelope/visible sender, a role address such as no-reply@notify.<domain>.",
+              "$ref": "#/$defs/email_address",
+              "x-bridge-secret": false
+            },
+            "reply_to_address": {
+              "description": "Optional role mailbox for replies (support).",
+              "$ref": "#/$defs/email_address",
+              "x-bridge-secret": false
+            },
+            "dmarc_report_address": {
+              "description": "DMARC rua mailbox (role address).",
+              "$ref": "#/$defs/email_address",
+              "x-bridge-secret": false
+            },
+            "dmarc_policy": {
+              "description": "Current DMARC policy; starts at NONE and moves to QUARANTINE after 30 clean days (G-INF-15).",
+              "type": "string",
+              "enum": [
+                "NONE",
+                "QUARANTINE",
+                "REJECT"
+              ],
+              "x-bridge-secret": false
+            }
+          }
+        }
+      }
+    },
+    "github": {
+      "description": "Repository identity used in GitHub OIDC trust policies (INF-102-S01/S02, INF-007-S09). The customized `sub` claim includes repository_owner_id and repository_id so a renamed or re-created repository cannot assume Bridge roles.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "organization",
+        "repository",
+        "repository_owner_id",
+        "repository_id",
+        "environment_name",
+        "runner_label"
+      ],
+      "properties": {
+        "organization": {
+          "description": "GitHub organization (or user) login owning the repository.",
+          "type": "string",
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$"
+            },
+            {
+              "$ref": "#/$defs/placeholder"
+            }
+          ],
+          "x-bridge-secret": false
+        },
+        "repository": {
+          "description": "Repository name without owner.",
+          "type": "string",
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9._-]{1,100}$"
+            },
+            {
+              "$ref": "#/$defs/placeholder"
+            }
+          ],
+          "x-bridge-secret": false
+        },
+        "repository_owner_id": {
+          "description": "Numeric owner ID (from the GitHub API), as a string.",
+          "$ref": "#/$defs/numeric_id",
+          "x-bridge-secret": false
+        },
+        "repository_id": {
+          "description": "Numeric repository ID (from the GitHub API), as a string.",
+          "$ref": "#/$defs/numeric_id",
+          "x-bridge-secret": false
+        },
+        "environment_name": {
+          "description": "GitHub environment bound to this AWS environment's apply/deploy roles (protection rules configured in GitHub).",
+          "type": "string",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ],
+          "x-bridge-secret": false
+        },
+        "runner_label": {
+          "description": "Label of the in-VPC ephemeral runner of this environment (INF-002-S09).",
+          "type": "string",
+          "pattern": "^bridge-(dev|staging|prod)-vpc$",
+          "x-bridge-secret": false
+        },
+        "visibility": {
+          "description": "Repository visibility as confirmed by the owner. Real values in this file require PRIVATE (ADR-017 §5); `make config-validate` refuses a non-example file when this is PUBLIC.",
+          "type": "string",
+          "enum": [
+            "PUBLIC",
+            "PRIVATE"
+          ],
+          "x-bridge-secret": false
+        }
+      }
+    },
+    "snowflake": {
+      "description": "Snowflake identifiers (INF-008, INF-101, FND-101). Machine access is WIF only (D-21); no password, key pair or PAT is ever configured.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "central",
+        "sso"
+      ],
+      "properties": {
+        "central": {
+          "description": "Central Bridge account of this environment (BRIDGE_DEV / BRIDGE_STAGING / BRIDGE_PROD; G-INF-17).",
+          "$ref": "#/$defs/snowflake_account",
+          "x-bridge-secret": false,
+          "unevaluatedProperties": false
+        },
+        "sso": {
+          "description": "SAML2 security integration for human users of the central account (INF-008-S03, FND-101). Public IdP metadata only; the IdP signing certificate is public but long, so its SSM parameter name is stored.",
+          "type": "object",
+          "additionalProperties": false,
+          "x-bridge-secret": false,
+          "required": [
+            "idp_issuer",
+            "idp_sso_url",
+            "idp_certificate_ssm_parameter"
+          ],
+          "properties": {
+            "idp_issuer": {
+              "description": "SAML2 issuer / entity ID of the IdP.",
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 1024,
+              "x-bridge-secret": false
+            },
+            "idp_sso_url": {
+              "description": "IdP SSO URL (https).",
+              "$ref": "#/$defs/https_url",
+              "x-bridge-secret": false
+            },
+            "idp_certificate_ssm_parameter": {
+              "description": "SSM parameter NAME holding the IdP X.509 signing certificate (public).",
+              "$ref": "#/$defs/ssm_parameter_name",
+              "x-bridge-secret": false
+            }
+          }
+        },
+        "test_estate": {
+          "description": "Non-production Snowflake test estate (INF-101; U-03). Declared only in staging.yaml because the estate's IaC and connector roles run from the STAGING AWS account (INF-101-S05/S10).",
+          "type": "object",
+          "additionalProperties": false,
+          "x-bridge-secret": false,
+          "required": [
+            "organizations"
+          ],
+          "properties": {
+            "organizations": {
+              "type": "array",
+              "minItems": 2,
+              "x-bridge-secret": false,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "x-bridge-secret": false,
+                "required": [
+                  "alias",
+                  "organization_name",
+                  "accounts"
+                ],
+                "properties": {
+                  "alias": {
+                    "description": "Test organization alias from docs/testing/snowflake-test-estate.md.",
+                    "type": "string",
+                    "enum": [
+                      "T_A",
+                      "T_B"
+                    ],
+                    "x-bridge-secret": false
+                  },
+                  "organization_name": {
+                    "$ref": "#/$defs/snowflake_org_name",
+                    "x-bridge-secret": false
+                  },
+                  "accounts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "x-bridge-secret": false,
+                    "items": {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/snowflake_account"
+                        }
+                      ],
+                      "type": "object",
+                      "x-bridge-secret": false,
+                      "unevaluatedProperties": false,
+                      "required": [
+                        "alias",
+                        "kind",
+                        "monthly_credit_cap"
+                      ],
+                      "properties": {
+                        "alias": {
+                          "description": "Account alias from the test-estate specification.",
+                          "type": "string",
+                          "enum": [
+                            "TA_ORG",
+                            "A1",
+                            "A2",
+                            "A3",
+                            "B1"
+                          ],
+                          "x-bridge-secret": false
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "ORGANIZATION_ACCOUNT",
+                            "ACCOUNT"
+                          ],
+                          "x-bridge-secret": false
+                        },
+                        "monthly_credit_cap": {
+                          "description": "Resource-monitor quota in credits (INF-101-S09); sum over the estate ≤ 150 (D-32).",
+                          "$ref": "#/$defs/decimal_string",
+                          "x-bridge-secret": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "notifications": {
+      "description": "Where platform alarms, budget alerts and test deliveries go. Webhook URLs that embed tokens are secrets: only the Secrets Manager secret NAME is stored here.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "ops_alert_email",
+        "cost_alert_email",
+        "security_alert_email",
+        "test_destinations"
+      ],
+      "properties": {
+        "ops_alert_email": {
+          "description": "Role mailbox for operational alarms (SNS e-mail subscription).",
+          "$ref": "#/$defs/email_address",
+          "x-bridge-secret": false
+        },
+        "cost_alert_email": {
+          "description": "Role mailbox for AWS Budgets, Cost Anomaly Detection and Snowflake resource-monitor notices (INF-105, INF-008-S16).",
+          "$ref": "#/$defs/email_address",
+          "x-bridge-secret": false
+        },
+        "security_alert_email": {
+          "description": "Role mailbox for root-login, SCP/trail change and break-glass alarms (INF-001-S06/S13).",
+          "$ref": "#/$defs/email_address",
+          "x-bridge-secret": false
+        },
+        "chat_webhook_secret_name": {
+          "description": "Secrets Manager secret NAME holding the ops chat webhook URL (the URL is a secret).",
+          "$ref": "#/$defs/secret_name",
+          "x-bridge-secret": false
+        },
+        "test_destinations": {
+          "description": "Destinations used by live delivery gates (GOV-007, RPT) in this environment. Never customer destinations.",
+          "type": "object",
+          "additionalProperties": false,
+          "x-bridge-secret": false,
+          "required": [
+            "email_recipients"
+          ],
+          "properties": {
+            "email_recipients": {
+              "description": "Test inboxes owned by Bridge (while SES is in sandbox these must be verified identities).",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/email_address"
+              },
+              "maxItems": 10,
+              "x-bridge-secret": false
+            },
+            "slack_webhook_secret_name": {
+              "description": "Secret NAME of the Slack test-channel incoming webhook.",
+              "$ref": "#/$defs/secret_name",
+              "x-bridge-secret": false
+            },
+            "teams_webhook_secret_name": {
+              "description": "Secret NAME of the Teams Workflows test webhook.",
+              "$ref": "#/$defs/secret_name",
+              "x-bridge-secret": false
+            },
+            "webhook_receiver_url": {
+              "description": "HTTPS URL of a Bridge-owned generic webhook receiver used by delivery tests. Must not embed a token or query string; the signing secret is created by the product (Standard Webhooks).",
+              "$ref": "#/$defs/https_url_no_query",
+              "x-bridge-secret": false
+            }
+          }
+        }
+      }
+    },
+    "budgets": {
+      "description": "Owner-approved ceilings (INF-105-S01, D-32). Money values are decimal strings in USD (CONVENTIONS §5); credits are decimal strings.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "aws_monthly_usd",
+        "actual_alert_pct",
+        "forecast_alert_pct",
+        "anomaly_absolute_usd",
+        "anomaly_relative_pct",
+        "snowflake_central_monthly_credits"
+      ],
+      "properties": {
+        "aws_monthly_usd": {
+          "description": "AWS Budget of this environment's account (proposal: dev 450, staging 1000, prod 2500).",
+          "$ref": "#/$defs/decimal_string",
+          "x-bridge-secret": false
+        },
+        "organization_accounts_monthly_usd": {
+          "description": "Budget per organization account (management, security, log-archive, shared-services); proposal 40 each. Identical across files.",
+          "$ref": "#/$defs/decimal_string",
+          "x-bridge-secret": false
+        },
+        "actual_alert_pct": {
+          "description": "Thresholds on ACTUAL spend, percent of budget.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "x-bridge-secret": false
+        },
+        "forecast_alert_pct": {
+          "description": "Thresholds on FORECASTED spend.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "x-bridge-secret": false
+        },
+        "anomaly_absolute_usd": {
+          "description": "Cost Anomaly Detection absolute impact threshold (dev/staging 50, prod 100).",
+          "$ref": "#/$defs/decimal_string",
+          "x-bridge-secret": false
+        },
+        "anomaly_relative_pct": {
+          "description": "Cost Anomaly Detection relative impact threshold (dev/staging 20, prod 15).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "x-bridge-secret": false
+        },
+        "snowflake_central_monthly_credits": {
+          "description": "Account-level resource-monitor quota of the central account (dev 150, staging 200). In prod this is the notify-only account monitor; warehouse monitors come from infra/snowflake/objects.yaml.",
+          "$ref": "#/$defs/decimal_string",
+          "x-bridge-secret": false
+        },
+        "snowflake_nonprod_ceiling_credits": {
+          "description": "Monthly ceiling for all non-production Snowflake use (D-32: 500). Identical across files.",
+          "$ref": "#/$defs/decimal_string",
+          "x-bridge-secret": false
+        }
+      }
+    },
+    "egress": {
+      "description": "NAT Elastic IPs of this environment (D-09). Left empty by the owner; filled from `terraform output` after INF-002 apply and then published to infra/environments/<env>.egress.json, SSM /bridge/<env>/egress/ips and GET /v1/platform/egress-ips.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "eip_allocation_ids",
+        "public_ips"
+      ],
+      "properties": {
+        "eip_allocation_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/eip_allocation_id"
+          },
+          "maxItems": 2,
+          "uniqueItems": true,
+          "x-bridge-secret": false
+        },
+        "public_ips": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ipv4"
+          },
+          "maxItems": 2,
+          "uniqueItems": true,
+          "x-bridge-secret": false
+        }
+      }
+    },
+    "features": {
+      "description": "Owner feature toggles for infrastructure choices that carry cost or policy impact.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-bridge-secret": false,
+      "required": [
+        "interface_endpoints",
+        "guardduty_ecs_runtime_monitoring",
+        "snowflake_account_network_policy",
+        "dev_off_hours_scale_to_zero",
+        "broker_transport",
+        "dagster_admin_webserver"
+      ],
+      "properties": {
+        "interface_endpoints": {
+          "description": "Create the 9 interface endpoints (INF-002-S05). false in dev (NAT only); true in staging (1 AZ) and prod (2 AZ). The conftest cost rule rejects true in dev.",
+          "type": "boolean",
+          "x-bridge-secret": false
+        },
+        "guardduty_ecs_runtime_monitoring": {
+          "description": "GuardDuty ECS runtime monitoring (per-vCPU charge; INF owner question 7).",
+          "type": "boolean",
+          "x-bridge-secret": false
+        },
+        "security_hub_fsbp": {
+          "description": "Security Hub AWS Foundational Security Best Practices standard.",
+          "type": "boolean",
+          "default": true,
+          "x-bridge-secret": false
+        },
+        "snowflake_account_network_policy": {
+          "description": "Account-level Snowflake network policy restricted to the environment EIPs (true in staging/prod; false in dev where humans use SSO, INF-008-S06).",
+          "type": "boolean",
+          "x-bridge-secret": false
+        },
+        "dev_off_hours_scale_to_zero": {
+          "description": "Scale ECS services to zero 20:00–07:00 UTC and weekends (INF-105-S07). Only honoured in dev.",
+          "type": "boolean",
+          "x-bridge-secret": false
+        },
+        "broker_transport": {
+          "description": "D-22 API→broker transport: VPC Lattice with IAM auth (preferred) or Service Connect + security group fallback.",
+          "type": "string",
+          "enum": [
+            "VPC_LATTICE_SIGV4",
+            "SERVICE_CONNECT_SG"
+          ],
+          "x-bridge-secret": false
+        },
+        "dagster_admin_webserver": {
+          "description": "Keep the write-enabled Dagster webserver service at desired 1 (break-glass only). Normally false.",
+          "type": "boolean",
+          "x-bridge-secret": false
+        },
+        "dns_firewall_custom_allowlist_mode": {
+          "description": "Mode of the custom DNS Firewall allowlist rule group (managed threat lists are always BLOCK).",
+          "type": "string",
+          "enum": [
+            "ALERT",
+            "BLOCK"
+          ],
+          "default": "ALERT",
+          "x-bridge-secret": false
+        },
+        "waf_anonymous_ip_mode": {
+          "description": "AWSManagedRulesAnonymousIpList action.",
+          "type": "string",
+          "enum": [
+            "COUNT",
+            "BLOCK"
+          ],
+          "default": "COUNT",
+          "x-bridge-secret": false
+        },
+        "cur_export": {
+          "description": "CUR 2.0 Data Export for OPS-009 (INF-105-S05). Configured once, in the prod file, for the whole organization.",
+          "type": "boolean",
+          "default": false,
+          "x-bridge-secret": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "placeholder": {
+      "description": "Template placeholder such as <AWS_ACCOUNT_ID_DEV>. Accepted by the schema for *.example.yaml; rejected by `make config-validate` in real files.",
+      "type": "string",
+      "pattern": "^<[A-Z][A-Z0-9_]*>$",
+      "x-bridge-secret": false
+    },
+    "aws_account_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[0-9]{12}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "aws_organization_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^o-[a-z0-9]{10,32}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "aws_region": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{2}(-gov)?-[a-z]+-[0-9]$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "az_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{3,4}[0-9]-az[0-9]{1,2}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "identity_center_instance_arn": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^arn:aws:sso:::instance/ssoins-[a-f0-9]{16}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "identity_store_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^d-[a-z0-9]{10}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "hosted_zone_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^Z[A-Z0-9]{8,32}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "domain_name": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "email_address": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9._%+-]{1,64}@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "https_url": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^https://[A-Za-z0-9.-]+(:[0-9]{2,5})?(/[^\\s]*)?$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "https_url_no_query": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^https://[A-Za-z0-9.-]+(:[0-9]{2,5})?(/[A-Za-z0-9._~/-]*)?$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "numeric_id": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "ssm_parameter_name": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^/bridge/(dev|staging|prod|org)/[a-z0-9/_-]{1,200}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "secret_name": {
+      "description": "AWS Secrets Manager secret NAME (never its value).",
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^bridge/(dev|staging|prod|org)/[a-z0-9/_-]{1,200}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "decimal_string": {
+      "description": "Non-negative decimal string (CONVENTIONS §5); never a JSON/YAML number.",
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^(0|[1-9][0-9]{0,25})(\\.[0-9]{1,12})?$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "eip_allocation_id": {
+      "type": "string",
+      "pattern": "^eipalloc-[0-9a-f]{8,17}$",
+      "x-bridge-secret": false
+    },
+    "ipv4": {
+      "type": "string",
+      "format": "ipv4",
+      "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$",
+      "x-bridge-secret": false
+    },
+    "snowflake_org_name": {
+      "description": "Snowflake organization name (upper case alphanumeric).",
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[A-Z][A-Z0-9]{0,254}$"
+        },
+        {
+          "$ref": "#/$defs/placeholder"
+        }
+      ],
+      "x-bridge-secret": false
+    },
+    "snowflake_account": {
+      "description": "A Snowflake account identity. account_url is derived as https://<organization_name>-<account_name>.snowflakecomputing.com (underscores in the account name become hyphens in the host).",
+      "type": "object",
+      "x-bridge-secret": false,
+      "required": [
+        "organization_name",
+        "account_name",
+        "account_locator",
+        "region",
+        "cloud",
+        "edition"
+      ],
+      "properties": {
+        "organization_name": {
+          "$ref": "#/$defs/snowflake_org_name",
+          "x-bridge-secret": false
+        },
+        "account_name": {
+          "description": "Account name within the organization, e.g. BRIDGE_DEV.",
+          "type": "string",
+          "anyOf": [
+            {
+              "pattern": "^[A-Z][A-Z0-9_]{0,254}$"
+            },
+            {
+              "$ref": "#/$defs/placeholder"
+            }
+          ],
+          "x-bridge-secret": false
+        },
+        "account_locator": {
+          "description": "Account locator (legacy identifier; kept verbatim, CONVENTIONS §3).",
+          "type": "string",
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9]{5,12}$"
+            },
+            {
+              "$ref": "#/$defs/placeholder"
+            }
+          ],
+          "x-bridge-secret": false
+        },
+        "region": {
+          "description": "Snowflake region ID, e.g. AWS_EU_WEST_1, AZURE_WESTEUROPE.",
+          "type": "string",
+          "anyOf": [
+            {
+              "pattern": "^(AWS|AZURE|GCP)_[A-Z0-9_]{2,40}$"
+            },
+            {
+              "$ref": "#/$defs/placeholder"
+            }
+          ],
+          "x-bridge-secret": false
+        },
+        "cloud": {
+          "type": "string",
+          "enum": [
+            "AWS",
+            "AZURE",
+            "GCP"
+          ],
+          "x-bridge-secret": false
+        },
+        "edition": {
+          "type": "string",
+          "enum": [
+            "STANDARD",
+            "ENTERPRISE",
+            "BUSINESS_CRITICAL",
+            "VPS"
+          ],
+          "x-bridge-secret": false
+        }
+      }
+    }
+  }
+}

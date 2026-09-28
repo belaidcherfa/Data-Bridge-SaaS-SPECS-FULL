@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.deletion_stage.completed:v1",
+  "$comment": "contract=event-bridge.ops.deletion_stage.completed version=1 status=DRAFT owner_task=OPS-005 decisions=D-10 last_changed=2026-09-28",
+  "title": "bridge.ops.deletion_stage.completed v1 payload",
+  "description": "A deletion stage reached a terminal or held status (DONE, VERIFIED, HELD, FAILED, SKIPPED).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deletion_request_id",
+    "stage_id",
+    "stage_key",
+    "stage_order",
+    "status",
+    "expected_count",
+    "deleted_count",
+    "residual_count",
+    "error_class"
+  ],
+  "properties": {
+    "deletion_request_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "stage_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "stage_key": {
+      "type": "string",
+      "enum": [
+        "TENANT_DELETING",
+        "SCHEDULES_PAUSED",
+        "IAM_DENY_ATTACHED",
+        "EPOCH_BUMPED_SESSIONS_REVOKED",
+        "LEASES_FENCED",
+        "EXPORT_COMPLETED_OR_WAIVED",
+        "SNOWFLAKE_SERVING",
+        "SNOWFLAKE_CANONICAL",
+        "SNOWFLAKE_RAW",
+        "SNOWFLAKE_OPS_FACTS",
+        "S3_ALL_VERSIONS",
+        "RECOVERY_BUCKET",
+        "REDIS",
+        "POSTGRESQL",
+        "KMS_KEY_DELETION_SCHEDULED",
+        "DICTIONARY_ENTRY_DELETED",
+        "SUBJECT_TOMBSTONE_RECORDED",
+        "AUTHZ_EPOCH_BUMPED",
+        "REDIS_SUBJECT_KEYS",
+        "DICTIONARY_EXPORT",
+        "ACTIVITY_EXPORT",
+        "EXPORT_ARTIFACT_READY"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "stage_order": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1,
+      "maximum": 99
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DONE",
+        "VERIFIED",
+        "HELD",
+        "FAILED",
+        "SKIPPED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "expected_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "minimum": 0
+    },
+    "deleted_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "minimum": 0
+    },
+    "residual_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "minimum": 0
+    },
+    "error_class": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "pattern": "^[A-Z_]+$"
+    }
+  },
+  "examples": [
+    {
+      "deletion_request_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e31",
+      "stage_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e32",
+      "stage_key": "DICTIONARY_ENTRY_DELETED",
+      "stage_order": 1,
+      "status": "VERIFIED",
+      "expected_count": 1,
+      "deleted_count": 1,
+      "residual_count": 0,
+      "error_class": null
+    }
+  ]
+}

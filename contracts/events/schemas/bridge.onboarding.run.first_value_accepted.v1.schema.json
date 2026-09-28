@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.run.first_value_accepted:v1",
+  "$comment": "contract=event-bridge.onboarding.run.first_value_accepted version=1 status=DRAFT owner_task=ONB-005 decisions=D-38 last_changed=2026-09-28",
+  "title": "bridge.onboarding.run.first_value_accepted v1 payload",
+  "description": "FV-1 was accepted (ONB-005-S07). No customer data; the signed record is private.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "run_revision",
+    "fv1_decision",
+    "accepted_at",
+    "fv2_review_due_on"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "run_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "fv1_decision": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "ACCEPTED_WITH_DISCLOSED_LIMITS"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "fv2_review_due_on": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "run_revision": 31,
+      "fv1_decision": "ACCEPTED_WITH_DISCLOSED_LIMITS",
+      "accepted_at": "2026-10-28T15:00:00.000Z",
+      "fv2_review_due_on": "2026-12-05"
+    }
+  ]
+}

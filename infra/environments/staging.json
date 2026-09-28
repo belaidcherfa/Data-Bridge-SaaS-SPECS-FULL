@@ -1,0 +1,80 @@
+{
+  "$comment": "contract=infra-environment-manifest-instance version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-23,D-25 last_changed=2026-09-28. REQUIRED_INPUT values come from config/environments/<env>.yaml (see schema x-bridge-config-path); GENERATED values are written by the pipeline after apply. Never replace REQUIRED_INPUT with real identifiers in this public file.",
+  "schema_version": 1,
+  "name": "staging",
+  "kind": "WORKLOAD",
+  "environment": "staging",
+  "account_name": "bridge-staging",
+  "organizational_unit": "workloads/nonprod",
+  "aws_account_id": "REQUIRED_INPUT",
+  "region": "eu-west-1",
+  "global_region": "us-east-1",
+  "az_ids": "REQUIRED_INPUT",
+  "network": {
+    "vpc_enabled": true,
+    "vpc_cidr": "10.20.0.0/16",
+    "nat_gateways": 2,
+    "interface_endpoint_azs": 1,
+    "flow_logs_destination": "S3"
+  },
+  "dns_zone": "REQUIRED_INPUT",
+  "state": {
+    "bucket": "bridge-tfstate-staging-${aws_account_id}-euw1",
+    "kms_key_alias": "alias/bridge-tfstate-staging",
+    "kms_key_arn": "GENERATED",
+    "use_lockfile": true
+  },
+  "stacks": [
+    "00-bootstrap",
+    "10-baseline",
+    "20-network",
+    "30-data",
+    "40-databases",
+    "50-compute",
+    "60-edge",
+    "70-snowflake",
+    "80-observability",
+    "test-estate"
+  ],
+  "snowflake": {
+    "account_alias": "BRIDGE_STAGING",
+    "organization_name": "REQUIRED_INPUT",
+    "account_name": "REQUIRED_INPUT",
+    "account_locator": "REQUIRED_INPUT",
+    "account_url": "https://${snowflake.organization_name}-${snowflake.account_name}.snowflakecomputing.com",
+    "edition": "ENTERPRISE",
+    "account_network_policy": true
+  },
+  "egress_ips": "infra/environments/staging.egress.json",
+  "ci_oidc_subjects": {
+    "tf_plan": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:pull_request"
+    ],
+    "tf_apply": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:environment:staging"
+    ],
+    "deploy": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:environment:staging"
+    ],
+    "snowflake_iac": [
+      "repository_owner_id:${owner_id}:repository_id:${repo_id}:environment:staging"
+    ]
+  },
+  "budget_usd": "REQUIRED_INPUT",
+  "allowed_instance_classes": {
+    "aurora": [
+      "db.t4g.medium"
+    ],
+    "valkey": [
+      "cache.t4g.small"
+    ],
+    "fargate_cpu_architecture": "ARM64"
+  },
+  "log_retention_days": 30,
+  "features": "REQUIRED_INPUT",
+  "tags": {
+    "environment": "staging",
+    "managed_by": "terraform",
+    "cost_owner": "platform"
+  }
+}

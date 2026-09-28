@@ -1,0 +1,150 @@
+# contract=semantic-records:billing_ledger version=1 status=DRAFT owner_task=API-104 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: billing_ledger
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.billing_ledger.label
+relation: v_charge_daily
+tier: FULL
+row_key: [charge_row_id]
+default_sort:
+- {column: usage_date, direction: DESC}
+- {column: amount, direction: DESC}
+page_max: 200
+sync_max_range_days: 92
+privacy: {capability: analytics.read, org_scope_rows_require: Organization-scope rows (account NULL) only for profiles whose clause has an unrestricted account on that organization (G-FIN-25);
+    the RAP enforces it.}
+columns:
+- id: usage_date
+  column_ref: usage_date
+  type: DATE
+  label_key: records.billing_ledger.column.usage_date
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: organization
+  column_ref: organization_id
+  type: UUID
+  label_key: records.billing_ledger.column.organization
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: organization
+- id: scope_kind
+  column_ref: scope_kind
+  type: ENUM
+  label_key: records.billing_ledger.column.scope_kind
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: scope_kind
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.billing_ledger.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: service_category
+  column_ref: service_category
+  type: ENUM
+  label_key: records.billing_ledger.column.service_category
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: service_category
+- id: service_family
+  column_ref: service_family
+  type: ENUM
+  label_key: records.billing_ledger.column.service_family
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: service_family
+- id: service_type
+  column_ref: service_type
+  type: STRING
+  label_key: records.billing_ledger.column.service_type
+  sortable: true
+  filter_ops: [EQ, IN, PREFIX]
+  dimension: service_type
+- id: rating_type
+  column_ref: rating_type
+  type: STRING
+  label_key: records.billing_ledger.column.rating_type
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: rating_type
+- id: billing_type
+  column_ref: billing_type
+  type: STRING
+  label_key: records.billing_ledger.column.billing_type
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: billing_type
+- id: is_adjustment
+  column_ref: is_adjustment
+  type: BOOLEAN
+  label_key: records.billing_ledger.column.is_adjustment
+  sortable: false
+  filter_ops: [EQ]
+  dimension: is_adjustment
+- id: entry_kind
+  column_ref: entry_kind
+  type: ENUM
+  label_key: records.billing_ledger.column.entry_kind
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: amount
+  column_ref: cost_effective
+  type: MONEY
+  label_key: records.billing_ledger.column.amount
+  sortable: true
+  filter_ops: []
+  currency_column: currency
+- id: currency
+  column_ref: currency
+  type: STRING
+  label_key: records.billing_ledger.column.currency
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: currency
+- id: credits
+  column_ref: effective_credits
+  type: DECIMAL
+  label_key: records.billing_ledger.column.credits
+  sortable: true
+  filter_ops: []
+- id: price_basis
+  column_ref: price_basis
+  type: ENUM
+  label_key: records.billing_ledger.column.price_basis
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: price_basis
+- id: data_status
+  column_ref: data_status
+  type: ENUM
+  label_key: records.billing_ledger.column.data_status
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: data_status
+- id: period_stability
+  column_ref: period_stability
+  type: ENUM
+  label_key: records.billing_ledger.column.period_stability
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: null_reason
+  column_ref: null_reason
+  type: STRING
+  label_key: records.billing_ledger.column.null_reason
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: accounting_period
+  column_ref: accounting_period
+  type: STRING
+  label_key: records.billing_ledger.column.accounting_period
+  sortable: false
+  filter_ops: [EQ, IN]
+  default_visible: false
+owner_task: API-104
+notes: 'UX ledger page (UX-004-S10): D-12 bucket-grain rows with signed amounts; A1-limited viewer total 268 (26,800 UI) never lists the org support (5) or rebate (−3) rows. Reconciliation
+  status is period-level and comes from meta.reconciliation_status.'

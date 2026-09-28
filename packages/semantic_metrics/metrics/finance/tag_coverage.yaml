@@ -1,0 +1,44 @@
+# contract=semantic-metric:tag_coverage version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: tag_coverage
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.tag_coverage.label
+description_key: metric.tag_coverage.description
+population_key: metric.tag_coverage.population
+category: ALLOCATION
+unit: {kind: RATIO, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: PERCENT}
+relation: v_attribution_daily
+measure:
+  type: RATIO
+  numerator:
+    aggregate: SUM_ABS
+    column_ref: amount
+    population:
+    - {column: is_residual, op: EQ, value: false}
+    join_path: jp_attribution_tag
+  denominator:
+    aggregate: SUM_ABS
+    column_ref: amount
+    population:
+    - {column: is_residual, op: EQ, value: false}
+params:
+- {name: tag_key, type: STRING, required: true, binds_column: tag_key, floating_default: NONE}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, service_category, service_family, warehouse, currency]
+required_sources: [au.tag_references]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_attribution_daily, requires: SAME_AS_NUMERATOR, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#tag_coverage
+  child_resolvers: [formula_operands]
+screen_keys: [tagcoverage]
+owner_task: API-001
+notes: Σ|cost of resources carrying tag_key on the usage date| / Σ|eligible (non-residual) cost|. Native tags need Enterprise (ACCESS/TAG_REFERENCES); on Standard edition only External
+  Tag Studio assignments count (capability degradation, D-20).

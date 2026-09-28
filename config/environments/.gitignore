@@ -1,0 +1,13 @@
+# contract=owner-environment-config-gitignore version=1 status=DRAFT owner_task=INF-001 decisions=D-25 last_changed=2026-09-28
+# While the repository is PUBLIC (ADR-017 §5), real environment files must never be committed.
+# Only templates (*.example.yaml), the schema and this file are tracked.
+#
+# When the owner has made the repository PRIVATE and set `github.visibility: PRIVATE` in every file,
+# the owner may delete the two "ignore" rules below in a reviewed PR so that dev.yaml/staging.yaml/prod.yaml
+# are versioned (they still contain no secrets). Never force-add (`git add -f`) a real file before that.
+*.yaml
+*.yml
+!*.example.yaml
+!.gitignore
+!environment.schema.json
+!examples/

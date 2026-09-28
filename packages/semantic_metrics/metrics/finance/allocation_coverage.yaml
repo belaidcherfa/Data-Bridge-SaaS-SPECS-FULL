@@ -1,0 +1,43 @@
+# contract=semantic-metric:allocation_coverage version=1 status=DRAFT owner_task=ALC-102 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: allocation_coverage
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.allocation_coverage.label
+description_key: metric.allocation_coverage.description
+population_key: metric.allocation_coverage.population
+category: ALLOCATION
+unit: {kind: RATIO, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: PERCENT}
+relation: v_allocation_coverage_daily
+measure:
+  type: RATIO
+  numerator:
+    aggregate: SUM
+    column_ref: covered_abs
+    population:
+    - {column: is_transfer, op: EQ, value: false}
+  denominator:
+    aggregate: SUM
+    column_ref: eligible_abs
+    population:
+    - {column: is_transfer, op: EQ, value: false}
+params:
+- {name: book_id, type: UUID, required: true, binds_column: book_id, floating_default: NONE}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, service_category, service_type, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_allocation_coverage_daily, requires: BOOK_WIDE, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read, profile_requires: BOOK_WIDE}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#allocation_coverage
+  child_resolvers: [formula_operands]
+screen_keys: [allocation]
+owner_task: ALC-102
+notes: 'Coverage-bucket basis (G-ALC-14): Σ covered_abs / Σ eligible_abs, transfers excluded. F-270 default book (no team rules): (4+5+3)/276 = 12/276 = 0.043478260869… Book-wide profiles
+  only (ALC-102-S03/S05).'

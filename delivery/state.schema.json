@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:delivery:state:v1",
+  "title": "Delivery state",
+  "type": "object",
+  "required": [
+    "state_version",
+    "updated_at",
+    "control",
+    "budget",
+    "locks",
+    "leases",
+    "tasks"
+  ],
+  "properties": {
+    "state_version": {
+      "const": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "control": {
+      "type": "object",
+      "required": [
+        "paused",
+        "tick_minutes",
+        "max_workers",
+        "lane_cap",
+        "lease_ttl_hours",
+        "daily_budget_usd",
+        "release_scope"
+      ],
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        },
+        "pause_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tick_minutes": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "max_workers": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lane_cap": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease_ttl_hours": {
+          "type": "number"
+        },
+        "worker_max_turns": {
+          "type": "integer"
+        },
+        "usd_per_estimated_hour": {
+          "type": "number"
+        },
+        "daily_budget_usd": {
+          "type": "number"
+        },
+        "release_scope": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "R1",
+              "R2"
+            ]
+          }
+        },
+        "default_models": {
+          "type": "object"
+        }
+      }
+    },
+    "budget": {
+      "type": "object"
+    },
+    "locks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "holder",
+          "since"
+        ],
+        "properties": {
+          "holder": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "leases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "worker",
+          "branch",
+          "worktree",
+          "started_at",
+          "model"
+        ],
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "worker": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "worktree": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "last_commit_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "budget_usd": {
+            "type": "number"
+          },
+          "attempt": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "status",
+          "attempts"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "pattern": "^(NOT_STARTED|READY|IN_PROGRESS|IN_REVIEW|NEEDS_HUMAN|AWAITING_INTEGRATION|BLOCKED|DONE|MERGED_INTO:[A-Z]{2,3}-[0-9]{3})$"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "pr": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "steps_done": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "blocked_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "escalations_open": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

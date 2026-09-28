@@ -1,0 +1,94 @@
+# contract=owner-environment-config-negative-fixture version=1 status=DRAFT owner_task=INF-001 last_changed=2026-09-28
+# NEGATIVE FIXTURE: Budgets are decimal strings; a YAML number must be rejected (CONVENTIONS §5).
+schema_version: 1
+environment: dev
+organization:
+  aws_organization_id: <AWS_ORGANIZATION_ID>
+  management_account_id: <AWS_MANAGEMENT_ACCOUNT_ID>
+  security_account_id: <AWS_SECURITY_ACCOUNT_ID>
+  log_archive_account_id: <AWS_LOG_ARCHIVE_ACCOUNT_ID>
+  shared_services_account_id: <AWS_SHARED_SERVICES_ACCOUNT_ID>
+  account_email_domain: <ACCOUNT_EMAIL_DOMAIN>
+  identity_center:
+    instance_arn: <IDENTITY_CENTER_INSTANCE_ARN>
+    identity_store_id: <IDENTITY_STORE_ID>
+    region: eu-west-1
+    external_idp: NONE
+aws:
+  account_id: <AWS_ACCOUNT_ID_DEV>
+  region: eu-west-1
+  global_region: us-east-1
+  az_ids:
+  - <AZ_ID_A>
+  - <AZ_ID_B>
+  reserved_az_id: <AZ_ID_C>
+  support_plan: DEVELOPER
+dns:
+  apex_domain: <APEX_DOMAIN>
+  apex_hosted_zone_id: <APEX_HOSTED_ZONE_ID>
+  environment_zone_name: <DEV_ZONE_NAME>
+  app_hostname: <DEV_APP_HOSTNAME>
+  auth_hostname: <DEV_AUTH_HOSTNAME>
+  email:
+    sender_domain: <DEV_EMAIL_SENDER_DOMAIN>
+    mail_from_domain: <DEV_MAIL_FROM_DOMAIN>
+    from_address: <DEV_FROM_ADDRESS>
+    dmarc_report_address: <DMARC_REPORT_ADDRESS>
+    dmarc_policy: NONE
+github:
+  organization: <GITHUB_ORG>
+  repository: <GITHUB_REPO>
+  repository_owner_id: <GITHUB_REPOSITORY_OWNER_ID>
+  repository_id: <GITHUB_REPOSITORY_ID>
+  environment_name: dev
+  runner_label: bridge-dev-vpc
+  visibility: PUBLIC
+snowflake:
+  central:
+    organization_name: <SNOWFLAKE_ORG_NAME>
+    account_name: <SNOWFLAKE_DEV_ACCOUNT_NAME>
+    account_locator: <SNOWFLAKE_DEV_LOCATOR>
+    region: AWS_EU_WEST_1
+    cloud: AWS
+    edition: ENTERPRISE
+  sso:
+    idp_issuer: <SNOWFLAKE_SSO_IDP_ISSUER>
+    idp_sso_url: <SNOWFLAKE_SSO_IDP_SSO_URL>
+    idp_certificate_ssm_parameter: /bridge/dev/snowflake/sso/idp-certificate
+notifications:
+  ops_alert_email: <OPS_ALERT_EMAIL>
+  cost_alert_email: <COST_ALERT_EMAIL>
+  security_alert_email: <SECURITY_ALERT_EMAIL>
+  chat_webhook_secret_name: bridge/dev/notifications/ops-chat-webhook
+  test_destinations:
+    email_recipients:
+    - <TEST_INBOX_EMAIL_1>
+    slack_webhook_secret_name: bridge/dev/notifications/test-slack-webhook
+    teams_webhook_secret_name: bridge/dev/notifications/test-teams-webhook
+    webhook_receiver_url: <TEST_WEBHOOK_RECEIVER_URL>
+budgets:
+  aws_monthly_usd: 450
+  organization_accounts_monthly_usd: '40'
+  actual_alert_pct:
+  - 80
+  - 100
+  forecast_alert_pct:
+  - 100
+  anomaly_absolute_usd: '50'
+  anomaly_relative_pct: 20
+  snowflake_central_monthly_credits: '150'
+  snowflake_nonprod_ceiling_credits: '500'
+egress:
+  eip_allocation_ids: []
+  public_ips: []
+features:
+  interface_endpoints: false
+  guardduty_ecs_runtime_monitoring: false
+  security_hub_fsbp: true
+  snowflake_account_network_policy: false
+  dev_off_hours_scale_to_zero: true
+  broker_transport: VPC_LATTICE_SIGV4
+  dagster_admin_webserver: false
+  dns_firewall_custom_allowlist_mode: ALERT
+  waf_anonymous_ip_mode: COUNT
+  cur_export: false

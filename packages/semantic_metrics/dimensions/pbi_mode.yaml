@@ -1,0 +1,26 @@
+# contract=semantic-dimension:pbi_mode version=1 status=DRAFT owner_task=WRK-003 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: pbi_mode
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.pbi_mode.label
+description_key: dimension.pbi_mode.description
+group: WORKLOAD
+kind: ENUM
+value_type: ENUM
+enum_values: [IMPORT, DIRECT_QUERY, UNKNOWN]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.pbi_mode.value}
+bindings:
+- {relation: v_attribution_daily, column_ref: pbi_mode}
+- {relation: v_query_exec, column_ref: pbi_mode}
+- {relation: v_workload_exec, column_ref: pbi_mode}
+sortable: true
+owner_task: WRK-003
+notes: From QUERY_TAG HostContext suffix; UNKNOWN is a first-class filter (G-WRK-03).

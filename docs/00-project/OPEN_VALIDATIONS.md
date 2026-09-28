@@ -2,19 +2,46 @@
 
 Documentation completeness does not close these gates. All start NOT_RUN. The task index records implementation NOT_STARTED.
 
+(amended 2026-09-28) Rows V01–V12 are updated for the recorded decisions ([decision record](../22-implementation-readiness/DECISIONS_REQUIRED.md)); rows V13–V28 add the release-blocking items the implementation-readiness review marked **TO VERIFY LIVE**, grouped by theme, with the owning backlog task and the phase (P0–P6, [release plan](../22-implementation-readiness/RELEASE_PLAN.md)) by which each must be closed. Live gates run on the INF-101 test estate and tenant zero within the D-32 budget, executed or witnessed by a human reviewer (D-19).
+
 | ID | Owner | Gate | Required evidence / safe default |
 |---|---|---|---|
-| V01 Runtime matrix | Platform/Snowflake | Before CON-002/M2 | Pinned Python, connector, PyArrow, Dagster, dbt Core and adapter WIF compatibility; no persistent credential fallback |
-| V02 AWS region/quotas | DevOps | M1 and M10 | Actual account IDs, region services, IAM role quotas, ECS capacity, KMS trust, DNS and deployment OIDC |
+| V01 Runtime matrix | Platform/Snowflake | Before CON-002/M2 | Pinned Python, connector, PyArrow, Dagster, dbt Core and adapter WIF compatibility; no persistent credential fallback. (narrowed 2026-09-28, D-21, X-23) dbt Core WIF support exists from dbt-snowflake 1.12.0 (dbt-adapters PR #1316, VERIFIED), so no fallback design is needed; what remains is the live proof in CON-002 of the pinned matrix: dbt-snowflake ≥ 1.12 over WIF, connector with `arrow_number_to_decimal=True` (no float fields), exact sqlglot pin, AWS attestation mode |
+| V02 AWS region/quotas | DevOps | M1 and M10 | Actual account IDs, region services, IAM role quotas, ECS capacity, KMS trust, DNS and deployment OIDC. (amended 2026-09-28) Single EU region (D-23); IAM role quota default 1,000, raised maximum 10,000 (VERIFIED) — increase requested in P1, admission guard at 80 %; production provisioned early as dark production (REL-104, P3) rather than at M10 |
 | V03 Source capabilities | Snowflake/Data | Every adapter activation/M3 | Exact current schemas/grants/retention/latencies and account/organization/reseller limitations |
-| V04 Central authorization scale | Security | M5/M9 | Principal per tenant/normalized permission-profile quota, role/policy enforcement, pool budget and immediate epoch revocation |
+| V04 Central authorization scale | Security | M5/M9 | Principal per tenant/normalized permission-profile quota, role/policy enforcement, pool budget and immediate epoch revocation. (amended 2026-09-28, D-02) Model is one WIF user per tenant plus one role per profile: prove `CURRENT_ROLE()`-only policies, disabled secondary roles, pools keyed (tenant user, profile role), revocation ≤ 30 s under dropped events, and profile-role counts at the admission cap (see V14) |
 | V05 Financial authority | FinOps | M4/M11 | Native service/invoice inclusion mapping, approved rate/currency scope and independent reference; no invented balancing entries |
 | V06 Performance/cost | SRE/FinOps | M9 | Actual measured footprint, safe quotas, query/memory/file limits and approved benchmark spend |
-| V07 Recovery | SRE | M9/M10 | Timed PG and canonical Snowflake restoration, historical facts outside raw retention and deletion tombstones |
-| V08 Communications | Backend | M7/M10 | SES sending approval, Slack/Teams supported sandbox receipts, webhook SSRF tests and provider timeout behavior |
+| V07 Recovery | SRE | M9/M10 | Timed PG and canonical Snowflake restoration, historical facts outside raw retention and deletion tombstones. (amended 2026-09-28, ADR-011 amendment) First drills move to P1 (PITR) and P3 (analytical: Snowflake Backups tier and revision-export tier); every drill replays the OPS-104 tombstone log and must not resurrect an erased subject or deleted tenant (see V25) |
+| V08 Communications | Backend | M7/M10 | SES sending approval, Slack/Teams supported sandbox receipts, webhook SSRF tests and provider timeout behavior. (amended 2026-09-28) Slack app with bot token, Teams Workflows URLs (only if the first customer uses Teams), Standard Webhooks signing; SES production access requested in P1 (see V28) |
 | V09 Security/privacy | Security/legal owner | M9/M10 | Full isolation suite, vulnerability remediation, approved retention/residency/subprocessors and customer terms |
 | V10 Customer authorization | Customer success | M11 | Approved real organization/accounts, admin identity, collection scope and capability acceptance |
-| V11 First value/payment | Customer/Finance | M11/M12 | Real customer acceptance and verified payment; synthetic fixtures cannot satisfy these gates |
+| V11 First value/payment | Customer/Finance | M11/M12 | Real customer acceptance and verified payment; synthetic fixtures cannot satisfy these gates. (amended 2026-09-28, D-17, D-30, D-36) A contracted PILOT is not payment; payment evidence comes from a manual invoice or Stripe payment link issued by the French entity through a compliant invoicing tool (accountant confirmation, LCH-103); a Snowflake trial account can never satisfy this gate (D-35) |
 | V12 Post-launch reviews | Delivery/SRE | First week/day30 | Actual production observations, first complete-period billing reconciliation and assigned improvements |
+
+### Release-blocking live verifications added 2026-09-28
+
+| ID | Owner (task) | Gate | Required evidence / safe default |
+|---|---|---|---|
+| **Identity, isolation and access** | | | |
+| V13 WIF identity matching | Snowflake (CON-002, CON-102, INF-103) | P1 | Assumed-role ARN matches a user bound to a role without IAM path; role-name reuse impossible; `SELECT CURRENT_IP_ADDRESS()` from a WIF session ∈ published egress IPs. Safe default: no IAM path, UUID-derived names |
+| V14 Serving policy mechanics | Security (SEC-005, SEC-105, DBT-101) | P1–P3 | Session policy `ALLOWED_SECONDARY_ROLES=()` enforced on existing sessions; memoizable-function policy variant (argument support, cache scope) benchmarked; Snowflake role-count limit at 200 profiles/tenant; whether view replacement retains policy associations. Safe default: plain `CURRENT_ROLE()` policy, views deployed by migrations only |
+| V15 Broker transport | Platform (API-002, INF-005) | P3 | ECS ↔ VPC Lattice with IAM auth policy (SigV4) works end to end. Fallback: Service Connect plus security-group restriction; no private CA |
+| V16 Cognito limits and step-up | Security (SEC-002, SEC-003) | P1 | Identity providers per user pool; re-authentication through `prompt=login` / SAML `ForceAuthn`. Fallback: step-up = full re-login; pool sharding in R2 |
+| V17 Edge | Platform (INF-006) | P1 | CloudFront VPC origin to the internal ALB: origin TLS name matching and origin-facing prefix list; direct ALB access impossible |
+| **Customer account and sources** | | | |
+| V18 Install script and database roles | Snowflake (CON-003, CON-005, ING-101…104) | P1–P2 | `CREATE RESOURCE MONITOR IF NOT EXISTS`, the Snowflake Scripting precheck (SHOW + RESULT_SCAN), user-level network-policy precedence, effect of `ALTER USER … DISABLED` on running queries; per-view database roles (GOVERNANCE_VIEWER for QUERY_HISTORY; roles for SESSIONS, TAG_REFERENCES, TABLE_STORAGE_METRICS, Organization Usage views) on Standard and Enterprise estate accounts |
+| V19 Trial-account detection | Snowflake (CON-005) | P1 | Signals that identify a Snowflake trial account (D-35). Safe default: customer declaration plus demo labelling |
+| V20 Long-running queries | Data (ING-101, ING-002, ING-003) | P2 | A > 90-minute probe query appears exactly once in the completion-time sweep of QUERY_HISTORY and QUERY_ATTRIBUTION_HISTORY; pruning of END_TIME-only versus START_TIME-bounded predicates; `ABORT_DETACHED_QUERY` behaviour |
+| V21 Snowpipe and schema drift | Data (ING-006, ING-007, ING-009) | P2 | Pipe `PATTERN` applied after the stage prefix; `ALTER PIPE … REFRESH` eligibility window; INFORMATION_SCHEMA.COPY_HISTORY latency; per-account behavior-change bundle visibility and whether `DESCRIBE VIEW` needs a warehouse |
+| V22 Customer footprint | Snowflake/FinOps (CON-101, OPS-105, ONB-101) | P2 | Measured cycle duration and credits with explicit suspend versus auto-suspend; backfill seconds per day with 365-day query text (D-11); estimate shown before consent within ±25 % of actual |
+| V23 Warehouse configuration snapshot | Data (INS-102) | P2 | `SHOW WAREHOUSES` visibility with account-level MONITOR USAGE versus per-warehouse MONITOR; warehouse-ID column; no warehouse resume |
+| **Billing semantics (tenant zero)** | | | |
+| V24 Billing semantics | FinOps (FIN-108, FIN-101) | P3 | USAGE_IN_CURRENCY_DAILY enum strings (balance source, rating/billing/service/usage type) and legacy nulls; whether capacity-drawdown marketplace purchases appear in currency billing; storage accrual (daily or month-end) and TB unit; month revision lag N; usage-statement CSV format; QUERY_ATTRIBUTION_HISTORY latency (6 or 8 h); Cortex view overlap; Snowpipe Streaming architecture fields; AI Gateway service type. Safe default: values marked TO VERIFY stay UNMAPPED/PENDING |
+| **Platform and operations** | | | |
+| V25 Analytical recovery tiers | SRE (OPS-007, ORC-105) | P3 | Snowflake Backups on the central edition (cost, restore time); unload with `ENABLE_UNLOAD_PHYSICAL_TYPE_OPTIMIZATION=FALSE` preserves decimal precision; restore from the recovery account |
+| V26 Revision and publication benchmark | Data platform (DBT-101) | P2–P3 | ≤ 200 credits: hourly partition rebuild cost, pinned-read p95 with 1 versus 3 retained revisions, GC cost, publication-map cardinality with 365-day hour partitions |
+| V27 Runtime limits | Platform (ORC-006, OPS-001, INF-004) | P1–P3 | Fargate `stopTimeout` 120 s for cancellation; ADOT tail sampling; measured Aurora `max_connections` against the pool-budget manifest |
+| V28 Notification providers | Backend (GOV-006, GOV-102) | P5 | Teams payload limit and flow throttling; Slack app installation policies in Enterprise Grid; egress-proxy IPv6 handling; SES production access granted |
 
 An external limitation has an explicit feature/coverage consequence. A required failed gate blocks the affected milestone. Optional unavailable capabilities may degrade gracefully only when the product, exports and customer acceptance disclose the missing evidence. Do not repeatedly reopen settled ADRs without new evidence from one of these validations.

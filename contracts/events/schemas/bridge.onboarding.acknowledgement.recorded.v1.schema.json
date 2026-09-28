@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.acknowledgement.recorded:v1",
+  "$comment": "contract=event-bridge.onboarding.acknowledgement.recorded version=1 status=DRAFT owner_task=ONB-001 decisions=D-08,D-35 last_changed=2026-09-28",
+  "title": "bridge.onboarding.acknowledgement.recorded v1 payload",
+  "description": "A bound acknowledgement was appended (consent, gap acceptance, limitation, skip, attestation, FV-1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "acknowledgement_id",
+    "step_key",
+    "account_id",
+    "ack_type",
+    "bound_ref_type",
+    "bound_ref",
+    "bound_revision"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "acknowledgement_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "step_key": {
+      "type": "string",
+      "enum": [
+        "ORG_CREATED",
+        "SNOWFLAKE_ORG_CONNECTED",
+        "ACCOUNTS_DISCOVERED",
+        "ACCOUNTS_SELECTED",
+        "ACCOUNT_WIF_INSTALLED",
+        "CAPABILITIES_VERIFIED",
+        "HISTORY_PLAN_ACCEPTED",
+        "HISTORY_SYNCED",
+        "RECONCILED",
+        "OWNERSHIP_CLASSIFIED",
+        "ALLOCATION_SIMULATED",
+        "BUDGET_CREATED",
+        "MONITORS_CREATED",
+        "INSIGHT_REVIEWED",
+        "FIRST_VALUE_PACK"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "account_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "ack_type": {
+      "type": "string",
+      "enum": [
+        "OPTIONAL_SKIP",
+        "CAPABILITY_DIFFERENCES_ACCEPTED",
+        "GAP_ACCEPTANCE",
+        "BACKFILL_CONSENT",
+        "LIMITATION_ACCEPTANCE",
+        "TRIAL_PAID_ATTESTATION",
+        "NO_INSIGHT_CANDIDATE",
+        "FIRST_VALUE_ACCEPTANCE"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "bound_ref_type": {
+      "type": "string",
+      "enum": [
+        "ONBOARDING_RUN",
+        "CONNECTION",
+        "CAPABILITY_PROBE",
+        "BACKFILL_PLAN",
+        "ONBOARDING_ESTIMATE",
+        "RECONCILIATION_RUN",
+        "INSIGHT_REVIEW"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "bound_ref": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "bound_revision": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "acknowledgement_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e10",
+      "step_key": "HISTORY_PLAN_ACCEPTED",
+      "account_id": null,
+      "ack_type": "BACKFILL_CONSENT",
+      "bound_ref_type": "ONBOARDING_ESTIMATE",
+      "bound_ref": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e11",
+      "bound_revision": 1
+    }
+  ]
+}

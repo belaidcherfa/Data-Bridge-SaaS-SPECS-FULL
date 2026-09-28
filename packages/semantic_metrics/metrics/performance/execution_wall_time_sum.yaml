@@ -1,0 +1,36 @@
+# contract=semantic-metric:execution_wall_time_sum version=1 status=DRAFT owner_task=WRK-002 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: execution_wall_time_sum
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.execution_wall_time_sum.label
+description_key: metric.execution_wall_time_sum.description
+population_key: metric.execution_wall_time_sum.population
+category: WORKLOAD
+unit: {kind: MILLISECONDS, currency_policy: NOT_APPLICABLE, quantity_unit: MILLISECOND, display_hint: DURATION}
+relation: v_workload_exec
+measure:
+  type: SUM
+  column_ref: wall_time_ms
+  population:
+  - {column: basis, op: EQ, value: VERIFIED}
+  - {column: complete, op: EQ, value: true}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, execution_kind, workload_type, workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, warehouse, dynamic_table,
+  task, evidence_class, query_status, data_status]
+required_filter_or_dimension: [execution_kind]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#execution_wall_time_sum
+  child_resolvers: [execution_set]
+screen_keys: [runduration, pbiduration]
+owner_task: WRK-002
+notes: Σ over complete executions of (max(end) − min(start)); concurrent queries are not summed (two concurrent 10 s queries → 10 s). Additive across executions of one kind only (execution_kind
+  required).

@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:data:ledger-enums:v1",
+  "$comment": "contract=ledger-enums version=1 status=DRAFT owner_task=FIN-001 decisions=D-12,D-13,D-14,D-15,D-20 last_changed=2026-09-28. Single source of the ledger enumerations shared by fct_charge.schema.json, bridge_charge_attribution.schema.json, service-authority.json, ref_service_crosswalk.csv and the finance OpenAPI components. Adding a value is a minor change; removing or renaming one is breaking (new major).",
+  "title": "Ledger enumerations",
+  "$defs": {
+    "service_family": {
+      "type": "string",
+      "description": "Charge family (unit of estimate production and supersession, FIN §3.1-§3.2). Unknown billing tuples map to UNMAPPED_BILLABLE_SERVICE and are never dropped.",
+      "enum": [
+        "WAREHOUSE_COMPUTE",
+        "CLOUD_SERVICES",
+        "STORAGE",
+        "SNOWPIPE_FILE",
+        "SNOWPIPE_STREAMING",
+        "SERVERLESS_TASK",
+        "SERVERLESS_ALERT",
+        "AUTO_CLUSTERING",
+        "SEARCH_OPTIMIZATION",
+        "MATERIALIZED_VIEW",
+        "QUERY_ACCELERATION",
+        "AI_SERVICES",
+        "SPCS",
+        "DATA_TRANSFER",
+        "REPLICATION",
+        "MARKETPLACE",
+        "ORGANIZATION_FEES",
+        "ADJUSTMENTS_CREDITS",
+        "HYBRID_TABLE_REQUESTS",
+        "TELEMETRY_INGEST",
+        "DATA_QUALITY_MONITORING",
+        "SENSITIVE_DATA_CLASSIFICATION",
+        "OPENFLOW",
+        "SNOWFLAKE_POSTGRES",
+        "PRIVATE_CONNECTIVITY",
+        "BACKUPS",
+        "OTHER_SERVERLESS",
+        "UNMAPPED_BILLABLE_SERVICE"
+      ]
+    },
+    "service_category": {
+      "type": "string",
+      "description": "Coarse grouping exposed as the semantic dimension service_category (API-001). Mapping family -> category is fixed in ref_service_crosswalk and service-authority.json.",
+      "enum": ["COMPUTE", "CLOUD_SERVICES", "STORAGE", "DATA_TRANSFER", "SERVERLESS", "AI", "CONTAINERS", "MARKETPLACE", "PLATFORM_FEES", "ADJUSTMENTS", "UNMAPPED"]
+    },
+    "basis_class": {
+      "type": "string",
+      "description": "AUTH = authoritative billed row (FIN-002 normalizer); EST = provisional estimate at family-bucket grain (FIN-102); PPA = Bridge prior-period adjustment created by a CARRY_FORWARD decision (FIN-107).",
+      "enum": ["AUTH", "EST", "PPA"]
+    },
+    "entry_kind": {
+      "type": "string",
+      "enum": ["CONSUMPTION", "ADJUSTMENT", "FEE", "CREDIT", "PRIOR_PERIOD_ADJUSTMENT", "UNMAPPED"]
+    },
+    "funding_class": {
+      "type": "string",
+      "description": "From balance_source: CONTRACT (capacity, rollover), FREE (free usage), REBATE (rebate-funded), ON_DEMAND (overage, on-demand), UNKNOWN (null or unrecognized). Spend = all classes; capacity drawdown = CONTRACT + FREE + REBATE (G-FIN-04).",
+      "enum": ["CONTRACT", "FREE", "REBATE", "ON_DEMAND", "UNKNOWN"]
+    },
+    "billing_channel": {
+      "type": "string",
+      "description": "ORGANIZATION_BILLING = row of OU.USAGE_IN_CURRENCY_DAILY; SEPARATE_INVOICE = marketplace purchase billed outside organization billing (MPUD authority, G-FIN-05); ESTIMATE = EST row; BRIDGE_ADJUSTMENT = PPA row.",
+      "enum": ["ORGANIZATION_BILLING", "SEPARATE_INVOICE", "ESTIMATE", "BRIDGE_ADJUSTMENT"]
+    },
+    "native_unit": {
+      "type": "string",
+      "enum": ["CREDIT", "TB_MONTH", "TB", "CURRENCY", "UNIT"]
+    },
+    "measure_role": {
+      "type": "string",
+      "enum": ["CHARGE", "ATTRIBUTION", "REFERENCE"]
+    },
+    "charge_null_reason": {
+      "type": "string",
+      "description": "Why cost_effective is NULL (never rendered as zero). BILLING_UNAVAILABLE = no organization billing access and no approved rate table (supersession case 8).",
+      "enum": ["RATE_MISSING", "RATE_AMBIGUOUS", "BILLING_UNAVAILABLE", "TB_UNIT_UNKNOWN"]
+    },
+    "charge_flag": {
+      "type": "string",
+      "enum": ["BILLING_MISSING", "DIMS_DERIVED", "RATE_CARRIED_FORWARD", "UNRESOLVED_ACCOUNT", "RATE_SOURCE_DISAGREEMENT", "PARTIAL_DAY"]
+    },
+    "estimate_source": {
+      "type": "string",
+      "enum": ["MDH", "MH", "OU_STORAGE_DAILY_HISTORY", "AU_DATA_TRANSFER_HISTORY"]
+    },
+    "rate_source": {
+      "type": "string",
+      "enum": ["RATE_SHEET", "CUSTOMER_APPROVED", "DEMO_FIXTURE"]
+    },
+    "physical_data_status": {
+      "type": "string",
+      "description": "data_status stored on ledger rows. RECONCILED is not stored on rows: serving overlays it per (period, publication) from fct_period_reconciliation_status (FIN-009-S10), avoiding a rebuild loop.",
+      "enum": ["PROVISIONAL", "FINAL"]
+    },
+    "period_stability": {
+      "type": "string",
+      "enum": ["OPEN", "STABLE"]
+    },
+    "attribution_set": {
+      "type": "string",
+      "description": "Named decomposition of a parent. Level-1 sets decompose a charge; level-2 sets decompose one level-1 row. is_primary marks the one level-1 set per family used by the attributed_cost metric (API G-API-02).",
+      "enum": [
+        "WAREHOUSE_HOUR",
+        "WAREHOUSE_QUERY_IDLE",
+        "ADAPTIVE_QUERY_HOUR",
+        "CLOUD_SERVICES_DRIVER",
+        "CLOUD_SERVICES_QUERY",
+        "STORAGE_DATABASE",
+        "STORAGE_TABLE",
+        "PIPE",
+        "STREAMING",
+        "SERVERLESS_TASK",
+        "SERVERLESS_ALERT",
+        "AUTO_CLUSTERING",
+        "SEARCH_OPTIMIZATION",
+        "MATERIALIZED_VIEW",
+        "QAS_WAREHOUSE",
+        "QAS_QUERY",
+        "AI_SERVICES",
+        "AI_AGENT_TOOLS",
+        "SPCS_POOL",
+        "SPCS_SERVICE",
+        "DATA_TRANSFER",
+        "REPLICATION",
+        "MARKETPLACE_LISTING",
+        "WHOLE"
+      ]
+    },
+    "target_kind": {
+      "type": "string",
+      "enum": [
+        "WAREHOUSE",
+        "QUERY",
+        "SERVICE_TYPE",
+        "DATABASE",
+        "STAGE",
+        "TABLE",
+        "PIPE",
+        "STREAMING_CLIENT",
+        "STREAMING_CHANNEL",
+        "TASK",
+        "ALERT",
+        "MATERIALIZED_VIEW",
+        "AI_FEATURE",
+        "AI_FUNCTION",
+        "AI_AGENT",
+        "AI_TOOL",
+        "COMPUTE_POOL",
+        "SPCS_SERVICE",
+        "APPLICATION",
+        "TRANSFER_DIRECTION",
+        "REPLICATION_GROUP",
+        "LISTING",
+        "NONE"
+      ]
+    },
+    "residual_kind": {
+      "type": "string",
+      "description": "UX labels: Unattributed, Idle, Proration residual, Over-attributed, Hidden resource (FIN-103-S09).",
+      "enum": ["UNATTRIBUTED", "IDLE", "PRORATION_RESIDUAL", "OVER_ATTRIBUTED", "HIDDEN_RESOURCE"]
+    },
+    "attribution_status": {
+      "type": "string",
+      "description": "Attribution maturity (FIN-104): FINAL at the attribution horizon of the detail source (QAH hour_end + T + 24 h, default 72 h) with contiguous coverage.",
+      "enum": ["PROVISIONAL", "FINAL"]
+    },
+    "attribution_method": {
+      "type": "string",
+      "enum": ["EXACT_ALLOCATION", "PRORATED_D14", "WHOLE", "NONE"]
+    },
+    "weight_basis": {
+      "type": "string",
+      "enum": ["CREDITS", "GROSS_CS_CREDITS", "BYTES", "BYTE_DAYS", "UNCOMPRESSED_GB", "TOKENS", "CURRENCY", "WHOLE", "NONE"]
+    },
+    "attribution_reason": {
+      "type": "string",
+      "description": "Reason code on residual rows (and on NULL-amount rows).",
+      "enum": ["DETAIL_BELOW_BUCKET", "DETAIL_ABOVE_BUCKET", "ZERO_WEIGHT", "NULL_WEIGHT_EXCLUDED", "ATTRIBUTION_UNAVAILABLE", "CAPABILITY_DENIED", "SOURCE_STALE", "SNAPSHOT_BEFORE_ENROLLMENT", "SHORT_QUERIES_NOT_IN_QAH", "NO_DETAIL_ADAPTER", "HIDDEN_PIPE", "UNKNOWN_FEATURE", "PARENT_MONEY_UNKNOWN", "IDLE_NEGATIVE"]
+    },
+    "idle_status": {
+      "type": "string",
+      "description": "Per warehouse-hour: AVAILABLE (classic), NOT_APPLICABLE (Adaptive warehouses, FIN-004-S05), UNKNOWN (WMH attributed NULL or QAH immature, FIN-003-S08).",
+      "enum": ["AVAILABLE", "NOT_APPLICABLE", "UNKNOWN"]
+    }
+  }
+}

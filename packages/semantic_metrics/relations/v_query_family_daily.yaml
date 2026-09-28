@@ -1,0 +1,94 @@
+# contract=semantic-relation:v_query_family_daily version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_query_family_daily
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_query_family_daily
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: 'Single D-11 aggregate owned by WRK-104 (RECONCILIATION U-17): union of API sketches, INS savings measures and the D-15 cloud-services driver. Used beyond hot_days and optionally
+  for long-range family views, always with meta.retention_tier=AGGREGATE and meta.exactness.'
+serving_view: bridge.serving.serving_query_family_daily
+dataset_id: query_family_daily
+dbt_model: fct_query_family_daily
+upstream_owner_tasks: [WRK-104, INS-003, DBT-006]
+grain_keys: [tenant_id, family_row_key]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: AGGREGATE
+retention: {days: 400, basis: FIXED, reference: 'D-11: family × day aggregates 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [au.query_history, au.query_attribution_history]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: family_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL, description: 'sha256(account_id, warehouse_id, workload_key, query_parameterized_hash, hash_version,
+    usage_date).'}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- {name: currency, type: VARCHAR(3), nullable: true, role: DIMENSION, privacy: INTERNAL, description: ISO 4217; NULL when the row carries no money (price unknown).}
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: warehouse_type
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [CLASSIC, ADAPTIVE]
+- {name: warehouse_size, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: workload_type
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT, POWER_BI, TASK, PROCEDURE, DYNAMIC_TABLE, SNOWPIPE, NATIVE_APP, SPCS, CORTEX, CUSTOM_APP, BI_OTHER, AD_HOC, BRIDGE_OVERHEAD, UNKNOWN]
+- {name: workload_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: environment
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [PRODUCTION, STAGING, DEV, OTHER, UNKNOWN]
+- {name: dbt_project_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: query_parameterized_hash, type: VARCHAR(64), nullable: false, role: DIMENSION, privacy: INTERNAL, description: '''__NO_HASH__'' bucket when the source hash is NULL (WRK-104-S04).'}
+- {name: query_hash_version, type: 'NUMBER(38,0)', nullable: false, role: DIMENSION, privacy: INTERNAL}
+- {name: query_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: Terminal queries (SUCCEEDED + FAILED + CANCELLED).}
+- {name: succeeded_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: failed_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: cancelled_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: succeeded_failed_count, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: succeeded_count + failed_count (query_failure_rate denominator).}
+- {name: compute_cost, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: attributed_credits, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Incl. QAS credits (INS).}
+- {name: credits_used_cloud_services, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: D-15 cloud-services driver.}
+- {name: queued_ms_sum, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: compilation_ms_sum, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: execution_ms_sum, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: elapsed_ms_sum, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: bytes_scanned_sum, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: spill_remote_bytes, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: spill_remote_exec_count, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: executions_success, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: executions_attributed, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: elapsed_tdigest, type: VARIANT, nullable: false, role: STATE, privacy: INTERNAL, description: APPROX_PERCENTILE_ACCUMULATE(total_elapsed_ms) over SUCCEEDED+FAILED queries.}
+- {name: execution_tdigest, type: VARIANT, nullable: false, role: STATE, privacy: INTERNAL, description: APPROX_PERCENTILE_ACCUMULATE(execution_ms) over SUCCEEDED+FAILED queries.}
+- {name: users_hll, type: BINARY, nullable: false, role: STATE, privacy: INTERNAL, description: HLL_ACCUMULATE(user_pseudonym).}
+- {name: hashes_hll, type: BINARY, nullable: false, role: STATE, privacy: INTERNAL, description: HLL_ACCUMULATE(query_parameterized_hash) for distinct-hash counts across rows.}
+- {name: dominant_user_pseudonym, type: VARCHAR, nullable: true, role: DIMENSION, privacy: PERSONAL}
+- {name: dominant_role_name, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: dominant_identity_query_count, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

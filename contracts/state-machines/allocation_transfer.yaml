@@ -1,0 +1,38 @@
+# contract=state-machine-allocation-transfer version=1 status=DRAFT owner_task=ALC-103 decisions=D-04,D-15 last_changed=2026-09-28
+# Manual internal transfer (book-level, approved): produces two allocation lines (-x from, +x to) with
+# charge_id NULL in the accounting period; Σ transfer lines = 0 per book × period × currency; the original
+# Snowflake charge is never altered. Reversal = a new, opposite transfer (reverses_transfer_id).
+# Note: this machine name is added by lane K7 (not in the initial ownership list); see contracts/_handoffs/K7.md.
+# Sources: backlog/ALC.md G-ALC-10 (manual transfer), ALC-103-S04/S05.
+machine: allocation_transfer
+version: 1
+owner_task: ALC-103
+entity: allocation.transfer
+state_field: status
+initial: REQUESTED
+terminal: [PUBLISHED, REJECTED, CANCELLED]
+states:
+  REQUESTED: {description: "Requested by an allocation_rule.edit holder; amount > 0, from ≠ to, both groups in the same book and visible to the requester."}
+  APPROVED: {description: "Approved by a FinOps Admin/Owner different from the requester (governance.approval action allocation.transfer)."}
+  PUBLISHING: {description: "Written to CONFIG.cfg_transfer by the config-publisher; waiting for the publication that pins the config_version."}
+  PUBLISHED: {description: "Transfer lines are part of the published allocation for the target period."}
+  REJECTED: {description: "Rejected by the approver."}
+  CANCELLED: {description: "Withdrawn by the requester before approval, or cancelled because a group was archived."}
+transitions:
+  - {from: REQUESTED, to: APPROVED, event: approved, actors: [rule.approve], guards: [approver_is_not_requester, groups_active, period_resolved], effects: [insert:governance.approval, emit:bridge.allocation.transfer.approved]}
+  - {from: REQUESTED, to: REJECTED, event: rejected, actors: [rule.approve], guards: [approver_is_not_requester], effects: [insert:governance.approval, emit:bridge.allocation.transfer.rejected]}
+  - {from: REQUESTED, to: CANCELLED, event: cancelled, actors: [allocation_rule.edit, "system:group-archive"], guards: [], effects: [emit:bridge.allocation.transfer.cancelled]}
+  - {from: APPROVED, to: PUBLISHING, event: publish_requested, actors: [rule.publish, "system:transfer-publisher"], guards: [approval_valid_at_execution, target_period_open], effects: [allocate_config_version, mark_dirty_partitions, emit:bridge.allocation.transfer.publish_requested]}
+  - {from: APPROVED, to: CANCELLED, event: cancelled, actors: [allocation_rule.edit, "system:group-archive"], guards: [], effects: [emit:bridge.allocation.transfer.cancelled]}
+  - {from: PUBLISHING, to: PUBLISHED, event: publication_advanced, actors: ["system:orc-publication-ack"], guards: [publication_pins_config_version], effects: [emit:bridge.allocation.transfer.published]}
+  - {from: PUBLISHING, to: APPROVED, event: publication_failed, actors: ["system:config-publisher"], guards: [], effects: [record_failure_code, emit:bridge.allocation.transfer.publish_failed]}
+guards:
+  approver_is_not_requester: "decided_by <> requested_by; else 403 ALLOC_SELF_APPROVAL_FORBIDDEN."
+  groups_active: "from_group_id and to_group_id are non-archived groups of book_id; UNASSIGNED is allowed only as from_group (moving unallocated money to a team); hidden groups are never selectable (404)."
+  period_resolved: "target_period = accounting_period if that period is OPEN, else the first open period (ALC-103-S05 clamp, recorded as clamped_from_period)."
+  approval_valid_at_execution: "SEC-102 require_approval(allocation.transfer) valid for the transfer revision and content hash."
+  target_period_open: "FIN-010 period state of target_period is OPEN or MONTH_STABLE (not CLOSED); else re-clamp to the first open period."
+  publication_pins_config_version: "The advanced tenant publication pins the transfer config_version."
+invariants:
+  - "Per (tenant, book, accounting period, currency) Σ transfer lines = 0."
+  - "A transfer never changes a charge or a charge-level conservation test."

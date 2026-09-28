@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:insights:detector-evaluation:v1",
+  "$comment": "contract=detector-evaluation version=1 status=DRAFT owner_task=INS-001 decisions=D-05,D-13,D-20 last_changed=2026-09-28. One row per (tenant, account, detector, version, as_of): what was evaluated and why nothing qualified (empty-state 'evaluated 12 warehouses; 0 qualified; 3 suppressed: config unknown', INS-101-S05). A capability gap yields a SUPPRESSED count keyed MISSING_CAPABILITY:<key>, never silence (INS-001-S03). Landed in py_outputs.insight_detector_evaluation_r (V0702).",
+  "title": "DetectorEvaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tenant_id", "organization_id", "account_id", "detector_id", "detector_version", "detector_family", "algorithm_run_id", "as_of", "window_start", "window_end", "run_status", "evaluated_count", "qualified_count", "not_qualified_count", "insufficient_count", "suppressed_count", "suppressed_by_reason", "not_qualified_by_reason", "eligible_on", "input_pub_seq", "config_version", "revision_id"],
+  "properties": {
+    "tenant_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "organization_id": {"type": ["string", "null"], "format": "uuid", "x-privacy": "INTERNAL"},
+    "account_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "detector_id": {"type": "string", "pattern": "^(WH|Q|ST|PL|PI|AI|SP)[0-9]{2}$", "x-privacy": "PUBLIC"},
+    "detector_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "x-privacy": "PUBLIC"},
+    "detector_family": {"enum": ["WAREHOUSE", "QUERY", "STORAGE", "PIPELINE", "INGESTION", "AI", "SPCS"], "x-privacy": "PUBLIC"},
+    "algorithm_run_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "as_of": {"type": "string", "format": "date", "x-privacy": "INTERNAL"},
+    "window_start": {"type": "string", "format": "date-time", "x-privacy": "INTERNAL"},
+    "window_end": {"type": "string", "format": "date-time", "x-privacy": "INTERNAL"},
+    "run_status": {"enum": ["COMPLETED", "FAILED", "SKIPPED_DISABLED", "SKIPPED_NOT_QUALIFIED_FOR_TENANT"], "x-privacy": "PUBLIC", "description": "SKIPPED_NOT_QUALIFIED_FOR_TENANT = the INS-105 gate has not enabled this detector version for customer tenants."},
+    "evaluated_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL", "description": "Resources evaluated (warehouses, families, tables …)."},
+    "qualified_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "not_qualified_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "insufficient_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "suppressed_count": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "suppressed_by_reason": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}, "propertyNames": {"$ref": "urn:bridge:schema:insights:reason-code:v1"}, "x-privacy": "INTERNAL"},
+    "not_qualified_by_reason": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}, "propertyNames": {"$ref": "urn:bridge:schema:insights:reason-code:v1"}, "x-privacy": "INTERNAL"},
+    "eligible_on": {"type": ["string", "null"], "format": "date", "x-privacy": "INTERNAL", "description": "Date the detector becomes evaluable when history is insufficient (TSM: first_snapshot_date + 13 d)."},
+    "input_pub_seq": {"type": "integer", "minimum": 1, "x-privacy": "INTERNAL"},
+    "config_version": {"type": "integer", "minimum": 0, "x-privacy": "INTERNAL"},
+    "failure_code": {"type": ["string", "null"], "enum": ["ENGINE_TIMEOUT", "FEATURE_SNAPSHOT_UNAVAILABLE", "SCHEMA_DRIFT", "INTERNAL_ERROR", null], "x-privacy": "PUBLIC"},
+    "revision_id": {"type": "integer", "minimum": 1, "x-privacy": "INTERNAL"}
+  },
+  "x-bridge-invariants": [
+    "evaluated_count = qualified_count + not_qualified_count + insufficient_count + suppressed_count",
+    "Σ suppressed_by_reason values = suppressed_count; Σ not_qualified_by_reason values = not_qualified_count",
+    "run_status FAILED → all counts 0 and failure_code non-null; the previous accepted partition stays published"
+  ],
+  "examples": [
+    {"tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80", "organization_id": null, "account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82", "detector_id": "WH02", "detector_version": "1.0.0", "detector_family": "WAREHOUSE", "algorithm_run_id": "01923f6b-0000-7000-8000-000000000001", "as_of": "2026-09-27", "window_start": "2026-09-14T00:00:00.000Z", "window_end": "2026-09-28T00:00:00.000Z", "run_status": "COMPLETED", "evaluated_count": 12, "qualified_count": 0, "not_qualified_count": 9, "insufficient_count": 0, "suppressed_count": 3, "suppressed_by_reason": {"MISSING_CAPABILITY:WAREHOUSE_CONFIG": 3}, "not_qualified_by_reason": {"PREDICATE_NOT_MET": 8, "BELOW_IMPACT_FLOOR": 1}, "eligible_on": null, "input_pub_seq": 48211, "config_version": 3, "failure_code": null, "revision_id": 7},
+    {"tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80", "organization_id": null, "account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82", "detector_id": "ST03", "detector_version": "1.0.0", "detector_family": "STORAGE", "algorithm_run_id": "01923f6b-0000-7000-8000-000000000002", "as_of": "2026-10-01", "window_start": "2026-09-29T00:00:00.000Z", "window_end": "2026-10-02T00:00:00.000Z", "run_status": "COMPLETED", "evaluated_count": 40, "qualified_count": 0, "not_qualified_count": 0, "insufficient_count": 40, "suppressed_count": 0, "suppressed_by_reason": {}, "not_qualified_by_reason": {}, "eligible_on": "2026-10-12", "input_pub_seq": 48400, "config_version": 3, "failure_code": null, "revision_id": 1}
+  ],
+  "x-negative-examples": [
+    {"why": "unknown reason code key", "patch": {"suppressed_by_reason": {"CONFIG_UNKNOWN": 3}}},
+    {"why": "negative count", "patch": {"qualified_count": -1}}
+  ]
+}

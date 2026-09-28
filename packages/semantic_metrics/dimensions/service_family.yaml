@@ -1,0 +1,26 @@
+# contract=semantic-dimension:service_family version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: service_family
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.service_family.label
+description_key: dimension.service_family.description
+group: BILLING
+kind: ENUM
+value_type: ENUM
+enum_values: [WAREHOUSE_COMPUTE, CLOUD_SERVICES, STORAGE, SNOWPIPE_FILE, SNOWPIPE_STREAMING, SERVERLESS_TASK, SERVERLESS_ALERT, AUTO_CLUSTERING, SEARCH_OPTIMIZATION, MATERIALIZED_VIEW,
+  QUERY_ACCELERATION, AI_SERVICES, SPCS, DATA_TRANSFER, REPLICATION, MARKETPLACE, ORGANIZATION_FEES, ADJUSTMENTS, HYBRID_TABLE_REQUESTS, UNMAPPED_BILLABLE_SERVICE]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.service_family.value}
+bindings:
+- {relation: v_charge_daily, column_ref: service_family}
+- {relation: v_attribution_daily, column_ref: service_family}
+sortable: true
+owner_task: API-001
+notes: Values follow the FIN-001 crosswalk (ref_service_crosswalk); a new family requires a dimension version bump agreed with FIN.

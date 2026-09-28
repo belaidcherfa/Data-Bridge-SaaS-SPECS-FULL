@@ -1,0 +1,371 @@
+# contract=cidr-plan version=1 status=DRAFT owner_task=INF-002 decisions=D-09,D-23,D-28 last_changed=2026-09-28
+# VPC CIDR plan (INF-002-S01). Validated by tools/network/validate_cidrs.py (rejects overlap, subnets outside the VPC,
+# and any use of forbidden_ranges). AZ letters map to config aws.az_ids / aws.reserved_az_id (AZ IDs, never AZ names).
+# DEV has one NAT gateway (app-b routes through nat-a); STAGING/PROD have one NAT per AZ. Data subnets have no default route.
+schema_version: 1
+rules:
+  supernet: 10.0.0.0/8
+  forbidden_ranges:
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - 100.64.0.0/10
+  reserved_for_regions: "10.50.0.0/16 \u2026 10.99.0.0/16 (D-23: future regional stacks, one /16 each)"
+  shared_services: 10.40.0.0/16 (reserved; no VPC in R1)
+  az_slots:
+    a: config aws.az_ids[0]
+    b: config aws.az_ids[1]
+    c: config aws.reserved_az_id (CIDRs reserved, no subnets in R1)
+  subnet_tiers:
+    public: "/24 per AZ \u2014 NAT gateways only (no tasks, no ALB; D-28)"
+    app: "/20 per AZ \u2014 ECS tasks, interface endpoints, in-VPC CI runners, internal ALB"
+    data: "/24 per AZ \u2014 Aurora and Valkey only; no default route"
+    inspection: "/26 per AZ \u2014 reserved for AWS Network Firewall (INF-106, R2)"
+environments:
+  dev:
+    vpc_cidr: 10.10.0.0/16
+    nat_gateways: 1
+    egress_eips: 1
+    interface_endpoint_azs: 0
+    interface_endpoints: []
+    gateway_endpoints:
+    - s3
+    subnets:
+    - name: public-a
+      tier: public
+      az: a
+      cidr: 10.10.0.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: true
+    - name: app-a
+      tier: app
+      az: a
+      cidr: 10.10.16.0/20
+      reserved: false
+      route_table: rt-app-a
+    - name: data-a
+      tier: data
+      az: a
+      cidr: 10.10.4.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-a
+      tier: inspection
+      az: a
+      cidr: 10.10.8.0/26
+      reserved: true
+      route_table: null
+    - name: public-b
+      tier: public
+      az: b
+      cidr: 10.10.1.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: false
+    - name: app-b
+      tier: app
+      az: b
+      cidr: 10.10.32.0/20
+      reserved: false
+      route_table: rt-app-b
+    - name: data-b
+      tier: data
+      az: b
+      cidr: 10.10.5.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-b
+      tier: inspection
+      az: b
+      cidr: 10.10.8.64/26
+      reserved: true
+      route_table: null
+    - name: public-c
+      tier: public
+      az: c
+      cidr: 10.10.2.0/24
+      reserved: true
+      route_table: null
+      nat_gateway: false
+    - name: app-c
+      tier: app
+      az: c
+      cidr: 10.10.48.0/20
+      reserved: true
+      route_table: null
+    - name: data-c
+      tier: data
+      az: c
+      cidr: 10.10.6.0/24
+      reserved: true
+      route_table: null
+    - name: inspection-c
+      tier: inspection
+      az: c
+      cidr: 10.10.8.128/26
+      reserved: true
+      route_table: null
+    route_tables:
+      rt-public:
+      - destination: 10.10.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: igw
+      rt-app-a:
+      - destination: 10.10.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-a
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-app-b:
+      - destination: 10.10.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-a
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-data:
+      - destination: 10.10.0.0/16
+        target: local
+    reserved_future:
+    - 10.10.64.0/18
+    - 10.10.128.0/17
+  staging:
+    vpc_cidr: 10.20.0.0/16
+    nat_gateways: 2
+    egress_eips: 2
+    interface_endpoint_azs: 1
+    interface_endpoints:
+    - ecr.api
+    - ecr.dkr
+    - logs
+    - sts
+    - secretsmanager
+    - kms
+    - sqs
+    - ssmmessages
+    - xray
+    gateway_endpoints:
+    - s3
+    subnets:
+    - name: public-a
+      tier: public
+      az: a
+      cidr: 10.20.0.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: true
+    - name: app-a
+      tier: app
+      az: a
+      cidr: 10.20.16.0/20
+      reserved: false
+      route_table: rt-app-a
+    - name: data-a
+      tier: data
+      az: a
+      cidr: 10.20.4.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-a
+      tier: inspection
+      az: a
+      cidr: 10.20.8.0/26
+      reserved: true
+      route_table: null
+    - name: public-b
+      tier: public
+      az: b
+      cidr: 10.20.1.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: true
+    - name: app-b
+      tier: app
+      az: b
+      cidr: 10.20.32.0/20
+      reserved: false
+      route_table: rt-app-b
+    - name: data-b
+      tier: data
+      az: b
+      cidr: 10.20.5.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-b
+      tier: inspection
+      az: b
+      cidr: 10.20.8.64/26
+      reserved: true
+      route_table: null
+    - name: public-c
+      tier: public
+      az: c
+      cidr: 10.20.2.0/24
+      reserved: true
+      route_table: null
+      nat_gateway: false
+    - name: app-c
+      tier: app
+      az: c
+      cidr: 10.20.48.0/20
+      reserved: true
+      route_table: null
+    - name: data-c
+      tier: data
+      az: c
+      cidr: 10.20.6.0/24
+      reserved: true
+      route_table: null
+    - name: inspection-c
+      tier: inspection
+      az: c
+      cidr: 10.20.8.128/26
+      reserved: true
+      route_table: null
+    route_tables:
+      rt-public:
+      - destination: 10.20.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: igw
+      rt-app-a:
+      - destination: 10.20.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-a
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-app-b:
+      - destination: 10.20.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-b
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-data:
+      - destination: 10.20.0.0/16
+        target: local
+    reserved_future:
+    - 10.20.64.0/18
+    - 10.20.128.0/17
+  prod:
+    vpc_cidr: 10.30.0.0/16
+    nat_gateways: 2
+    egress_eips: 2
+    interface_endpoint_azs: 2
+    interface_endpoints:
+    - ecr.api
+    - ecr.dkr
+    - logs
+    - sts
+    - secretsmanager
+    - kms
+    - sqs
+    - ssmmessages
+    - xray
+    gateway_endpoints:
+    - s3
+    subnets:
+    - name: public-a
+      tier: public
+      az: a
+      cidr: 10.30.0.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: true
+    - name: app-a
+      tier: app
+      az: a
+      cidr: 10.30.16.0/20
+      reserved: false
+      route_table: rt-app-a
+    - name: data-a
+      tier: data
+      az: a
+      cidr: 10.30.4.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-a
+      tier: inspection
+      az: a
+      cidr: 10.30.8.0/26
+      reserved: true
+      route_table: null
+    - name: public-b
+      tier: public
+      az: b
+      cidr: 10.30.1.0/24
+      reserved: false
+      route_table: rt-public
+      nat_gateway: true
+    - name: app-b
+      tier: app
+      az: b
+      cidr: 10.30.32.0/20
+      reserved: false
+      route_table: rt-app-b
+    - name: data-b
+      tier: data
+      az: b
+      cidr: 10.30.5.0/24
+      reserved: false
+      route_table: rt-data
+    - name: inspection-b
+      tier: inspection
+      az: b
+      cidr: 10.30.8.64/26
+      reserved: true
+      route_table: null
+    - name: public-c
+      tier: public
+      az: c
+      cidr: 10.30.2.0/24
+      reserved: true
+      route_table: null
+      nat_gateway: false
+    - name: app-c
+      tier: app
+      az: c
+      cidr: 10.30.48.0/20
+      reserved: true
+      route_table: null
+    - name: data-c
+      tier: data
+      az: c
+      cidr: 10.30.6.0/24
+      reserved: true
+      route_table: null
+    - name: inspection-c
+      tier: inspection
+      az: c
+      cidr: 10.30.8.128/26
+      reserved: true
+      route_table: null
+    route_tables:
+      rt-public:
+      - destination: 10.30.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: igw
+      rt-app-a:
+      - destination: 10.30.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-a
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-app-b:
+      - destination: 10.30.0.0/16
+        target: local
+      - destination: 0.0.0.0/0
+        target: nat-b
+      - destination: pl-s3 (com.amazonaws.eu-west-1.s3)
+        target: vpce-s3-gateway
+      rt-data:
+      - destination: 10.30.0.0/16
+        target: local
+    reserved_future:
+    - 10.30.64.0/18
+    - 10.30.128.0/17

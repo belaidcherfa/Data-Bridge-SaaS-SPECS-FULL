@@ -1,0 +1,159 @@
+# contract=owner-environment-config-template version=1 status=DRAFT owner_task=INF-001 decisions=D-09,D-21,D-23,D-25,D-32 last_changed=2026-09-28
+# TEMPLATE for config/environments/staging.yaml (STAGING workload account + BRIDGE_STAGING Snowflake account
+# + the non-production Snowflake TEST ESTATE, whose IaC and connector roles run from the STAGING AWS account).
+#
+#   cp config/environments/staging.example.yaml config/environments/staging.yaml
+#   replace every <PLACEHOLDER>; then: make config-validate
+#
+# NOTHING IN THIS FILE IS A SECRET (see config/README.md). No human Snowflake users exist in STAGING (FND-101).
+
+schema_version: 1
+environment: staging
+
+organization:                                   # must equal the dev and prod files
+  aws_organization_id: "<AWS_ORGANIZATION_ID>"
+  management_account_id: "<AWS_MANAGEMENT_ACCOUNT_ID>"
+  security_account_id: "<AWS_SECURITY_ACCOUNT_ID>"
+  log_archive_account_id: "<AWS_LOG_ARCHIVE_ACCOUNT_ID>"
+  shared_services_account_id: "<AWS_SHARED_SERVICES_ACCOUNT_ID>"
+  account_email_domain: "<ACCOUNT_EMAIL_DOMAIN>"
+  identity_center:
+    instance_arn: "<IDENTITY_CENTER_INSTANCE_ARN>"
+    identity_store_id: "<IDENTITY_STORE_ID>"
+    region: eu-west-1
+    external_idp: NONE
+
+aws:
+  account_id: "<AWS_ACCOUNT_ID_STAGING>"
+  region: eu-west-1
+  global_region: us-east-1
+  az_ids: ["<AZ_ID_A>", "<AZ_ID_B>"]
+  reserved_az_id: "<AZ_ID_C>"
+  support_plan: DEVELOPER
+
+dns:
+  apex_domain: "<APEX_DOMAIN>"
+  apex_hosted_zone_id: "<APEX_HOSTED_ZONE_ID>"
+  environment_zone_name: "<STAGING_ZONE_NAME>"   # e.g. staging.<apex>
+  app_hostname: "<STAGING_APP_HOSTNAME>"         # e.g. app.staging.<apex>
+  auth_hostname: "<STAGING_AUTH_HOSTNAME>"       # e.g. auth.staging.<apex>
+  email:
+    sender_domain: "<STAGING_EMAIL_SENDER_DOMAIN>"   # e.g. notify.staging.<apex>
+    mail_from_domain: "<STAGING_MAIL_FROM_DOMAIN>"
+    from_address: "<STAGING_FROM_ADDRESS>"
+    dmarc_report_address: "<DMARC_REPORT_ADDRESS>"
+    dmarc_policy: NONE
+
+github:
+  organization: "<GITHUB_ORG>"
+  repository: "<GITHUB_REPO>"
+  repository_owner_id: "<GITHUB_REPOSITORY_OWNER_ID>"
+  repository_id: "<GITHUB_REPOSITORY_ID>"
+  environment_name: staging
+  runner_label: bridge-staging-vpc
+  visibility: PUBLIC
+
+snowflake:
+  central:                                       # BRIDGE_STAGING (Enterprise, AWS eu-west-1)
+    organization_name: "<SNOWFLAKE_ORG_NAME>"
+    account_name: "<SNOWFLAKE_STAGING_ACCOUNT_NAME>"
+    account_locator: "<SNOWFLAKE_STAGING_LOCATOR>"
+    region: AWS_EU_WEST_1
+    cloud: AWS
+    edition: ENTERPRISE
+  sso:                                           # administrators only (two named ACCOUNTADMIN humans), no developers
+    idp_issuer: "<SNOWFLAKE_SSO_IDP_ISSUER>"
+    idp_sso_url: "<SNOWFLAKE_SSO_IDP_SSO_URL>"
+    idp_certificate_ssm_parameter: "/bridge/staging/snowflake/sso/idp-certificate"
+  test_estate:                                   # INF-101 / docs/testing/snowflake-test-estate.md; caps sum to 150 credits (D-32)
+    organizations:
+      - alias: T_A                               # on-demand test organization with an organization account
+        organization_name: "<SNOWFLAKE_TEST_ORG_A_NAME>"
+        accounts:
+          - alias: TA_ORG                        # organization account (Enterprise); tenant zero for FIN-108
+            kind: ORGANIZATION_ACCOUNT
+            organization_name: "<SNOWFLAKE_TEST_ORG_A_NAME>"
+            account_name: "<TA_ORG_ACCOUNT_NAME>"
+            account_locator: "<TA_ORG_LOCATOR>"
+            region: AWS_EU_WEST_1
+            cloud: AWS
+            edition: ENTERPRISE
+            monthly_credit_cap: "5"
+          - alias: A1                            # Enterprise, AWS eu-west-1, fully exercised
+            kind: ACCOUNT
+            organization_name: "<SNOWFLAKE_TEST_ORG_A_NAME>"
+            account_name: "<A1_ACCOUNT_NAME>"
+            account_locator: "<A1_LOCATOR>"
+            region: AWS_EU_WEST_1
+            cloud: AWS
+            edition: ENTERPRISE
+            monthly_credit_cap: "40"
+          - alias: A2                            # Enterprise, Azure westeurope (non-AWS path, D-20)
+            kind: ACCOUNT
+            organization_name: "<SNOWFLAKE_TEST_ORG_A_NAME>"
+            account_name: "<A2_ACCOUNT_NAME>"
+            account_locator: "<A2_LOCATOR>"
+            region: AZURE_WESTEUROPE
+            cloud: AZURE
+            edition: ENTERPRISE
+            monthly_credit_cap: "40"
+          - alias: A3                            # Enterprise, idle, discovered but never connected
+            kind: ACCOUNT
+            organization_name: "<SNOWFLAKE_TEST_ORG_A_NAME>"
+            account_name: "<A3_ACCOUNT_NAME>"
+            account_locator: "<A3_LOCATOR>"
+            region: AWS_EU_WEST_1
+            cloud: AWS
+            edition: ENTERPRISE
+            monthly_credit_cap: "5"
+      - alias: T_B                               # separate organization: standalone Standard account
+        organization_name: "<SNOWFLAKE_TEST_ORG_B_NAME>"
+        accounts:
+          - alias: B1
+            kind: ACCOUNT
+            organization_name: "<SNOWFLAKE_TEST_ORG_B_NAME>"
+            account_name: "<B1_ACCOUNT_NAME>"
+            account_locator: "<B1_LOCATOR>"
+            region: AWS_EU_WEST_1
+            cloud: AWS
+            edition: STANDARD
+            monthly_credit_cap: "20"
+    # The remaining 40 credits of the 150 cap are the four BRIDGE_FINOPS_WH monitors (10 each) created by the
+    # customer-side install script in TA_ORG/A1/A2/B1 (INF-101-S09); they are not configured here.
+
+notifications:
+  ops_alert_email: "<OPS_ALERT_EMAIL>"
+  cost_alert_email: "<COST_ALERT_EMAIL>"
+  security_alert_email: "<SECURITY_ALERT_EMAIL>"
+  chat_webhook_secret_name: "bridge/staging/notifications/ops-chat-webhook"
+  test_destinations:
+    email_recipients: ["<TEST_INBOX_EMAIL_1>", "<TEST_INBOX_EMAIL_2>"]
+    slack_webhook_secret_name: "bridge/staging/notifications/test-slack-webhook"
+    teams_webhook_secret_name: "bridge/staging/notifications/test-teams-webhook"
+    webhook_receiver_url: "<TEST_WEBHOOK_RECEIVER_URL>"
+
+budgets:
+  aws_monthly_usd: "1000"
+  organization_accounts_monthly_usd: "40"
+  actual_alert_pct: [80, 100]
+  forecast_alert_pct: [100]
+  anomaly_absolute_usd: "50"
+  anomaly_relative_pct: 20
+  snowflake_central_monthly_credits: "200"       # BRIDGE_STAGING account monitor, suspend at 100 %
+  snowflake_nonprod_ceiling_credits: "500"
+
+egress:
+  eip_allocation_ids: []
+  public_ips: []
+
+features:
+  interface_endpoints: true                      # 9 endpoints × 1 AZ
+  guardduty_ecs_runtime_monitoring: false
+  security_hub_fsbp: true
+  snowflake_account_network_policy: true         # only the STAGING EIPs may reach BRIDGE_STAGING
+  dev_off_hours_scale_to_zero: false
+  broker_transport: VPC_LATTICE_SIGV4
+  dagster_admin_webserver: false
+  dns_firewall_custom_allowlist_mode: ALERT
+  waf_anonymous_ip_mode: COUNT
+  cur_export: false

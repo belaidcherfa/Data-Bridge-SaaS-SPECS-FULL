@@ -1,0 +1,37 @@
+# contract=semantic-metric:warehouse_credits version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: warehouse_credits
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.warehouse_credits.label
+description_key: metric.warehouse_credits.description
+population_key: metric.warehouse_credits.population
+category: FINANCE
+unit: {kind: CREDITS, currency_policy: NOT_APPLICABLE, quantity_unit: CREDIT, display_hint: DECIMAL}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: credits
+  population:
+  - {column: service_family, op: EQ, value: WAREHOUSE_COMPUTE}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, warehouse, warehouse_type, warehouse_size, user, role, client_application, workload_type, workload, environment,
+  dbt_project, dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class, data_status]
+incompatible_dimensions:
+- dimension: database
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [warehouse, workload]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.compute_by_object
+required_sources: [au.warehouse_metering_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {empty_population: ZERO, unpriced_rows: EXCLUDE_AND_REPORT}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#warehouse_credits
+  child_resolvers: [attribution_by_target]
+owner_task: API-001
+notes: WAREHOUSE_METERING_HISTORY compute credits (operational, pre-adjustment), split exactly over query/idle/residual attribution rows.

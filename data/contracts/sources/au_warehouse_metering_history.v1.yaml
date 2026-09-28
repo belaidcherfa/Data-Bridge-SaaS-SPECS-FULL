@@ -1,0 +1,327 @@
+# contract=source-contract:AU_WAREHOUSE_METERING_HISTORY version=1.0.0 status=DRAFT owner_task=ING-102 decisions=D-12,D-13,D-14,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_WAREHOUSE_METERING_HISTORY
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-102
+decisions:
+- D-12
+- D-13
+- D-14
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage WAREHOUSE_METERING_HISTORY (warehouse x hour)
+description: Hourly warehouse compute and cloud-services credits plus credits attributed to queries (idle = compute - attributed). Complete (account, hour) partitions;
+  also the source of the Bridge-overhead warehouse total (BRIDGE_FINOPS_WH).
+family: METERING
+module: CORE_COST
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/warehouse_metering_history
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.USAGE_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: VERIFIED_SNIPPET
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: START_TIME
+  transport_name: start_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: VERIFIED_SNIPPET
+  requested_by: []
+  description: ''
+- name: END_TIME
+  transport_name: end_time
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: WAREHOUSE_ID
+  transport_name: warehouse_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: WAREHOUSE_NAME
+  transport_name: warehouse_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_USED
+  transport_name: credits_used
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREDITS_USED_COMPUTE
+  transport_name: credits_used_compute
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-003
+  description: ''
+- name: CREDITS_USED_CLOUD_SERVICES
+  transport_name: credits_used_cloud_services
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-005
+  description: ''
+- name: CREDITS_ATTRIBUTED_COMPUTE_QUERIES
+  transport_name: credits_attributed_compute_queries
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 9
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 9)
+  raw_type: NUMBER(38,9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - FIN-003
+  description: NULL for Adaptive warehouses (G-FIN-07).
+extractor_columns: []
+extension_schemas: []
+watermark_mode: HOUR_PARTITION
+watermark_column: START_TIME
+pruning_column: null
+pruning_horizon_days: null
+predicate_template: START_TIME >= :ws AND START_TIME < :we
+pending_refresh: null
+horizon_alarm_days: null
+cycle: STEADY_HOURLY
+window_steady_seconds: 3600
+first_delay_seconds: 14400
+settle_seconds: 86400
+extraction_order_rank: 30
+semantics: COMPLETE_PARTITION
+key: []
+partition_key:
+  column: start_time
+  grain: HOUR
+  scope: ACCOUNT
+snapshot_key: []
+aggregation_rule: null
+primary_measure:
+  expression: credits_used_compute + credits_used_cloud_services
+  aggregate: SUM
+  sign: NON_NEGATIVE
+suspect_guard:
+  enabled: true
+  zero_rows: true
+  measure_drop_ratio: '0.5'
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: DAILY
+  method: RESNAPSHOT
+  window:
+    kind: LAST_N_DAYS
+    n: 7
+  additive_only: false
+  checksum_measures: []
+- schedule: MONTHLY_DAY_3
+  method: RESNAPSHOT
+  window:
+    kind: PREVIOUS_MONTH
+    n: null
+  additive_only: false
+  checksum_measures: []
+backfill_supported: true
+backfill_chunk_seconds: 604800
+min_chunk_seconds: 3600
+max_chunk_seconds: 2678400
+backfill_split_rows_threshold: null
+sizing_query: null
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: FINANCIAL
+journal_retention_days: 400
+raw_retention_days: 400
+query_detail_tiering: null
+documented_latency_seconds: 21600
+latency_verification: VERIFIED_SNIPPET
+maturity:
+  data_final_horizon_seconds: 86400
+  attribution_final_horizon_seconds: null
+  attribution_horizon_rule: null
+  month_stability_days: null
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_WAREHOUSE_METERING_HISTORY version=0
+health:
+  expected_lag_seconds: 18000
+  grace_seconds: 4500
+  delayed_after_seconds: 22500
+  stale_after_seconds: 45000
+authority:
+  measure_roles:
+  - ATTRIBUTION
+  - ESTIMATE_INPUT
+  service_families:
+  - WAREHOUSE_COMPUTE
+  - CLOUD_SERVICES
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Warehouse x hour attribution of the UICD family bucket; idle = CREDITS_USED_COMPUTE - CREDITS_ATTRIBUTED_COMPUTE_QUERIES.
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: true
+  canary: false
+  timeout_seconds: 30
+  predicate_template: START_TIME >= :probe_from AND START_TIME < :probe_to
+transport_schema:
+  version: '1.0'
+  fingerprint: 50ddc733c0141bae9b115653cd1ee0c1e6173d47a6a97fc51b40e0f67bfe9efa
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: Compute latency up to 3 h, cloud services up to 6 h.
+  status: VERIFIED_SNIPPET
+  evidence: source-catalog.md
+- fact: Changed-hour fraction between two extractions 24 h apart (cloud-services revision) confirms the 50 % suspect threshold.
+  status: TO_VERIFY_LIVE
+  verify_in: ING-102-S05
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- COMPLETE_PARTITION_DELETED_ROW
+- SILENT_EMPTY_SUSPECT
+- NATIVE_UNIT_TOTALS
+adapter_override: null
+notes:
+- 'Interval bucketing: a row belongs to the hour of START_TIME (half-open); rows whose END_TIME crosses the hour stay in the start hour (ING-104-S03).'

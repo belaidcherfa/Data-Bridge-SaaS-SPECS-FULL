@@ -1,0 +1,24 @@
+# contract=semantic-dimension:price_basis version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: price_basis
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.price_basis.label
+description_key: dimension.price_basis.description
+group: QUALITY
+kind: ENUM
+value_type: ENUM
+enum_values: [BILLED_SOURCE, CONTRACT_RATE_ESTIMATE, CUSTOMER_APPROVED_RATE, UNKNOWN]
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: INTERNAL}
+filter_ops: [EQ, IN, NOT_IN]
+max_filter_values: 500
+autocomplete: {enabled: false}
+label: {source: ENUM_I18N, i18n_prefix: dimension.price_basis.value}
+bindings:
+- {relation: v_charge_daily, column_ref: price_basis}
+- {relation: v_attribution_daily, column_ref: price_basis}
+sortable: true
+owner_task: API-001

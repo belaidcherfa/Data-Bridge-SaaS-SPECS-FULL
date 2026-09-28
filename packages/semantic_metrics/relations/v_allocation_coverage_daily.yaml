@@ -1,0 +1,67 @@
+# contract=semantic-relation:v_allocation_coverage_daily version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_allocation_coverage_daily
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_allocation_coverage_daily
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: Coverage buckets per allocation book. Account-grain rows, so only profiles with an unrestricted group dimension can read them (SEC A.4 (1)); allocation_coverage is therefore
+  book-wide only.
+serving_view: bridge.serving.serving_allocation_coverage_daily
+dataset_id: allocation_coverage_daily
+dbt_model: mart_allocation_quality
+upstream_owner_tasks: [ALC-006, ALC-102]
+grain_keys: [tenant_id, book_id, coverage_bucket_key]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: BOOK_WIDE_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: []
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL}
+- {name: book_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL}
+- {name: coverage_bucket_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL, description: '(account|org, usage_date, service_type, currency) net of adjustments (G-ALC-14).'}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- name: scope_kind
+  type: VARCHAR(12)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [ACCOUNT, ORGANIZATION]
+- {name: account_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: Internal account id; NULL iff scope_kind = ORGANIZATION (D-12).}
+- {name: service_type, type: VARCHAR, nullable: false, role: DIMENSION, privacy: INTERNAL, description: 'Raw Snowflake SERVICE_TYPE (service_type_raw), upper-cased and trimmed.'}
+- name: service_category
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [COMPUTE, CLOUD_SERVICES, STORAGE, SERVERLESS, AI, SPCS, DATA_TRANSFER, REPLICATION, APPLICATIONS_MARKETPLACE, ORGANIZATION, ADJUSTMENT, OTHER]
+  description: Deterministic grouping of service_family (dimensions/service_category.yaml).
+- {name: currency, type: VARCHAR(3), nullable: false, role: DIMENSION, privacy: INTERNAL, description: ISO 4217 currency of the money columns of the row.}
+- {name: net_bucket_amount, type: 'NUMBER(38,12)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: net_assigned_amount, type: 'NUMBER(38,12)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: eligible_abs, type: 'NUMBER(38,12)', nullable: false, role: MEASURE, privacy: INTERNAL, description: '|net bucket amount|.'}
+- {name: covered_abs, type: 'NUMBER(38,12)', nullable: false, role: MEASURE, privacy: INTERNAL, description: '|net| × (net assigned / net), clamped to [0, |net|].'}
+- {name: sign_mismatch, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: COVERAGE_SIGN_MISMATCH quality flag.}
+- {name: is_transfer, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: Manual transfers are excluded from coverage.}
+- {name: policy_version, type: VARCHAR, nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

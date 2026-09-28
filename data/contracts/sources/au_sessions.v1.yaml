@@ -1,0 +1,280 @@
+# contract=source-contract:AU_SESSIONS version=1.0.0 status=DRAFT owner_task=ING-101 decisions=D-10,D-20,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: AU_SESSIONS
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: ING-101
+decisions:
+- D-10
+- D-20
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Account Usage SESSIONS (client application of sessions)
+description: Session client application identity used by workload classification (WRK-001; dbt, Power BI). Projection limited to the WRK-101-S09 list; USER_NAME is
+  pseudonymized (RECONCILIATION C-10).
+family: SESSIONS
+module: WORKLOAD_SESSIONS
+module_requirement: OPTIONAL
+source_kind: VIEW
+fq_view: SNOWFLAKE.ACCOUNT_USAGE.SESSIONS
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/account-usage/sessions
+scope: ACCOUNT
+db_role:
+  roles:
+  - SNOWFLAKE.SECURITY_VIEWER
+  alternatives: []
+  account_privileges: []
+  verification: TO_VERIFY_LIVE
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: SESSION_ID
+  transport_name: session_id
+  expression: null
+  snowflake_type: NUMBER
+  precision: 38
+  scale: 0
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: decimal128(38, 0)
+  raw_type: NUMBER(38,0)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: CREATED_ON
+  transport_name: created_on
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Session creation (watermark).
+- name: USER_NAME
+  transport_name: user_name_pseudonym
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: PERSONAL
+  privacy_action: HMAC_USER
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - SEC-103
+  - WRK-001
+  description: ''
+- name: CLIENT_APPLICATION_ID
+  transport_name: client_application_id
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  - ALC-005
+  description: ''
+- name: CLIENT_APPLICATION_VERSION
+  transport_name: client_application_version
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: ''
+- name: CLIENT_ENVIRONMENT_APPLICATION
+  transport_name: client_environment_application
+  expression: TRY_PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::VARCHAR
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by:
+  - WRK-001
+  description: Only the APPLICATION key of CLIENT_ENVIRONMENT is read (e.g. 'dbt'); the rest of the document is never extracted.
+extractor_columns: []
+extension_schemas: []
+watermark_mode: START_TIME_INTERVAL
+watermark_column: CREATED_ON
+pruning_column: null
+pruning_horizon_days: null
+predicate_template: CREATED_ON >= :ws AND CREATED_ON < :we
+pending_refresh: null
+horizon_alarm_days: null
+cycle: STEADY_HOURLY
+window_steady_seconds: 3600
+first_delay_seconds: 10800
+settle_seconds: 21600
+extraction_order_rank: 81
+semantics: EVENT_UPSERT
+key:
+- session_id
+partition_key: null
+snapshot_key: []
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: false
+  zero_rows: false
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy:
+- schedule: WEEKLY
+  method: CHECKSUM
+  window:
+    kind: LAST_N_DAYS
+    n: 30
+  additive_only: true
+  checksum_measures:
+  - COUNT(*)
+  - COUNT(DISTINCT SESSION_ID)
+backfill_supported: true
+backfill_chunk_seconds: 86400
+min_chunk_seconds: 3600
+max_chunk_seconds: 86400
+backfill_split_rows_threshold: null
+sizing_query: null
+retention_days: 365
+retention_basis: DOCUMENTED
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: QUERY_GRAIN
+journal_retention_days: 90
+raw_retention_days: 90
+query_detail_tiering: null
+documented_latency_seconds: 10800
+latency_verification: TO_VERIFY_LIVE
+maturity:
+  data_final_horizon_seconds: null
+  attribution_final_horizon_seconds: 172800
+  attribution_horizon_rule: Late SESSIONS rows re-classify queries for 48 h (WRK-001-S06).
+  month_stability_days: null
+  horizon_basis: INTERVAL_END
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=AU_SESSIONS version=0
+health:
+  expected_lag_seconds: 14400
+  grace_seconds: 3600
+  delayed_after_seconds: 18000
+  stale_after_seconds: 36000
+authority:
+  measure_roles:
+  - ACTIVITY
+  service_families: []
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: null
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: BOUNDED_48H_LIMIT_1
+  may_be_empty: false
+  canary: false
+  timeout_seconds: 30
+  predicate_template: CREATED_ON >= :probe_from AND CREATED_ON < :probe_to
+transport_schema:
+  version: '1.0'
+  fingerprint: e9f4fce87eb64d923171c20131488071fff9d4a25e436038538dc578dbdaa66e
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: Database role granting AU.SESSIONS (SECURITY_VIEWER expected; it also exposes LOGIN_HISTORY and grants, disclosed).
+  status: TO_VERIFY_LIVE
+  verify_in: CON-003-S01
+- fact: CLIENT_ENVIRONMENT type (VARCHAR JSON vs VARIANT) and whether dbt surfaces as CLIENT_ENVIRONMENT:APPLICATION.
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S04
+- fact: View latency.
+  status: TO_VERIFY_LIVE
+  verify_in: ING-101-S06
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- SAME_KEY_REVISED_MEASURE
+- LATE_DATA_BEYOND_SETTLE
+- RETENTION_CLAMP
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- PRIVACY_SENTINEL
+adapter_override: null
+notes: []

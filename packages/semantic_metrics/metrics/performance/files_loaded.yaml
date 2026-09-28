@@ -1,0 +1,33 @@
+# contract=semantic-metric:files_loaded version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: files_loaded
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.files_loaded.label
+description_key: metric.files_loaded.description
+population_key: metric.files_loaded.population
+category: PERFORMANCE
+unit: {kind: COUNT, currency_policy: NOT_APPLICABLE, quantity_unit: FILE, display_hint: INTEGER}
+relation: v_attribution_daily
+measure:
+  type: SUM
+  column_ref: files_loaded
+  population:
+  - column: service_family
+    op: IN
+    values: [SNOWPIPE_FILE]
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, pipe, data_status]
+required_sources: [au.pipe_usage_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#files_loaded
+  child_resolvers: [attribution_by_target]
+screen_keys: [files]
+owner_task: API-001

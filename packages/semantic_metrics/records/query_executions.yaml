@@ -1,0 +1,250 @@
+# contract=semantic-records:query_executions version=1 status=DRAFT owner_task=API-104 decisions=D-10,D-11,D-12 last_changed=2026-09-28
+# Records dataset for POST /v1/analytics/records (API-104).
+id: query_executions
+version: 1
+status: ACTIVE
+release: R1
+label_key: records.query_executions.label
+relation: v_query_exec
+tier: HOT
+row_key: [account_id, query_id]
+default_sort:
+- {column: start_time, direction: DESC}
+page_max: 200
+sync_max_range_days: 31
+privacy: {capability: analytics.read}
+columns:
+- id: query_id
+  column_ref: query_id
+  type: STRING
+  label_key: records.query_executions.column.query_id
+  sortable: false
+  filter_ops: [EQ]
+  privacy: CUSTOMER_METADATA
+- id: account
+  column_ref: account_id
+  type: UUID
+  label_key: records.query_executions.column.account
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: account
+- id: start_time
+  column_ref: start_time
+  type: TIMESTAMP
+  label_key: records.query_executions.column.start_time
+  sortable: true
+  filter_ops: [BETWEEN]
+- id: end_time
+  column_ref: end_time
+  type: TIMESTAMP
+  label_key: records.query_executions.column.end_time
+  sortable: true
+  filter_ops: []
+- id: warehouse
+  column_ref: warehouse_id
+  type: UUID
+  label_key: records.query_executions.column.warehouse
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: warehouse
+- id: warehouse_size
+  column_ref: warehouse_size
+  type: STRING
+  label_key: records.query_executions.column.warehouse_size
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: warehouse_size
+- id: user
+  column_ref: user_pseudonym
+  type: STRING
+  label_key: records.query_executions.column.user
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: user
+  privacy: PERSONAL
+- id: role
+  column_ref: role_name
+  type: STRING
+  label_key: records.query_executions.column.role
+  sortable: true
+  filter_ops: [EQ, IN, PREFIX]
+  dimension: role
+- id: client_application
+  column_ref: client_application
+  type: STRING
+  label_key: records.query_executions.column.client_application
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: client_application
+- id: database
+  column_ref: database_id
+  type: UUID
+  label_key: records.query_executions.column.database
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: database
+- id: schema
+  column_ref: schema_id
+  type: UUID
+  label_key: records.query_executions.column.schema
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: schema
+  default_visible: false
+- id: query_type
+  column_ref: query_type
+  type: STRING
+  label_key: records.query_executions.column.query_type
+  sortable: false
+  filter_ops: [EQ, IN]
+- id: status
+  column_ref: status_class
+  type: ENUM
+  label_key: records.query_executions.column.status
+  sortable: true
+  filter_ops: [EQ, IN]
+  dimension: query_status
+- id: error_code
+  column_ref: error_code
+  type: STRING
+  label_key: records.query_executions.column.error_code
+  sortable: false
+  filter_ops: [EQ, IN]
+  default_visible: false
+- id: query_parameterized_hash
+  column_ref: query_parameterized_hash
+  type: HASH
+  label_key: records.query_executions.column.query_parameterized_hash
+  sortable: false
+  filter_ops: [EQ, PREFIX]
+  dimension: query_parameterized_hash
+- id: workload_type
+  column_ref: workload_type
+  type: ENUM
+  label_key: records.query_executions.column.workload_type
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: workload_type
+- id: workload
+  column_ref: workload_key
+  type: HASH
+  label_key: records.query_executions.column.workload
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: workload
+- id: evidence_class
+  column_ref: evidence_class
+  type: ENUM
+  label_key: records.query_executions.column.evidence_class
+  sortable: false
+  filter_ops: [EQ, IN]
+  dimension: evidence_class
+  default_visible: false
+- id: total_elapsed_ms
+  column_ref: total_elapsed_ms
+  type: DURATION_MS
+  label_key: records.query_executions.column.total_elapsed_ms
+  sortable: true
+  filter_ops: []
+- id: compilation_ms
+  column_ref: compilation_ms
+  type: DURATION_MS
+  label_key: records.query_executions.column.compilation_ms
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: queued_ms
+  column_ref: queued_ms
+  type: DURATION_MS
+  label_key: records.query_executions.column.queued_ms
+  sortable: true
+  filter_ops: []
+- id: execution_ms
+  column_ref: execution_ms
+  type: DURATION_MS
+  label_key: records.query_executions.column.execution_ms
+  sortable: true
+  filter_ops: []
+- id: bytes_scanned
+  column_ref: bytes_scanned
+  type: BYTES
+  label_key: records.query_executions.column.bytes_scanned
+  sortable: true
+  filter_ops: []
+- id: bytes_spilled_remote
+  column_ref: bytes_spilled_remote
+  type: BYTES
+  label_key: records.query_executions.column.bytes_spilled_remote
+  sortable: true
+  filter_ops: []
+  default_visible: false
+- id: rows_produced
+  column_ref: rows_produced
+  type: INTEGER
+  label_key: records.query_executions.column.rows_produced
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: partitions_scanned
+  column_ref: partitions_scanned
+  type: INTEGER
+  label_key: records.query_executions.column.partitions_scanned
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: partitions_total
+  column_ref: partitions_total
+  type: INTEGER
+  label_key: records.query_executions.column.partitions_total
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: compute_cost
+  column_ref: compute_cost
+  type: MONEY
+  label_key: records.query_executions.column.compute_cost
+  sortable: true
+  filter_ops: []
+  currency_column: currency
+- id: credits_attributed_compute
+  column_ref: credits_attributed_compute
+  type: DECIMAL
+  label_key: records.query_executions.column.credits_attributed_compute
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: parent_query_id
+  column_ref: parent_query_id
+  type: STRING
+  label_key: records.query_executions.column.parent_query_id
+  sortable: false
+  filter_ops: []
+  default_visible: false
+- id: root_query_id
+  column_ref: root_query_id
+  type: STRING
+  label_key: records.query_executions.column.root_query_id
+  sortable: false
+  filter_ops: [EQ]
+  default_visible: false
+- id: query_tag
+  column_ref: query_tag_sanitized
+  type: STRING
+  label_key: records.query_executions.column.query_tag
+  sortable: false
+  filter_ops: []
+  privacy_mode_min: SANITIZED
+  default_visible: false
+- id: sql_text
+  column_ref: sql_text_sanitized
+  type: SQL_TEXT
+  label_key: records.query_executions.column.sql_text
+  sortable: false
+  filter_ops: []
+  capability: sql_text.read_sanitized
+  privacy_mode_min: SANITIZED
+  privacy: SQL_TEXT
+  default_visible: false
+owner_task: API-104
+notes: Hot tier only (≤ hot_days, 365 by default). Ranges ≤ 31 days are synchronous, longer ones run as analysis jobs; ranges older than hot_days are refused with guidance to family
+  aggregates (API-104-S07). PRD §76 columns; sql_text requires sql_text.read_sanitized and privacy mode ≥ SANITIZED.

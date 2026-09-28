@@ -1,0 +1,31 @@
+# contract=query-status-taxonomy version=1 status=DRAFT owner_task=API-001 decisions=D-11 last_changed=2026-09-28
+# Versioned mapping of ACCOUNT_USAGE.QUERY_HISTORY EXECUTION_STATUS / ERROR_CODE to the status classes used by
+# query_count, failed_query_count, query_failure_rate and the percentile populations (API-001-S05).
+# Rows are evaluated top-down; the first match wins. Changing a mapping is a semantic change of every metric that
+# declares status_class in its population: bump this version AND those metrics' versions (G-API-15).
+# Error-code values marked TO VERIFY LIVE are confirmed on tenant zero in API-101 before ACCEPTED.
+id: query_status_v1
+version: 1
+status: ACTIVE
+source_columns: [EXECUTION_STATUS, ERROR_CODE]
+classes:
+  SUCCEEDED: {terminal: true, counts_in: [query_count, query_failure_rate_denominator, percentile_population]}
+  FAILED: {terminal: true, counts_in: [query_count, failed_query_count, query_failure_rate_numerator, query_failure_rate_denominator, percentile_population]}
+  CANCELLED: {terminal: true, counts_in: [query_count], note: "Excluded from failure rate and percentiles (user or system cancellation is not a failure of the query)."}
+  RUNNING: {terminal: false, counts_in: []}
+  QUEUED: {terminal: false, counts_in: []}
+  BLOCKED: {terminal: false, counts_in: []}
+  UNKNOWN: {terminal: false, counts_in: [], note: "Unmapped status; raises data-quality warning QUERY_STATUS_UNMAPPED and is excluded from every population."}
+rules:
+  - {order: 1, execution_status: SUCCESS, error_code: null, class: SUCCEEDED}
+  - {order: 2, execution_status: FAIL, error_code_in: ["604", "000604"], class: CANCELLED, verify: "TO VERIFY LIVE: 'SQL execution canceled' code format (with/without leading zeros)"}
+  - {order: 3, execution_status: FAIL, error_code_in: ["630", "000630"], class: FAILED, note: "Statement or warehouse timeout counts as FAILED", verify: "TO VERIFY LIVE"}
+  - {order: 4, execution_status: FAIL, error_code: any, class: FAILED}
+  - {order: 5, execution_status: INCIDENT, error_code: any, class: FAILED, note: "Snowflake-side incident; surfaced with error_code for drill-down"}
+  - {order: 6, execution_status: RUNNING, class: RUNNING}
+  - {order: 7, execution_status: RESUMING_WAREHOUSE, class: QUEUED}
+  - {order: 8, execution_status: QUEUED, class: QUEUED}
+  - {order: 9, execution_status: BLOCKED, class: BLOCKED}
+  - {order: 10, execution_status: any, class: UNKNOWN}
+fixture_oracles:
+  - "5 SUCCESS + 1 FAIL(100038) + 1 FAIL(604) → query_count 7, failed_query_count 1, query_failure_rate 1/6 = 0.166666666666…"

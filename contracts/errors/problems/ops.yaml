@@ -1,0 +1,257 @@
+# contract=problems-ops version=1 status=DRAFT owner_task=OPS-005 decisions=D-10,D-25,D-37 last_changed=2026-09-28
+# Problem codes of the OPS domain (prefix OPS_): privacy requests and legal holds (OPS-005), tombstones (OPS-104), support grants
+# (SEC-104 table in K9 schema), ops API (OPS-106 CLI / CTL-102 plane), feature flags (REL-102), releases (REL-001..004), serving
+# compatibility (REL-103). Schema: contracts/errors/problems.schema.json.
+version: 1
+problems:
+  - code: OPS_PRIVACY_SUBJECT_UNRESOLVED
+    http_status: 422
+    title: No matching person was found for this request
+    detail_template: "No identity dictionary entry matches the given {identifier_kind} in this organization."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Check the user name or e-mail as it appears in Snowflake.
+    log_level: INFO
+  - code: OPS_PRIVACY_REQUEST_ALREADY_OPEN
+    http_status: 409
+    title: A tenant deletion request is already open
+    detail_template: "Request {deletion_request_id} is {status}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Follow the existing request in Settings > Privacy & retention.
+    log_level: INFO
+  - code: OPS_PRIVACY_REQUEST_TRANSITION_INVALID
+    http_status: 409
+    title: The privacy request cannot change this way
+    detail_template: "{event} is not allowed from {status}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Reload the request to see its current state.
+    log_level: WARNING
+  - code: OPS_PRIVACY_APPROVER_IS_REQUESTER
+    http_status: 403
+    title: A different person must approve this request
+    detail_template: "The requester cannot approve privacy request {deletion_request_id}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Ask another Organization Owner or Admin to approve.
+    log_level: INFO
+  - code: OPS_PRIVACY_REQUEST_TYPE_NOT_PERMITTED
+    http_status: 403
+    title: You cannot create this type of privacy request
+    detail_template: "{request_type} requires {capability}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Tenant deletion is started by the Organization Owner through offboarding; subject requests by an Owner or Admin.
+    log_level: INFO
+  - code: OPS_PRIVACY_REQUEST_IN_EXECUTION
+    http_status: 409
+    title: The request is already being executed
+    detail_template: "Request {deletion_request_id} is EXECUTING; deletion cannot be withdrawn."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: No action possible; follow progress on the request page.
+    log_level: INFO
+  - code: OPS_LEGAL_HOLD_ACTIVE
+    http_status: 409
+    title: A legal hold blocks this deletion
+    detail_template: "Hold {hold_id} ({scope_type}) is {status} until review on {review_by}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: The request resumes automatically when the hold is released.
+    log_level: INFO
+  - code: OPS_LEGAL_HOLD_REVIEW_WINDOW_EXCEEDED
+    http_status: 422
+    title: A legal hold review date can be at most 90 days away
+    detail_template: "review_by {review_by} is more than 90 days after {last_reviewed_at}."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    customer_action: Choose a review date within 90 days.
+    log_level: INFO
+  - code: OPS_LEGAL_HOLD_APPROVER_IS_REQUESTER
+    http_status: 403
+    title: A different operator must approve or release the hold
+    detail_template: "Hold {hold_id} was requested by the caller."
+    retryable: false
+    domain: ops
+    owner_task: OPS-005
+    log_level: INFO
+  - code: OPS_TOMBSTONE_GAP
+    http_status: 500
+    title: The tombstone log has a gap
+    detail_template: "Tombstone seq {missing_seq} exists in PostgreSQL but not in the S3 mirror (or vice versa)."
+    retryable: false
+    domain: ops
+    owner_task: OPS-104
+    log_level: ERROR
+  - code: OPS_SUPPORT_GRANT_DURATION_EXCEEDED
+    http_status: 422
+    title: Support access can last at most 8 hours
+    detail_template: "Requested window {requested_minutes} min exceeds 480 min (default 240 min)."
+    retryable: false
+    domain: ops
+    owner_task: SEC-104
+    log_level: INFO
+  - code: OPS_SUPPORT_SCOPE_NOT_ALLOWED
+    http_status: 422
+    title: This support scope is not allowed
+    detail_template: "Scope {scope} is not a support scope in R1 (allowed: health_read, analytics_read)."
+    retryable: false
+    domain: ops
+    owner_task: SEC-104
+    log_level: INFO
+  - code: OPS_SUPPORT_GRANT_NOT_ACTIVE
+    http_status: 403
+    title: No active support access for this organization and scope
+    detail_template: "Operator has no ACTIVE grant with scope {scope} for the requested tenant."
+    retryable: false
+    domain: ops
+    owner_task: SEC-104
+    log_level: WARNING
+  - code: OPS_SUPPORT_GRANT_TRANSITION_INVALID
+    http_status: 409
+    title: The support access request cannot change this way
+    detail_template: "{event} is not allowed from {status}."
+    retryable: false
+    domain: ops
+    owner_task: SEC-104
+    customer_action: Reload the support access list.
+    log_level: INFO
+  - code: OPS_SUPPORT_OPERATOR_CANNOT_APPROVE
+    http_status: 403
+    title: Operators cannot approve support access
+    detail_template: "Support access is approved by a member of the organization holding support.grant."
+    retryable: false
+    domain: ops
+    owner_task: SEC-104
+    log_level: WARNING
+  - code: OPS_ENV_MISMATCH
+    http_status: 400
+    title: The request targets another environment
+    detail_template: "X-Bridge-Ops-Env {requested_env} does not match this ops API ({env})."
+    retryable: false
+    domain: ops
+    owner_task: OPS-106
+    log_level: WARNING
+  - code: OPS_INTERVENTION_REASON_REQUIRED
+    http_status: 422
+    title: An onboarding intervention needs a reason
+    detail_template: "X-Bridge-Onboarding-Run-Id is set but X-Bridge-Intervention-Reason is missing or invalid."
+    retryable: false
+    domain: ops
+    owner_task: ONB-001
+    log_level: INFO
+  - code: OPS_FLAG_UNKNOWN_KEY
+    http_status: 422
+    title: Unknown feature flag key
+    detail_template: "Key {key} is not in platform.feature_flag_definition."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: INFO
+  - code: OPS_FLAG_SCOPE_INVALID
+    http_status: 422
+    title: The flag scope does not match its definition
+    detail_template: "Key {key} is scoped {expected_scope_type}; got {scope_type}."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: INFO
+  - code: OPS_FLAG_REASON_REQUIRED
+    http_status: 422
+    title: A reason is required to change a flag
+    detail_template: "reason must be 10..500 characters."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: INFO
+  - code: OPS_FLAG_TICKET_REQUIRED
+    http_status: 422
+    title: A ticket reference is required to change a kill switch
+    detail_template: "Kill switch {key} changes need ticket_ref."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: INFO
+  - code: OPS_FLAG_EXPIRY_REQUIRED
+    http_status: 422
+    title: A release flag needs an expiry within 90 days
+    detail_template: "Release flag {key}: expires_at must be set and at most 90 days ahead."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: INFO
+  - code: OPS_FLAG_GO_LIVE_REQUIRED
+    http_status: 409
+    title: Sign-up cannot be enabled before the go-live decision
+    detail_template: "signup.enabled=true requires a release that passed go_decided (REL-004)."
+    retryable: false
+    domain: ops
+    owner_task: REL-102
+    log_level: WARNING
+  - code: OPS_ROUTE_DISABLED
+    http_status: 503
+    title: This feature is temporarily disabled
+    detail_template: "Operation {operation_id} is disabled by an operational kill switch."
+    retryable: true
+    domain: ops
+    owner_task: REL-102
+    customer_action: Retry later; see the status page for updates.
+    log_level: WARNING
+  - code: OPS_RELEASE_TRANSITION_INVALID
+    http_status: 409
+    title: The release cannot change this way
+    detail_template: "{event} is not allowed from {status}."
+    retryable: false
+    domain: ops
+    owner_task: REL-001
+    log_level: WARNING
+  - code: OPS_RELEASE_EVIDENCE_STALE
+    http_status: 409
+    title: Required release evidence is stale or missing
+    detail_template: "Evidence classes {evidence_classes} are stale or missing for commit {commit_sha}."
+    retryable: false
+    domain: ops
+    owner_task: REL-001
+    log_level: WARNING
+  - code: OPS_RELEASE_APPROVAL_CONFLICT
+    http_status: 409
+    title: This approval is not allowed for this person
+    detail_template: "{approval_role} approval by {approver} conflicts with {reason}."
+    retryable: false
+    domain: ops
+    owner_task: REL-004
+    log_level: WARNING
+  - code: OPS_RELEASE_FORBIDDEN_WAIVER
+    http_status: 422
+    title: This risk cannot be waived
+    detail_template: "Gate {gate} class {waiver_class} is on the forbidden-waiver list."
+    retryable: false
+    domain: ops
+    owner_task: REL-004
+    log_level: WARNING
+  - code: OPS_DEPLOYMENT_IN_PROGRESS
+    http_status: 409
+    title: Another deployment is in progress in this environment
+    detail_template: "Deployment {deployment_id} is IN_PROGRESS in {env}."
+    retryable: true
+    domain: ops
+    owner_task: REL-002
+    log_level: INFO
+  - code: OPS_SERVING_SCHEMA_UNSUPPORTED
+    http_status: 503
+    title: This data version cannot be served by the running API version
+    detail_template: "Tenant publication serving_schema_version {version} not in supported set {supported}."
+    retryable: true
+    domain: ops
+    owner_task: REL-103
+    customer_action: Retry in a few minutes; the team has been alerted.
+    log_level: ERROR

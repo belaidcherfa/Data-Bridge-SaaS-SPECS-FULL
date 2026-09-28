@@ -1,0 +1,28 @@
+# status: DRAFT; owner_task: AGT-001. Tool configuration for the optional snowflake-dev MCP server.
+# DEV sandbox account only, connection `bridge_dev_readonly` (role with USAGE + SELECT on DEV schemas, no OWNERSHIP,
+# no customer accounts). Verify the key names against the installed snowflake-labs-mcp version in AGT-001.
+other_services:
+  object_manager: false
+  query_manager: true
+  semantic_manager: false
+search_services: []
+analyst_services: []
+agent_services: []
+sql_statement_permissions:
+  - Select: true
+  - Describe: true
+  - Show: true
+  - Use: true
+  - Alter: false
+  - Command: false
+  - Comment: false
+  - Commit: false
+  - Create: false
+  - Delete: false
+  - Drop: false
+  - Insert: false
+  - Merge: false
+  - Rollback: false
+  - TruncateTable: false
+  - Update: false
+  - Unknown: false

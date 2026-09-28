@@ -1,0 +1,1294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:semantic:metric:v1",
+  "$comment": "contract=semantic-metric-schema version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-17,D-18,D-20 last_changed=2026-09-28 canonical=docs/09-api/semantic-api.md#one-semantic-contract backlog=docs/22-implementation-readiness/backlog/API.md#G-API-01 (fields), G-API-02 (substitution), G-API-04 (exactness), G-API-15 (versioning), SEC G-SEC-13 (denominator_scope)",
+  "title": "SemanticMetric",
+  "description": "One versioned registry metric (packages/semantic_metrics/metrics/**/<id>.yaml). SQL is generated only from the QueryPlan IR compiled from these definitions; aggregation rules per measure type are fixed in code (API.md G-API-01), never per metric. Any change to population, formula, unit or null policy is a semantic change and requires version+1 (G-API-15).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "release",
+    "support",
+    "label_key",
+    "description_key",
+    "category",
+    "unit",
+    "measure",
+    "additivity",
+    "dimensions",
+    "required_sources",
+    "maturity_policy",
+    "null_policy",
+    "privacy",
+    "exactness",
+    "explain_template",
+    "owner_task"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$",
+      "description": "Registry metric id (snake_case, CONVENTIONS §2). Never reused for a different meaning."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Bumped on every semantic change (population, formula, unit, null policy)."
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "DEPRECATED",
+        "RETIRED"
+      ]
+    },
+    "release": {
+      "enum": [
+        "R1",
+        "R2"
+      ]
+    },
+    "support": {
+      "enum": [
+        "SUPPORTED",
+        "UNSUPPORTED"
+      ],
+      "description": "UNSUPPORTED metrics are declared so screens can bind to them; they always return null with null_policy.unsupported_reason (e.g. warehouse_utilization)."
+    },
+    "label_key": {
+      "type": "string",
+      "pattern": "^metric\\.[a-z0-9_]+\\.label$",
+      "description": "i18n key (D-18); the label must name the metric's population (UX G-UX-04)."
+    },
+    "description_key": {
+      "type": "string",
+      "pattern": "^metric\\.[a-z0-9_]+\\.description$"
+    },
+    "population_key": {
+      "type": "string",
+      "pattern": "^metric\\.[a-z0-9_]+\\.population$",
+      "description": "i18n key of the one-line population statement shown in Explain and tooltips."
+    },
+    "category": {
+      "enum": [
+        "FINANCE",
+        "ALLOCATION",
+        "STORAGE",
+        "PERFORMANCE",
+        "WORKLOAD",
+        "GOVERNANCE",
+        "OPTIMIZATION",
+        "AI_SPCS"
+      ]
+    },
+    "unit": {
+      "$ref": "#/$defs/unit"
+    },
+    "relation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^v_[a-z0-9_]+$",
+      "description": "Serving relation id (packages/semantic_metrics/relations) of the HOT/default binding. null only for DERIVED and UNSUPPORTED metrics."
+    },
+    "measure": {
+      "$ref": "#/$defs/measure"
+    },
+    "aggregate_binding": {
+      "$ref": "#/$defs/aggregate_binding"
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/param"
+      },
+      "maxItems": 4
+    },
+    "additivity": {
+      "$ref": "#/$defs/additivity"
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimension_id"
+      },
+      "uniqueItems": true,
+      "description": "Dimensions reachable for this metric on its relation (group-by and filter). The compatibility engine answers everything else with SUBSTITUTED or INCOMPATIBLE."
+    },
+    "filter_only_dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimension_id"
+      },
+      "uniqueItems": true,
+      "description": "Dimensions accepted as filters but not as group-by (e.g. data_status on derived budget metrics)."
+    },
+    "incompatible_dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/incompatibility"
+      },
+      "description": "Explicitly unsupported pairs with the reason and the supported alternatives returned in 422 QUERY_DIMENSION_INCOMPATIBLE (G-API-02 (4))."
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "overrides": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/filter_op"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "description": "Filter operators default to the dimension's filter_ops; overrides narrow them for this metric."
+    },
+    "required_sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2,4}\\.[a-z0-9_]+$"
+      },
+      "uniqueItems": true,
+      "description": "Source-registry ids (ING-001, e.g. ou.usage_in_currency_daily, au.query_attribution_history). A missing required source yields null + SOURCE_MISSING / NOT_ENABLED and meta.coverage.missing_sources."
+    },
+    "capability_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.]*$"
+      },
+      "uniqueItems": true,
+      "description": "Tenant/account capability flags from CON-005 probes that must be true for a non-null value (e.g. warehouse.classic_idle, ai.token_units)."
+    },
+    "maturity_policy": {
+      "$ref": "#/$defs/maturity_policy"
+    },
+    "null_policy": {
+      "$ref": "#/$defs/null_policy"
+    },
+    "denominator_scope": {
+      "$ref": "#/$defs/denominator_scope"
+    },
+    "privacy": {
+      "$ref": "#/$defs/privacy"
+    },
+    "exactness": {
+      "$ref": "#/$defs/exactness"
+    },
+    "substitution": {
+      "$ref": "#/$defs/substitution"
+    },
+    "deprecation": {
+      "$ref": "#/$defs/deprecation"
+    },
+    "explain_template": {
+      "$ref": "#/$defs/explain_template"
+    },
+    "entitlement_feature": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z][a-z0-9_.]*$",
+      "description": "Plan entitlement key (LCH-101, D-17) gating the metric, if any."
+    },
+    "screen_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "description": "Design-catalog KPI keys (docs/21-ui-ux) served by this metric (API.md §3.3)."
+    },
+    "owner_task": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "required_filter_or_dimension": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimension_id"
+      },
+      "uniqueItems": true,
+      "description": "Each listed dimension must appear in the request as a group-by dimension or an EQ filter (execution metrics require execution_kind so parent and child executions are never counted together); else 422 QUERY_REQUEST_INVALID."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "measure": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "RATIO",
+                  "PERCENTILE",
+                  "COUNT_DISTINCT",
+                  "DERIVED"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "additivity": {
+            "properties": {
+              "across_dimensions": {
+                "const": "NONE"
+              }
+            }
+          }
+        }
+      },
+      "$comment": "Registry lint (G-API-01): non-additive measure types can never declare additivity."
+    },
+    {
+      "if": {
+        "properties": {
+          "measure": {
+            "properties": {
+              "type": {
+                "const": "RATIO"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "denominator_scope"
+        ],
+        "properties": {
+          "null_policy": {
+            "required": [
+              "zero_denominator"
+            ]
+          }
+        }
+      },
+      "$comment": "Every ratio declares its denominator scope (SEC G-SEC-13) and a zero-denominator null reason."
+    },
+    {
+      "if": {
+        "properties": {
+          "support": {
+            "const": "UNSUPPORTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "relation": {
+            "const": null
+          },
+          "measure": {
+            "properties": {
+              "type": {
+                "const": "NONE"
+              }
+            }
+          },
+          "null_policy": {
+            "required": [
+              "unsupported_reason"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "measure": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "SUM",
+                  "RATIO",
+                  "PERCENTILE",
+                  "LATEST",
+                  "TWA",
+                  "GAUGE",
+                  "COUNT",
+                  "COUNT_DISTINCT",
+                  "MAX"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "relation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "unit": {
+            "properties": {
+              "kind": {
+                "const": "MONEY"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unit": {
+            "properties": {
+              "currency_policy": {
+                "const": "SINGLE_CURRENCY_REQUIRED"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "DEPRECATED",
+              "RETIRED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "deprecation"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "dimension_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "metric_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "version"
+      ],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{1,63}$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "filter_op": {
+      "enum": [
+        "EQ",
+        "IN",
+        "NOT_IN",
+        "PREFIX",
+        "IS_NULL",
+        "IS_NOT_NULL",
+        "BETWEEN"
+      ]
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "currency_policy"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "MONEY",
+            "CREDITS",
+            "BYTES",
+            "MILLISECONDS",
+            "COUNT",
+            "RATIO",
+            "TOKENS",
+            "NODE_HOURS",
+            "MONEY_PER_MILLION_TOKENS",
+            "NONE"
+          ]
+        },
+        "currency_policy": {
+          "enum": [
+            "SINGLE_CURRENCY_REQUIRED",
+            "NOT_APPLICABLE"
+          ],
+          "description": "SINGLE_CURRENCY_REQUIRED: the planner never returns one total over several currencies (G-API-14); currency is forced into the dimensions for a multi-currency scope."
+        },
+        "quantity_unit": {
+          "type": "string",
+          "description": "contracts/common/quantity.schema.json unit when the value is a native quantity.",
+          "enum": [
+            "CREDIT",
+            "BYTE",
+            "BYTE_DAY",
+            "GIB_MONTH",
+            "TB_MONTH",
+            "TOKEN",
+            "REQUEST",
+            "QUERY",
+            "FILE",
+            "ROW",
+            "SECOND",
+            "MILLISECOND",
+            "NODE_HOUR",
+            "EXECUTION",
+            "UNIT"
+          ]
+        },
+        "display_hint": {
+          "enum": [
+            "CURRENCY",
+            "PERCENT",
+            "DURATION",
+            "BYTES_BINARY",
+            "BYTES_DECIMAL",
+            "INTEGER",
+            "DECIMAL"
+          ],
+          "description": "Formatting hint for apps/web/src/format (UX-001-S04); never changes the value."
+        }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "column",
+        "op"
+      ],
+      "properties": {
+        "column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "op": {
+          "enum": [
+            "EQ",
+            "NE",
+            "IN",
+            "NOT_IN",
+            "IS_NULL",
+            "IS_NOT_NULL"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "boolean",
+            "integer"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "EQ",
+                  "NE"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "IN",
+                  "NOT_IN"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "values"
+            ]
+          }
+        }
+      ]
+    },
+    "inline_measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate",
+        "column_ref"
+      ],
+      "properties": {
+        "aggregate": {
+          "enum": [
+            "SUM",
+            "SUM_ABS",
+            "COUNT",
+            "COUNT_DISTINCT"
+          ]
+        },
+        "column_ref": {
+          "type": "string",
+          "pattern": "^(\\*|[a-z_][a-z0-9_]*)$"
+        },
+        "population": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicate"
+          }
+        },
+        "relation": {
+          "type": "string",
+          "pattern": "^v_[a-z0-9_]+$",
+          "description": "Only when the operand reads another relation (denominator_scope.relation must then match)."
+        },
+        "grain_excludes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension_id"
+          },
+          "uniqueItems": true,
+          "description": "Dimensions removed from the output grain when computing this operand (share-of-total denominators, e.g. allocation_share excludes group, group_ancestor)."
+        },
+        "join_path": {
+          "type": "string",
+          "pattern": "^jp_[a-z0-9_]+$",
+          "description": "Semi-join (MANY_TO_MANY_EXISTS) restricting the operand population (tag_coverage numerator)."
+        }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "SUM",
+            "RATIO",
+            "PERCENTILE",
+            "LATEST",
+            "TWA",
+            "GAUGE",
+            "COUNT",
+            "COUNT_DISTINCT",
+            "MAX",
+            "DERIVED",
+            "NONE"
+          ],
+          "description": "SUM: SUM at output grain. RATIO: SUM(num)/NULLIF(SUM(den),0) at output grain, never summed. PERCENTILE: PERCENTILE_CONT in HOT, APPROX_PERCENTILE_ESTIMATE(APPROX_PERCENTILE_COMBINE(state)) in AGGREGATE. LATEST/TWA/GAUGE: gauges; LAST by time or Σ(value×seconds)/Σseconds across time, summed across non-time dimensions. COUNT_DISTINCT: exact in HOT, HLL_ESTIMATE(HLL_COMBINE(state)) in AGGREGATE. DERIVED: arithmetic over other metric values at the same grain and publication. NONE: unsupported."
+        },
+        "column_ref": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "abs": {
+          "type": "boolean",
+          "default": false
+        },
+        "population": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicate"
+          },
+          "description": "Fixed row filters that define the metric population (combined with AND)."
+        },
+        "numerator": {
+          "$ref": "#/$defs/inline_measure"
+        },
+        "denominator": {
+          "$ref": "#/$defs/inline_measure"
+        },
+        "p": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "distinct_column_ref": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "gauge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "default_mode",
+            "modes",
+            "observation_seconds_column"
+          ],
+          "properties": {
+            "default_mode": {
+              "enum": [
+                "LATEST",
+                "TWA"
+              ]
+            },
+            "modes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "LATEST",
+                  "TWA"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "observation_seconds_column": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*$"
+            }
+          }
+        },
+        "operator": {
+          "enum": [
+            "SUBTRACT",
+            "DIVIDE",
+            "DIVIDE_SCALED",
+            "ADD"
+          ],
+          "description": "DERIVED only. DIVIDE returns null ZERO_DENOMINATOR on a zero second operand; DIVIDE_SCALED multiplies by `scale` first (NUMBER(38,18) casts, CONVENTIONS §5)."
+        },
+        "operands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric_ref"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "scale": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "interval_columns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "low",
+            "high"
+          ],
+          "properties": {
+            "low": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*$"
+            },
+            "high": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]*$"
+            }
+          },
+          "description": "Columns summed alongside the point value and returned in Row.intervals[metric] (potential_savings range)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "SUM",
+                  "LATEST",
+                  "TWA",
+                  "GAUGE",
+                  "MAX",
+                  "PERCENTILE"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "column_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "RATIO"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "numerator",
+              "denominator"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "PERCENTILE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "p"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "COUNT_DISTINCT"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "distinct_column_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "GAUGE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gauge"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "DERIVED"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "operator",
+              "operands"
+            ]
+          }
+        }
+      ]
+    },
+    "aggregate_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "measure",
+        "unsupported_dimensions"
+      ],
+      "description": "Binding used when period.start < now − hot_days (D-11) or when the planner chooses the family aggregate for long ranges; the response states meta.retention_tier=AGGREGATE and meta.exactness.",
+      "properties": {
+        "relation": {
+          "type": "string",
+          "pattern": "^v_[a-z0-9_]+$"
+        },
+        "measure": {
+          "$ref": "#/$defs/measure"
+        },
+        "state_column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$",
+          "description": "t-digest (APPROX_PERCENTILE_ACCUMULATE) or HLL (HLL_ACCUMULATE) state column."
+        },
+        "unsupported_dimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension_id"
+          },
+          "uniqueItems": true,
+          "description": "Dimensions that exist only at query grain (e.g. user, role); a request using them beyond hot_days returns 422 QUERY_DIMENSION_INCOMPATIBLE with reason RETENTION_TIER."
+        }
+      }
+    },
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "required"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "type": {
+          "enum": [
+            "UUID",
+            "STRING",
+            "ENUM"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default": {
+          "type": "string"
+        },
+        "binds_column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$",
+          "description": "Relation column the parameter filters (EQ, bound literal)."
+        },
+        "floating_default": {
+          "enum": [
+            "LATEST_PUBLISHED_ALLOCATION",
+            "NONE"
+          ],
+          "description": "ALC-102-S04: book allocation version floats to the latest published allocation unless pinned."
+        }
+      }
+    },
+    "additivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "across_dimensions",
+        "across_time"
+      ],
+      "properties": {
+        "across_dimensions": {
+          "enum": [
+            "ALL",
+            "LISTED",
+            "NONE"
+          ]
+        },
+        "listed_dimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension_id"
+          },
+          "uniqueItems": true
+        },
+        "across_time": {
+          "enum": [
+            "SUM",
+            "LATEST",
+            "TWA",
+            "NONE"
+          ]
+        },
+        "within_param": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Additive only within one value of this parameter (allocated_spend: book_id). Two values → 422 QUERY_NON_ADDITIVE_BOOKS."
+        },
+        "top_n_other": {
+          "enum": [
+            "REAGGREGATE_BASE_MEASURES",
+            "SUM_MEMBERS",
+            "NOT_ALLOWED"
+          ],
+          "description": "Other bucket rule: additive metrics may sum members; ratios/percentiles/distinct counts re-aggregate base measures over the Other members (G-API-01)."
+        }
+      }
+    },
+    "incompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "reason",
+        "alternatives"
+      ],
+      "properties": {
+        "dimension": {
+          "$ref": "#/$defs/dimension_id"
+        },
+        "reason": {
+          "enum": [
+            "NO_ATTRIBUTION_PATH",
+            "MANY_TO_MANY",
+            "RETENTION_TIER",
+            "PRIVACY",
+            "HEURISTIC_R2",
+            "NOT_AT_GRAIN"
+          ]
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension_id"
+          },
+          "uniqueItems": true
+        },
+        "message_key": {
+          "type": "string",
+          "pattern": "^problem\\.QUERY_DIMENSION_INCOMPATIBLE\\.[a-z0-9_]+$"
+        }
+      }
+    },
+    "maturity_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_status_column",
+        "composition",
+        "maturity_filter"
+      ],
+      "properties": {
+        "data_status_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "composition": {
+          "type": "boolean",
+          "description": "meta.data_status.composition is computed (GROUPING SETS in the same statement)."
+        },
+        "maturity_filter": {
+          "type": "boolean",
+          "description": "Request maturity=FINAL_OR_BETTER|RECONCILED_ONLY is honoured (meta.coverage.excluded_by_maturity reported)."
+        },
+        "reconciliation_applies": {
+          "type": "boolean",
+          "default": false
+        },
+        "close_applies": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "null_reason": {
+      "enum": [
+        "NOT_SUPPORTED",
+        "NOT_ENABLED",
+        "DENIED",
+        "NOT_YET_AVAILABLE",
+        "OUT_OF_RETENTION",
+        "NO_PRICE",
+        "SUPPRESSED_PRIVACY",
+        "INSUFFICIENT_DATA",
+        "CAPABILITY_MISSING",
+        "TRIAL_ACCOUNT",
+        "PENDING_RECONCILIATION",
+        "NOT_APPLICABLE",
+        "ZERO_DENOMINATOR",
+        "DENOMINATOR_OUTSIDE_SCOPE",
+        "ATTRIBUTION_UNAVAILABLE",
+        "SOURCE_MISSING",
+        "CURRENCY_EXCLUDED",
+        "EVIDENCE_PURGED",
+        "CYCLE_DETECTED"
+      ],
+      "description": "packages/api_contracts/null-reason.schema.json (common UnknownReason ∪ analytics additions)."
+    },
+    "null_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zero_denominator": {
+          "$ref": "#/$defs/null_reason"
+        },
+        "unpriced_rows": {
+          "enum": [
+            "NULL_WHOLE_VALUE",
+            "EXCLUDE_AND_REPORT"
+          ],
+          "description": "NULL_WHOLE_VALUE: any unpriced row in the group makes the value null NO_PRICE (never a partial sum presented as total). EXCLUDE_AND_REPORT: rows excluded and counted in meta.coverage."
+        },
+        "empty_population": {
+          "enum": [
+            "ZERO",
+            "NULL_INSUFFICIENT_DATA",
+            "NULL_NOT_APPLICABLE"
+          ],
+          "description": "Value when the authorized, fully covered population is empty: ZERO only for additive measures where zero is confirmed."
+        },
+        "insufficient_history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "min_complete_days",
+            "reason"
+          ],
+          "properties": {
+            "min_complete_days": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "reason": {
+              "$ref": "#/$defs/null_reason"
+            }
+          }
+        },
+        "unsupported_reason": {
+          "$ref": "#/$defs/null_reason"
+        },
+        "capability_missing_reason": {
+          "$ref": "#/$defs/null_reason"
+        },
+        "scope_not_applicable_reason": {
+          "$ref": "#/$defs/null_reason"
+        }
+      }
+    },
+    "denominator_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "requires",
+        "on_unreadable"
+      ],
+      "properties": {
+        "relation": {
+          "type": "string",
+          "pattern": "^v_[a-z0-9_]+$"
+        },
+        "requires": {
+          "enum": [
+            "SAME_AS_NUMERATOR",
+            "UNRESTRICTED_GROUP_DIMENSION",
+            "INCLUDE_UNALLOCATED",
+            "BOOK_WIDE"
+          ],
+          "description": "Profile property needed to read the denominator (SEC Appendix A.4). SAME_AS_NUMERATOR: denominator rows are the same rows the caller reads."
+        },
+        "on_unreadable": {
+          "const": "DENOMINATOR_OUTSIDE_SCOPE"
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
+          "description": "Capability id (contracts/authz/capabilities.yaml, SEC Appendix C) required to see the metric at all."
+        },
+        "additional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+          },
+          "uniqueItems": true
+        },
+        "dimension_capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+          },
+          "description": "Capability required to group/filter this metric by a dimension (e.g. user → identity.resolve for display names)."
+        },
+        "profile_requires": {
+          "enum": [
+            "NONE",
+            "INCLUDE_UNALLOCATED",
+            "UNRESTRICTED_GROUP_DIMENSION",
+            "BOOK_WIDE"
+          ],
+          "default": "NONE",
+          "description": "Profile property (SEC Appendix A.4) without which the metric is refused with 403 QUERY_METRIC_FORBIDDEN (e.g. unallocated_spend, ALC-102-S02)."
+        }
+      }
+    },
+    "exactness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "HOT",
+        "AGGREGATE"
+      ],
+      "properties": {
+        "HOT": {
+          "enum": [
+            "EXACT",
+            "APPROX_TDIGEST",
+            "APPROX_HLL",
+            "NOT_AVAILABLE"
+          ]
+        },
+        "AGGREGATE": {
+          "enum": [
+            "EXACT",
+            "APPROX_TDIGEST",
+            "APPROX_HLL",
+            "NOT_AVAILABLE"
+          ]
+        }
+      }
+    },
+    "substitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "when_dimensions_any_of",
+        "use",
+        "residual_row_key",
+        "banner_key"
+      ],
+      "properties": {
+        "when_dimensions_any_of": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension_id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "use": {
+          "$ref": "#/$defs/metric_ref"
+        },
+        "residual_row_key": {
+          "const": "__UNATTRIBUTED__"
+        },
+        "banner_key": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$"
+        }
+      }
+    },
+    "deprecation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "migration",
+        "deprecated_at",
+        "sunset"
+      ],
+      "properties": {
+        "replaced_by": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/metric_ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "migration": {
+          "enum": [
+            "EQUIVALENT",
+            "PARAM_MAP",
+            "MANUAL"
+          ]
+        },
+        "param_map": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "deprecated_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "sunset": {
+          "type": "string",
+          "format": "date",
+          "description": "≥ deprecated_at + 6 months (G-API-15)."
+        }
+      }
+    },
+    "explain_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_kind",
+        "child_resolvers"
+      ],
+      "properties": {
+        "root_kind": {
+          "enum": [
+            "METRIC"
+          ]
+        },
+        "formula_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.#/-]+$",
+          "description": "Anchor into the registry README / canonical doc describing the formula."
+        },
+        "child_resolvers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "uniqueItems": true,
+          "description": "Resolver ids from data/contracts/explain.json edge table."
+        }
+      }
+    }
+  }
+}

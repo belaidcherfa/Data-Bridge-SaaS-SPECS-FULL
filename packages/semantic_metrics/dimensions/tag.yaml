@@ -1,0 +1,23 @@
+# contract=semantic-dimension:tag version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: tag
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.tag.label
+description_key: dimension.tag.description
+group: OWNERSHIP
+kind: ATTRIBUTE
+value_type: STRING
+cardinality_class: HIGH
+entitlement: {is_entitlement_dimension: false}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ, IN]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 2, max_results: 20, source_relation: v_tag_assignment, match_column: tag_pair}
+label: {source: VALUE}
+bindings:
+- {relation: v_attribution_daily, column_ref: tag_pair, join_path: jp_attribution_tag}
+sortable: true
+owner_task: API-001
+notes: '''key=value''. R1: filter only (EXISTS semi-join); grouping cost by tag is served through group sets and allocated_spend (tags feed usage-group rules, ALC-001).'

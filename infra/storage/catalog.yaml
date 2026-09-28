@@ -1,0 +1,662 @@
+# contract=storage-messaging-catalog version=1 status=DRAFT owner_task=INF-003 decisions=D-03,D-04,D-10,D-11,D-26 last_changed=2026-09-28
+# Buckets, KMS keys, SNS topics and SQS queues (INF-003-S01). Every bucket/queue/topic in Terraform maps to exactly
+# one entry here (CI check). The landing KEY GRAMMAR is owned by ING-005-S01 (RECONCILIATION §5.2); this catalog only
+# consumes it. Prose view: docs/runbooks/storage-catalog.md. Schema: infra/storage/catalog.schema.json.
+schema_version: 1
+naming:
+  bucket: bridge-{env|org|shared|log-archive}-{purpose}-{aws_account_id}-euw1 (S3 names are global)
+  queue: bridge-{env}-{name}
+  topic: bridge-{env}-{name}
+removed:
+- item: report-jobs queue (INF-003-S07)
+  reason: 'D-33 / RECONCILIATION C-05: report and export jobs are claimed from PostgreSQL by long-lived workers; no SQS report lane.'
+kms_keys:
+- alias: alias/bridge-{env}-landing
+  purpose: S3 landing journal (extraction Parquet, manifests, replay, probes)
+  key_users:
+  - bridge-{env}-conn-* (GenerateDataKey/Decrypt via s3.eu-west-1 only)
+  - bridge-{env}-receipt-consumer
+  - Snowflake storage-integration role bridge-{env}-snowflake-landing (Decrypt via S3)
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02
+- alias: alias/bridge-{env}-reports
+  purpose: Report artifacts and exports
+  key_users:
+  - bridge-{env}-render-worker
+  - bridge-{env}-analysis-worker
+  - bridge-{env}-api (Decrypt for presigned GET)
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02
+- alias: alias/bridge-{env}-audit
+  purpose: Audit export bucket
+  key_users:
+  - bridge-{env}-audit-exporter
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02
+- alias: alias/bridge-recovery
+  purpose: Snowflake recovery exports (ADR-011, OPS-007), key owned by the recovery/log-archive account
+  key_users:
+  - Snowflake RECOVERY_EXPORT_INT storage-integration role
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02, OPS-007-S03
+- alias: alias/bridge-evidence
+  purpose: Evidence bucket (shared-services)
+  key_users:
+  - CI roles bridge-*-deploy, bridge-*-tf-apply, bridge-shared-services-build, validation runners
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02
+- alias: alias/bridge-{env}-config-archive
+  purpose: D-04 archival copy of configuration versions
+  key_users:
+  - bridge-{env}-config-publisher
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-003-S02, CTL-005
+- alias: alias/bridge-{env}-aurora
+  purpose: Aurora storage and snapshots
+  key_users:
+  - rds.amazonaws.com via service
+  via_service:
+  - rds.eu-west-1.amazonaws.com
+  owner_task: INF-004-S02
+- alias: alias/bridge-{env}-valkey
+  purpose: ElastiCache at-rest encryption
+  key_users:
+  - elasticache via service
+  via_service:
+  - elasticache.eu-west-1.amazonaws.com
+  owner_task: INF-004-S06
+- alias: alias/bridge-{env}-logs
+  purpose: CloudWatch Logs groups (task logs)
+  key_users:
+  - logs.eu-west-1.amazonaws.com service principal with encryption context arn:aws:logs:eu-west-1:<acct>:log-group:/bridge/{env}/*
+  via_service: []
+  owner_task: INF-005-S09
+- alias: alias/bridge-{env}-sns
+  purpose: SNS topics (landing-events, domain-events, alarms)
+  key_users:
+  - s3.amazonaws.com (landing-events publish)
+  - sns.amazonaws.com
+  - SQS subscribers via service
+  via_service:
+  - sns.eu-west-1.amazonaws.com
+  owner_task: INF-003-S06
+- alias: alias/bridge-{env}-secrets
+  purpose: Secrets Manager secrets (Dagster DB password, destination and webhook secrets, Cognito BFF client secret)
+  key_users:
+  - execution roles listed per secret in infra/services.yaml
+  - bridge-{env}-notification-worker (bridge/{env}/destinations/* at runtime)
+  via_service:
+  - secretsmanager.eu-west-1.amazonaws.com
+  owner_task: INF-004-S05
+- alias: alias/bridge-{env}-pseudonym
+  purpose: D-10 per-tenant pseudonymization key wrapping (envelope encryption, encryption context {tenant_id}; SEC-103-S02)
+  key_users:
+  - 'bridge-{env}-conn-<uuid32> (kms:Decrypt of its own tenant''s wrapped HMAC key only: encryption context tenant_id = aws:PrincipalTag/bridge:tenant_id; allowed by the conn boundary)'
+  - SEC-103 tenant-key lifecycle component (kms:Encrypt at tenant creation; name TO CONFIRM by SEC-103)
+  via_service: []
+  owner_task: SEC-103-S02 (policy content), INF-003-S02 (key)
+- alias: alias/bridge-tfstate-{name}
+  purpose: Terraform state (per account)
+  key_users:
+  - bridge-{name}-tf-apply
+  - bridge-{name}-tf-plan (Decrypt)
+  via_service:
+  - s3.eu-west-1.amazonaws.com
+  owner_task: INF-001-S08
+- alias: alias/bridge-image-signing
+  purpose: cosign ECC_NIST_P256 image signing (shared-services); Sign only for the build role, GetPublicKey/Verify for deploy roles
+  key_users:
+  - bridge-shared-services-build (Sign)
+  - bridge-*-deploy (Verify, GetPublicKey)
+  via_service: []
+  owner_task: INF-007-S04
+buckets:
+- name: bridge-{env}-landing-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: 'Immutable extraction journal: landing/, manifests/, replay/, probes/ (key grammar owned by ING-005-S01)'
+  kms: alias/bridge-{env}-landing
+  bucket_key: true
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: landing/source=<S>/
+    rule: 'generated per landing/source=<S>/ prefix from the source registry retention_class (ING-005-S04, D-26): FINANCIAL → Glacier Instant Retrieval at 30 d, expire at 400 d; QUERY_GRAIN → expire at 90 d; no transition may emit ObjectCreated'
+  - prefix: manifests/source=<S>/
+    rule: same class as the source
+  - prefix: replay/
+    rule: same class as the source
+  - prefix: probes/
+    rule: expire 30 d
+  - prefix: '*'
+    rule: abort incomplete multipart 1 d; noncurrent versions expire 7 d
+  writers:
+  - bridge-{env}-conn-<uuid32> (PutObject/GetObjectAttributes/AbortMultipartUpload on its literal source × schema_major prefixes only, INF-003-S04)
+  - bridge-{env}-receipt-consumer (replay/ only)
+  readers:
+  - Snowflake storage-integration role bridge-{env}-snowflake-landing (landing/, replay/)
+  - bridge-{env}-receipt-consumer (manifests/, landing/ HEAD)
+  notifications:
+  - events: s3:ObjectCreated:*
+    prefix: landing/
+    suffix: .parquet
+    target: sns:bridge-{env}-landing-events
+  - events: s3:ObjectCreated:*
+    prefix: manifests/
+    suffix: .json
+    target: sns:bridge-{env}-landing-events
+  - events: s3:ObjectCreated:*
+    prefix: replay/
+    suffix: .parquet
+    target: sns:bridge-{env}-landing-events
+  policy:
+  - deny aws:SecureTransport=false
+  - deny PutObject without x-amz-server-side-encryption=aws:kms and the landing key
+  - 'deny PutObject on landing/, manifests/, replay/, probes/ without s3:if-none-match (ING-005-S03; condition key TO VERIFY LIVE, documented fallback: checksum compare on 412)'
+  - deny DeleteObject/DeleteObjectVersion to arn:aws:iam::<acct>:role/bridge-{env}-conn-*
+  - deny Bridge principals outside aws:SourceVpce of the env gateway endpoint except the Snowflake storage-integration role and S3 service principals (INF-003-S08)
+  - deny keys not matching the anchored landing grammar at intake (quarantine prefix quarantine/, alarm landing_key_violation)
+  owner_task: INF-003-S03, S08
+- name: bridge-{env}-reports-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: Report snapshots/renders (reports/) and ad-hoc exports (exports/)
+  kms: alias/bridge-{env}-reports
+  bucket_key: true
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: exports/
+    rule: expire 7 d (download links are short-lived, RECONCILIATION C-12)
+  - prefix: reports/
+    rule: expire 400 d unless the report policy sets less (RPT)
+  - prefix: '*'
+    rule: noncurrent 7 d; abort multipart 1 d
+  writers:
+  - bridge-{env}-render-worker
+  - bridge-{env}-analysis-worker
+  readers:
+  - bridge-{env}-api (presigned GET only after re-authorization)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny unencrypted Put
+  - deny principals outside VPCE
+  - no public access
+  owner_task: INF-003-S05
+- name: bridge-{env}-audit-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: Append-only audit export (SEC-008)
+  kms: alias/bridge-{env}-audit
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: expire after retention (400 d default; owner policy may extend)
+  writers:
+  - bridge-{env}-audit-exporter
+  readers:
+  - BridgeReadOnly (security review)
+  - bridge-{env}-ops-api (read index only)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny s3:BypassGovernanceRetention except break-glass
+  - deny DeleteObject*
+  owner_task: INF-003-S05
+- name: bridge-{env}-config-archive-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: D-04 archival copy of every published configuration version (recovery source for CONFIG)
+  kms: alias/bridge-{env}-config-archive
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: retain 400 d then expire
+  writers:
+  - bridge-{env}-config-publisher
+  readers:
+  - recovery procedure (OPS-007)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject*
+  owner_task: INF-003-S05, CTL-005
+- name: bridge-{env}-spa-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: React SPA assets served by CloudFront OAC (D-28)
+  kms: SSE-S3
+  bucket_key: false
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: noncurrent 30 d
+  writers:
+  - bridge-{env}-deploy
+  readers:
+  - cloudfront.amazonaws.com with aws:SourceArn = the environment distribution (OAC)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny every principal except OAC and deploy role
+  owner_task: INF-006-S04
+- name: bridge-{env}-access-logs-{aws_account_id}-euw1
+  account: '{env}'
+  purpose: ALB access logs and S3 server access logs
+  kms: SSE-S3 (ALB access logs support SSE-S3 only)
+  bucket_key: false
+  versioning: false
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: expire 90 d
+  writers:
+  - elasticloadbalancing log-delivery principal
+  - logging.s3.amazonaws.com
+  readers:
+  - BridgeOperator
+  notifications: []
+  policy:
+  - deny non-TLS
+  owner_task: INF-003-S05, INF-006-S03
+- name: aws-waf-logs-bridge-{env}-{aws_account_id}
+  account: '{env}'
+  purpose: WAF logs for the CLOUDFRONT web ACL with authorization, cookie and x-csrf-token redacted (INF-006-S06); bucket region TO VERIFY LIVE
+  kms: SSE-S3
+  bucket_key: false
+  versioning: false
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: expire 90 d
+  writers:
+  - delivery.logs.amazonaws.com
+  readers:
+  - BridgeOperator
+  notifications: []
+  policy:
+  - deny non-TLS
+  owner_task: INF-006-S06
+- name: bridge-log-archive-network-logs-{aws_account_id}-euw1
+  account: log-archive
+  purpose: VPC Flow Logs (Parquet, 10-min aggregation) and Route 53 Resolver query logs of all environments
+  kms: SSE-S3
+  bucket_key: false
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: expire 30 d (INF-002-S08)
+  writers:
+  - delivery.logs.amazonaws.com (source accounts in the organization)
+  - route53resolver query-log delivery
+  readers:
+  - BridgeReadOnly
+  notifications: []
+  policy:
+  - deny non-TLS
+  - aws:SourceOrgID condition on delivery
+  owner_task: INF-002-S07/S08
+- name: bridge-log-archive-cloudtrail-{aws_account_id}-euw1
+  account: log-archive
+  purpose: Organization CloudTrail (all regions, log file validation)
+  kms: alias/bridge-cloudtrail (log-archive account)
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: Glacier IR at 90 d; expire 400 d
+  writers:
+  - cloudtrail.amazonaws.com (organization trail)
+  readers:
+  - BridgeReadOnly
+  - security tooling
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject*
+  owner_task: INF-001-S06
+- name: bridge-log-archive-tombstones-{aws_account_id}-euw1
+  account: log-archive
+  purpose: OPS-104 append-only deletion tombstone log mirror (outside restore scope)
+  kms: alias/bridge-tombstones (log-archive account)
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: retain (no expiry while any backup could resurrect data)
+  writers:
+  - bridge-{env}-outbox-dispatcher (cross-account PutObject tombstones/seq=<20-digit>.json)
+  readers:
+  - restore procedure (OPS-006/OPS-007)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject*
+  - PutObject only with if-none-match
+  owner_task: OPS-104 (content), INF-003-S05 (bucket)
+- name: bridge-recovery-{aws_account_id}-euw1
+  account: recovery (organization.recovery_account_id or log-archive)
+  purpose: ADR-011 analytical recovery exports (OPS-007-S03)
+  kms: alias/bridge-recovery
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 35
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: expire 35 d (delete denied except lifecycle)
+  writers:
+  - Snowflake RECOVERY_EXPORT_INT storage-integration role (PutObject only)
+  readers:
+  - restore procedure (break-glass)
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject* except lifecycle
+  - production app roles cannot read
+  owner_task: INF-003-S05, OPS-007-S03
+- name: bridge-shared-evidence-{aws_account_id}-euw1
+  account: shared-services
+  purpose: FND-005 evidence artifacts referenced by docs/evidence/index/*.jsonl (artifact_uri + sha256)
+  kms: alias/bridge-evidence
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: expire after 400 d retention
+  writers:
+  - CI validation and deploy roles (PutObject with if-none-match)
+  readers:
+  - reviewers (BridgeReadOnly)
+  - tools/validation/verify.py in CI
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject*
+  owner_task: INF-003-S05, FND-005-S06
+- name: bridge-shared-releases-{aws_account_id}-euw1
+  account: shared-services
+  purpose: Release manifests, deploy logs, SBOMs (INF-007-S12)
+  kms: alias/bridge-evidence
+  bucket_key: true
+  versioning: true
+  object_lock:
+    mode: GOVERNANCE
+    default_retention_days: 400
+    bypass: bridge-break-glass only
+  lifecycle:
+  - prefix: '*'
+    rule: expire after 400 d retention
+  writers:
+  - bridge-shared-services-build
+  - bridge-*-deploy
+  readers:
+  - bridge-*-deploy (verification)
+  - reviewers
+  notifications: []
+  policy:
+  - deny non-TLS
+  - deny DeleteObject*
+  owner_task: INF-007-S12
+- name: bridge-shared-fixtures-{aws_account_id}-euw1
+  account: shared-services
+  purpose: FND-102 recorded Snowflake fixtures (sanitized, ≤ 5 MB each) pulled by `make fixtures-pull` against a committed sha256 manifest
+  kms: alias/bridge-evidence
+  bucket_key: true
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: drift/
+    rule: expire 30 d
+  writers:
+  - recorder job role on the bridge-staging-vpc runner
+  readers:
+  - CI (all envs)
+  notifications: []
+  policy:
+  - deny non-TLS
+  owner_task: FND-102-S03
+- name: bridge-org-cur-{aws_account_id}-euw1
+  account: management
+  purpose: CUR 2.0 Data Export (Parquet, resource IDs) queried by Athena for OPS-009 (INF-105-S05)
+  kms: SSE-S3 (Data Exports delivery)
+  bucket_key: false
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: retain 400 d then expire
+  writers:
+  - bcm-data-exports.amazonaws.com
+  readers:
+  - bridge-prod-platform-cost (cross-account read)
+  notifications: []
+  policy:
+  - deny non-TLS
+  owner_task: INF-105-S05
+- name: bridge-tfstate-{name}-{aws_account_id}-euw1
+  account: every account
+  purpose: Terraform state (infra/terraform/state-layout.yaml)
+  kms: alias/bridge-tfstate-{name}
+  bucket_key: true
+  versioning: true
+  object_lock: null
+  lifecycle:
+  - prefix: '*'
+    rule: noncurrent 90 d; abort multipart 1 d
+  writers:
+  - bridge-{name}-tf-apply
+  readers:
+  - bridge-{name}-tf-plan
+  - bridge-{name}-tf-drift
+  notifications: []
+  policy:
+  - deny non-TLS
+  - principal allowlist
+  owner_task: INF-001-S08
+topics:
+- name: bridge-{env}-landing-events
+  type: STANDARD
+  kms: 'alias/bridge-{env}-sns (TO VERIFY LIVE Snowpipe SQS subscription with CMK topic; fallback: unencrypted topic, payload = keys only)'
+  publishers:
+  - s3.amazonaws.com (aws:SourceArn = landing bucket)
+  subscribers:
+  - Snowflake Snowpipe SQS (auto-ingest, D-03; filter .parquet under landing/ and replay/)
+  - sqs:landing-receipts
+  owner_task: INF-003-S06
+- name: bridge-{env}-domain-events
+  type: STANDARD
+  kms: alias/bridge-{env}-sns
+  publishers:
+  - bridge-{env}-outbox-dispatcher
+  subscribers:
+  - sqs:notify-delivery
+  - sqs:monitor-events
+  - sqs:intelligence-events (filter policies on message attribute `type`)
+  owner_task: INF-003-S06, CTL-004
+- name: bridge-{env}-domain-events-ordered.fifo
+  type: FIFO
+  kms: alias/bridge-{env}-sns
+  publishers:
+  - bridge-{env}-outbox-dispatcher (MessageGroupId = aggregate, MessageDeduplicationId = event_id)
+  subscribers:
+  - sqs:identity-requests.fifo
+  - sqs:authz-provisioning.fifo
+  - sqs:config-publication.fifo
+  owner_task: INF-003-S06, CTL-004
+- name: bridge-{env}-ses-events
+  type: STANDARD
+  kms: alias/bridge-{env}-sns
+  publishers:
+  - ses.amazonaws.com (configuration set)
+  subscribers:
+  - sqs:notify-feedback
+  owner_task: INF-006-S11
+- name: bridge-{env}-alarms
+  type: STANDARD
+  kms: alias/bridge-{env}-sns
+  publishers:
+  - cloudwatch.amazonaws.com
+  - events.amazonaws.com
+  - budgets.amazonaws.com
+  - costalerts.amazonaws.com
+  subscribers:
+  - 'email: notifications.ops_alert_email / cost_alert_email'
+  - chat webhook forwarder
+  owner_task: INF-005-S14, INF-105-S03
+- name: bridge-{env}-alarms-use1
+  type: STANDARD
+  kms: aws/sns (us-east-1)
+  publishers:
+  - cloudwatch.amazonaws.com (CloudFront, ACM, WAF alarms in us-east-1)
+  - events.amazonaws.com (root-login rule)
+  subscribers:
+  - 'email: notifications.ops_alert_email / security_alert_email'
+  owner_task: INF-006-S15, INF-001-S06
+- name: bridge-{env}-security-alerts
+  type: STANDARD
+  kms: alias/bridge-{env}-sns
+  publishers:
+  - events.amazonaws.com (break-glass assume, SCP/trail changes, GuardDuty HIGH findings)
+  subscribers:
+  - 'email: notifications.security_alert_email'
+  owner_task: INF-001-S06, S13
+queues:
+- name: landing-receipts
+  fifo: false
+  producer: sns:bridge-{env}-landing-events
+  consumer: receipt-consumer
+  visibility_timeout_s: 300
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: landing-receipts-dlq
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: S3 events for landing/, manifests/, replay/; duplicate and out-of-order safe (receipt idempotency, ING-007). Poison → DLQ after 5 receives; bounded redrive via StartMessageMoveTask.
+- name: identity-requests.fifo
+  fifo: true
+  producer: sns:bridge-{env}-domain-events-ordered.fifo
+  consumer: identity-provisioner
+  visibility_timeout_s: 120
+  max_receive_count: 10
+  retention_days: 4
+  dlq:
+    name: identity-requests-dlq.fifo
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: MessageGroupId = subject UUID (connection or tenant); IAM propagation retries inside the handler with capped backoff ≤ 60 s (INF-103-S06).
+- name: authz-provisioning.fifo
+  fifo: true
+  producer: sns:bridge-{env}-domain-events-ordered.fifo
+  consumer: authz-provisioner
+  visibility_timeout_s: 300
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: authz-provisioning-dlq.fifo
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: MessageGroupId = tenant_id (SEC-105 FIFO per tenant).
+- name: config-publication.fifo
+  fifo: true
+  producer: sns:bridge-{env}-domain-events-ordered.fifo
+  consumer: config-publisher
+  visibility_timeout_s: 120
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: config-publication-dlq.fifo
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: MessageGroupId = tenant_id; duplicates are no-ops keyed by config_version (D-04).
+- name: notify-delivery
+  fifo: false
+  producer: sns:bridge-{env}-domain-events
+  consumer: notification-worker
+  visibility_timeout_s: 120
+  max_receive_count: 8
+  retention_days: 4
+  dlq:
+    name: notify-delivery-dlq
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: Consumer deduplicates on (consumer, event_id) in platform.consumed_event; delivery retry schedule is GOV-007's.
+- name: notify-feedback
+  fifo: false
+  producer: sns:bridge-{env}-ses-events
+  consumer: notification-worker
+  visibility_timeout_s: 60
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: notify-feedback-dlq
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: SES bounces and complaints → suppression list.
+- name: monitor-events
+  fifo: false
+  producer: sns:bridge-{env}-domain-events
+  consumer: monitor-worker
+  visibility_timeout_s: 300
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: monitor-events-dlq
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: publication.advanced and budget/monitor configuration changes.
+- name: intelligence-events
+  fifo: false
+  producer: sns:bridge-{env}-domain-events
+  consumer: intelligence-worker
+  visibility_timeout_s: 300
+  max_receive_count: 5
+  retention_days: 4
+  dlq:
+    name: intelligence-events-dlq
+    retention_days: 14
+  encryption: SSE-SQS
+  policy: only the named SNS topic ARN (aws:SourceArn) or producer role may SendMessage; only the consumer role may Receive/Delete
+  notes: publication.advanced (intelligence) and action lifecycle events.
+alarms:
+- DLQ ApproximateNumberOfMessagesVisible > 0 for 5 min (every DLQ)
+- landing-receipts ApproximateAgeOfOldestMessage > 900 s
+- CloudTrail metric filter KMS AccessDenied on landing/reports keys
+- landing bucket 4xx spike
+- landing_key_violation custom metric > 0

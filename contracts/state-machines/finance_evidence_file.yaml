@@ -1,0 +1,32 @@
+# contract=state-machine-finance-evidence-file version=1 status=DRAFT owner_task=FIN-101 decisions=D-10,D-25 last_changed=2026-09-28
+# Upload and malware-scan lifecycle of customer-supplied finance documents — FIN-101-S02/S03.
+# Machine name not listed in contracts/README.md; FIN-owned addition recorded in contracts/_handoffs/K5.md.
+machine: finance_evidence_file
+version: 1
+owner_task: FIN-101
+entity: finance.evidence_file
+state_field: status
+initial: UPLOAD_PENDING
+terminal: [CLEAN, INFECTED, EXPIRED]
+states:
+  UPLOAD_PENDING: {description: "Presigned PUT issued (<= 15 min, tenant prefix, SSE-KMS, 20 MiB limit); object not yet confirmed."}
+  SCAN_PENDING: {description: "Upload completed; size, sha256 and magic bytes verified; malware scan running (GuardDuty Malware Protection for S3 or ClamAV task, TO VERIFY region availability)."}
+  CLEAN: {description: "Scan clean; the file may be attached to a submitted reference, rate table or explanation and downloaded through the broker."}
+  INFECTED: {description: "Scan found malware; object quarantined (tagged, access denied), security alarm raised; never downloadable."}
+  EXPIRED: {description: "Upload not completed before upload_expires_at, or the PUT object failed verification; object deleted if present."}
+transitions:
+  - {from: UPLOAD_PENDING, to: SCAN_PENDING, event: upload_completed, actors: [finance.reference.enter, finance.pricing.import, finance.reconciliation.explain], guards: [object_exists_under_tenant_prefix, size_within_limit_and_declared, sha256_matches_declared, content_type_sniffed], effects: ["enqueue:malware_scan"]}
+  - {from: UPLOAD_PENDING, to: EXPIRED, event: upload_expired, actors: ["system:finance-worker"], guards: [now_ge_upload_expires_at], effects: ["delete:object_if_present"]}
+  - {from: UPLOAD_PENDING, to: EXPIRED, event: verification_failed, actors: ["system:finance-worker"], guards: [], effects: ["delete:object_if_present"]}
+  - {from: SCAN_PENDING, to: CLEAN, event: scan_clean, actors: ["system:malware-scanner"], guards: [], effects: ["enqueue:reference_parse_if_csv_statement", "emit:bridge.finance.evidence_file.scanned"]}
+  - {from: SCAN_PENDING, to: INFECTED, event: scan_infected, actors: ["system:malware-scanner"], guards: [], effects: ["quarantine:object", "alarm:security", "emit:bridge.finance.evidence_file.scanned"]}
+guards:
+  object_exists_under_tenant_prefix: "HEAD on object_key succeeds; key built server-side under tenants/{tenant_id}/finance/ (IAM prefix policy denies foreign prefixes)"
+  size_within_limit_and_declared: "size_bytes <= 20 MiB (20971520) and equals declared_size_bytes; else 413 FIN_EVIDENCE_TOO_LARGE"
+  sha256_matches_declared: "S3 checksum SHA256 = declared_sha256"
+  content_type_sniffed: "PDF starts with %PDF-; CSV is valid UTF-8 without NUL bytes; else 415 FIN_EVIDENCE_TYPE_REJECTED"
+  now_ge_upload_expires_at: "now() >= upload_expires_at"
+invariants:
+  - "PDFs are never rendered or parsed server-side in R1 (no OCR); CSV parsing happens only after CLEAN."
+  - "Downloads go through the SEC-006-S08 broker only (30 s presigned URL, scope recheck)."
+  - "Object Lock GOVERNANCE retention starts when the owning object is approved (retain_until = approved_at + record_retention_days); deletion under legal hold is refused and audited."

@@ -1,0 +1,46 @@
+# contract=state-machine-rate-table version=1 status=DRAFT owner_task=FIN-105 decisions=D-04,D-20 last_changed=2026-09-28
+# Customer-approved rate table lifecycle (reseller / no-billing-access tenants, G-FIN-13) — FIN-105-S03.
+# Machine name not listed in contracts/README.md; FIN-owned addition recorded in contracts/_handoffs/K5.md.
+machine: rate_table
+version: 1
+owner_task: FIN-105
+entity: finance.rate_table
+state_field: status
+initial: DRAFT
+terminal: [REJECTED, SUPERSEDED, DISCARDED]
+states:
+  DRAFT: {description: "Editable version (lines via CSV import with preview or manual entry); simulations allowed."}
+  SUBMITTED: {description: "Content frozen (content_sha256), evidence attached, awaiting a checker."}
+  APPROVED: {description: "Approved (maker-checker, or flagged self-approval when the tenant has a single eligible approver, SEC Appendix C.4); queued for D-04 publication to CONFIG.PRICE_RATE."}
+  ACTIVE: {description: "Published; select_rate() may use it with rate_source CUSTOMER_APPROVED (price_basis CUSTOMER_APPROVED_RATE, never BILLED_SOURCE)."}
+  REJECTED: {description: "Rejected by a checker."}
+  SUPERSEDED: {description: "A later version of the lineage became ACTIVE; kept for pinned closes and reproducibility."}
+  DISCARDED: {description: "Draft abandoned."}
+transitions:
+  - {from: DRAFT, to: SUBMITTED, event: submitted, actors: [finance.pricing.import], guards: [lines_present, lines_valid_decimal_non_negative, no_overlapping_line_periods, no_ambiguous_line_keys, tb_unit_declared_for_tb_units, evidence_file_clean, demo_provenance_only_for_demo_tenant], effects: ["write:content_sha256", "request:approval(action=finance.pricing.approve)", "emit:bridge.finance.rate_table.submitted"]}
+  - {from: SUBMITTED, to: DRAFT, event: withdrawn, actors: [finance.pricing.import], guards: [actor_is_submitter], effects: ["cancel:approval", "emit:bridge.finance.rate_table.withdrawn"]}
+  - {from: SUBMITTED, to: APPROVED, event: approved, actors: [finance.pricing.approve], guards: [approver_differs_from_submitter_or_single_approver_flagged, content_unchanged_since_submission, approver_scope_covers_organization, fresh_durable_authz_check, step_up_recent], effects: ["enqueue:config_publication(kind=PRICE_RATE)", "emit:bridge.finance.rate_table.approved"]}
+  - {from: SUBMITTED, to: REJECTED, event: rejected, actors: [finance.pricing.approve], guards: [], effects: ["emit:bridge.finance.rate_table.rejected"]}
+  - {from: APPROVED, to: ACTIVE, event: published, actors: ["system:config-publisher"], guards: [config_publication_verified], effects: ["supersede:predecessor_version", "emit:bridge.finance.rate_table.activated"]}
+  - {from: ACTIVE, to: SUPERSEDED, event: superseded, actors: ["system:finance-worker"], guards: [successor_version_active], effects: ["emit:bridge.finance.rate_table.superseded"]}
+  - {from: DRAFT, to: DISCARDED, event: discarded, actors: [finance.pricing.import], guards: [], effects: []}
+guards:
+  lines_present: "line_count >= 1"
+  lines_valid_decimal_non_negative: "Every rate matches the decimal-string grammar and is >= 0; comma decimals rejected unless a locale was declared at import (FIN-105-S02) -> 422 FIN_RATE_INVALID_DECIMAL"
+  no_overlapping_line_periods: "No two lines with the same (service_family, service_type, rating_type, region) overlap in [effective_from, effective_to) (DB exclusion constraint) -> 422 FIN_RATE_OVERLAP"
+  no_ambiguous_line_keys: "No service_type line and service_family line resolve to two distinct rates for the same crosswalk tuple and day -> 422 FIN_RATE_AMBIGUOUS"
+  tb_unit_declared_for_tb_units: "unit in (TB, TB_MONTH) requires tb_unit (DECIMAL_TB_1E12 | BINARY_TIB_2E40)"
+  evidence_file_clean: "evidence_file_id set and CLEAN (contract excerpt, FIN-105-S03) -> 422 FIN_RATE_EVIDENCE_REQUIRED"
+  demo_provenance_only_for_demo_tenant: "rate_source = DEMO_FIXTURE only when tenant.kind = DEMO (provenance guard, FIN-002-S10) -> 422 FIN_RATE_DEMO_PROVENANCE"
+  actor_is_submitter: "actor = submitted_by"
+  approver_differs_from_submitter_or_single_approver_flagged: "actor <> submitted_by, or the tenant has exactly one eligible holder of finance.pricing.approve and the approval is flagged self_approved (audited); else 409 FIN_MAKER_CHECKER_VIOLATION"
+  content_unchanged_since_submission: "content_sha256 recomputed = stored"
+  approver_scope_covers_organization: "Approver scope subsumes the rate table organization"
+  fresh_durable_authz_check: "Capability re-read with the current permission epoch"
+  step_up_recent: "auth_time within 10 min (SEC Appendix C.4 price.manage)"
+  config_publication_verified: "CONFIG.PRICE_RATE rows + CONFIG_VERSION header verified"
+  successor_version_active: "Version n+1 of the lineage reached ACTIVE"
+invariants:
+  - "Approved rates never produce price_basis BILLED_SOURCE; the UI labels them 'Estimated with approved contract rate'."
+  - "Simulation never mutates published facts (writes SIMULATION_INPUT only)."
+  - "RATE_SHEET rates take precedence over CUSTOMER_APPROVED rates for the same key; a disagreement is recorded as RATE_SOURCE_DISAGREEMENT for C3 (FIN-002-S09)."

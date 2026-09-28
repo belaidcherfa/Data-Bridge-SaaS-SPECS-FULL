@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.legal_hold.status_changed:v1",
+  "$comment": "contract=event-bridge.ops.legal_hold.status_changed version=1 status=DRAFT owner_task=OPS-005 decisions=D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.legal_hold.status_changed v1 payload",
+  "description": "A legal hold changed status (REQUESTED, ACTIVE, REVIEW_OVERDUE, RELEASED, REJECTED); holds re-evaluate open deletion stages.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hold_id",
+    "scope_type",
+    "from_status",
+    "to_status",
+    "review_by"
+  ],
+  "properties": {
+    "hold_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": [
+        "TENANT",
+        "ACCOUNT",
+        "SUBJECT",
+        "DATASET"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "REQUESTED",
+        "ACTIVE",
+        "REVIEW_OVERDUE",
+        "RELEASED",
+        "REJECTED",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "REQUESTED",
+        "ACTIVE",
+        "REVIEW_OVERDUE",
+        "RELEASED",
+        "REJECTED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "review_by": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "hold_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e33",
+      "scope_type": "ACCOUNT",
+      "from_status": "REQUESTED",
+      "to_status": "ACTIVE",
+      "review_by": "2026-12-20T00:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,1538 @@
+# contract=insight-detector-registry version=1 status=DRAFT owner_task=INS-001 decisions=D-01,D-05,D-08,D-10,D-11,D-13,D-20 last_changed=2026-09-28
+# Detector registry v1 — validated by data/contracts/detector_manifest.schema.json (INS-001-S01/S02).
+# Normative sources: docs/13-insights/intelligence.md (registry, amended 2026-09-28) and
+# docs/22-implementation-readiness/backlog/INS.md (§2 input matrix, G-INS-01…21, INS-002/003/004 steps).
+#
+# Conventions used below
+# - Money is native currency, Decimal precision 38; stored NUMBER(38,12) quantized ROUND_HALF_EVEN; JSON decimal strings.
+# - run-rate: impact_amount_30d = impact_amount_window × 30 / window_days (G-INS-11). Floor: impact_amount_30d >
+#   insights.impact_floor_30d[currency] (strict). Contract fixtures run with the floor at 0.00 unless the fixture
+#   sets it (fixture `config`).
+# - Strict thresholds: equality never qualifies → NOT_QUALIFIED(EQUAL_AT_THRESHOLD).
+# - Fingerprint (G-INS-10): sha256("ins-fp-v1|" + tenant_id + "|" + detector_id + "|" + detector_major + "|" +
+#   account_id + "|" + resource.type + "|" + native_resource_id + "|" + (variant or "")) — lowercase hex.
+#   native_resource_id = resource.native_id values joined with ":". Names, windows, publications, numbers and minor
+#   versions never enter the fingerprint.
+# - Fixtures use rate 2.00 USD/credit and storage rate 23.00 USD per TB-month (fixture values only, never production).
+# - Evaluation day D = the last complete UTC day of the pinned financial publication P (ADR-014 two-phase publication).
+registry: insight-detectors
+registry_version: 1.0.0
+contract_header: {contract: insight-detector-registry, version: 1, status: DRAFT, owner_task: INS-001, decisions: [D-01, D-05, D-08, D-10, D-11, D-13, D-20], last_changed: "2026-09-28"}
+parameter_catalog: data/contracts/insights/config_catalog.v1.yaml
+projection_request: data/contracts/insights/source_projection_request.v1.yaml
+
+cost_pool_kinds:
+  WAREHOUSE_TOTAL: {key_template: "WAREHOUSE_TOTAL:{account_id}:{warehouse_id}:{currency}", parent: null, pool_cost: "Σ credits_used_compute × effective_rate over the window (fct_ins_wh_hourly), as 30-day run-rate", release: R1}
+  WAREHOUSE_IDLE: {key_template: "WAREHOUSE_IDLE:{account_id}:{warehouse_id}:{currency}", parent: WAREHOUSE_TOTAL, pool_cost: "Σ idle_cost (fct_ins_wh_hourly), 30-day run-rate", release: R1}
+  WAREHOUSE_ACTIVE: {key_template: "WAREHOUSE_ACTIVE:{account_id}:{warehouse_id}:{currency}", parent: WAREHOUSE_TOTAL, pool_cost: "Σ attributed query compute cost (ledger_query_compute via fct_ins_wh_hourly.attributed_cost), 30-day run-rate", release: R1}
+  QUERY_FAMILY: {key_template: "QUERY_FAMILY:{account_id}:{warehouse_id}:{query_parameterized_hash}:{hash_version}:{currency}", parent: WAREHOUSE_ACTIVE, pool_cost: "Σ family cost in the current cohort (fct_ins_query_family_day.cost), 30-day run-rate", release: R1}
+  ACCOUNT_CLOUD_SERVICES: {key_template: "ACCOUNT_CLOUD_SERVICES:{account_id}:{currency}", parent: null, pool_cost: "billed cloud-services cost over the baseline median day × 30 (fct_ins_cloud_services_daily)", release: R1}
+  STORAGE_TABLE: {key_template: "STORAGE_TABLE:{account_id}:{table_id}:{currency}", parent: null, pool_cost: "mean physical bytes (active+TT+FS+RFC at owner) / tb_unit × storage rate per TB-month (fct_ins_table_storage_daily)", release: R1}
+  STORAGE_TT: {key_template: "STORAGE_TT:{account_id}:{table_id}:{currency}", parent: STORAGE_TABLE, pool_cost: "mean TIME_TRAVEL_BYTES / tb_unit × rate", release: R1}
+  STORAGE_FS: {key_template: "STORAGE_FS:{account_id}:{table_id}:{currency}", parent: STORAGE_TABLE, pool_cost: "mean FAILSAFE_BYTES / tb_unit × rate", release: R1}
+  PIPELINE: {key_template: "PIPELINE:{account_id}:{pipeline_id}:{currency}", parent: null, pool_cost: "Σ charge components linked to the pipeline's exact executions (WRK-004)", release: R2}
+  RETRY: {key_template: "RETRY:{account_id}:{logical_execution_id}:{currency}", parent: PIPELINE, pool_cost: "Σ charged failed attempts of the logical execution (counted once across Q08/PL04)", release: R2}
+  AI_SERVICE: {key_template: "AI_SERVICE:{account_id}:{ai_family}:{ai_model}:{currency}", parent: null, pool_cost: "Σ parent-inclusive AI spend (FIN-018 authority layer)", release: R2}
+  COMPUTE_POOL: {key_template: "COMPUTE_POOL:{account_id}:{compute_pool_id}:{currency}", parent: null, pool_cost: "Σ SPCS pool credits × rate (FIN-019)", release: R2}
+  APPLICATION: {key_template: "APPLICATION:{account_id}:{compute_pool_id}:{application_id}:{currency}", parent: COMPUTE_POOL, pool_cost: "application-attributed pool cost (pool/app dedup)", release: R2}
+
+detectors:
+# =====================================================================================================================
+# WAREHOUSE family (INS-002 R1; INS-106 R2)
+# =====================================================================================================================
+- id: WH01
+  version: 1.0.0
+  name: Warehouse idle cost
+  family: WAREHOUSE
+  release: R1
+  status: ACTIVE
+  owner_task: INS-002
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: START_TIME, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: WAREHOUSE_ID, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_USED_COMPUTE, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_ATTRIBUTED_COMPUTE_QUERIES, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: ledger_warehouse_idle, used_for: DETECTION, capability_key: WMH, projection: PRODUCED_DATASET, note: "FIN-003 classic idle ledger; Σ idle equals the ledger for the fixture (INS-002-S02)"}
+    - {kind: DATASET, dataset: fct_rate, used_for: DETECTION, capability_key: WMH, projection: PRODUCED_DATASET, note: "FIN-002 effective rate; missing rate → money null NO_PRICE"}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: AUTO_SUSPEND_S, used_for: EVIDENCE, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102, note: "only for the LOW-tier short-burst guard (INS-002-S04)"}
+  feature_datasets: [fct_ins_wh_hourly, dim_warehouse_config]
+  eligibility: {min_history_days: 14, completeness: "336 complete metering hours (hour complete = WMH COMPLETE_PARTITION accepted for the hour)", backfill_eligible: true, maturity: PROVISIONAL}
+  windows:
+    evaluation_cadence: DAILY
+    current: {kind: TRAILING_COMPLETE, unit: HOUR, length: 336, note: "the 336 hours ending at D+1 00:00Z"}
+    baseline: null
+  predicate:
+    expression: "idle_share = Σ idle_credits / Σ credits_used_compute over the window, idle_credits = max(0, CREDITS_USED_COMPUTE − CREDITS_ATTRIBUTED_COMPUTE_QUERIES) per hour; QUALIFIED iff idle_share > wh01.idle_share_threshold AND impact_amount_30d > floor"
+    comparisons:
+      - {metric: idle_share, op: GT, parameter: wh01.idle_share_threshold}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [wh01.idle_share_threshold, wh01.high_tier_threshold, wh01.window_hours, wh01.short_burst_auto_suspend_s, insights.impact_floor_30d]
+  impact:
+    impact_kind: CEILING
+    window_amount: "Σ_h idle_credits_h × effective_rate_h (native currency)"
+    run_rate_30d: "window_amount × 30 / 14"
+    floor_policy: APPLY
+    potential_method: null
+    potential_formula: null
+    ranking: MONETARY
+    routing: INSIGHTS
+  cost_pool: {kind: WAREHOUSE_IDLE, member_role: CEILING, group_note: "WH01 caps every estimate on WAREHOUSE_IDLE(w); it never adds potential (WH01 60 + WH02 45 → 45)"}
+  suppressions:
+    - {when: "warehouse type ADAPTIVE (CON-005 flag, RECONCILIATION C-22): attributed credits are null", status: SUPPRESSED, reason_code: ADAPTIVE_UNSUPPORTED}
+    - {when: "fewer than 336 complete hours in the window", status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}
+    - {when: "WMH not active for the account", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WMH"}
+    - {when: "effective rate missing for any hour", status: SUPPRESSED, reason_code: NO_PRICE, estimate_only: false}
+    - {when: "Σ credits_used_compute = 0", status: INSUFFICIENT_DATA, reason_code: ZERO_DENOMINATOR}
+  severity:
+    - {tier: HIGH, when: "idle_share > wh01.high_tier_threshold (0.50) — the WH04 alias"}
+    - {tier: LOW, when: "known AUTO_SUSPEND_S ≤ wh01.short_burst_auto_suspend_s (60): idle dominated by the 60-s resume minimum/short bursts; template wh.idle_short_bursts.v1"}
+    - {tier: MEDIUM, when: "otherwise"}
+  action_types: [CHANGE_AUTO_SUSPEND, CHANGE_WAREHOUSE_SCHEDULE, CONSOLIDATE_WAREHOUSES]
+  recommendation_template: wh.idle.v1
+  evidence: "top 20 idle hours (hour, credits_used, attributed, idle, cost); config snapshot id + valid_from; BRIDGE_FINOPS_WH labelled 'Bridge overhead' (D-08)"
+  fixtures:
+    - id: WH01-F01
+      kind: POSITIVE
+      given: "classic warehouse, 336 complete hours; metered 100 cr (200.00 USD), attributed 70 cr (140.00 USD), idle 30 cr (60.00 USD) at 2.00 USD/credit"
+      expected: {eligibility_status: QUALIFIED, severity_tier: MEDIUM, metrics: {idle_share: "0.3"}, impact_amount_window: "60.00", impact_amount_30d: "128.571428571429", potential_30d: null, currency: USD}
+      arithmetic: "idle_share = 30/100 = 0.30 > 0.25; window = 30 × 2.00 = 60.00; run-rate = 60 × 30 / 14 = 128.5714285714285714… → 128.571428571429 (12 dp, HALF_EVEN); 128.571428571429 > 25.00 floor"
+    - id: WH01-F02
+      kind: BOUNDARY
+      given: "same, idle 25 cr of 100 cr (50.00 of 200.00 USD)"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD, metrics: {idle_share: "0.25"}}
+      arithmetic: "25/100 = 0.25; 0.25 > 0.25 is false"
+    - id: WH01-F03
+      kind: POSITIVE
+      given: "idle 60 cr of 100 cr (120.00 of 200.00 USD)"
+      expected: {eligibility_status: QUALIFIED, severity_tier: HIGH, metrics: {idle_share: "0.6"}, impact_amount_window: "120.00", impact_amount_30d: "257.142857142857", potential_30d: null, currency: USD, note: "WH04 alias: no separate WH04 insight"}
+      arithmetic: "60/100 = 0.60 > 0.50 → HIGH; 120 × 30 / 14 = 257.142857142857142… → 257.142857142857"
+    - id: WH01-F04
+      kind: SUPPRESSION
+      given: "Adaptive warehouse; CREDITS_ATTRIBUTED_COMPUTE_QUERIES null"
+      expected: {eligibility_status: SUPPRESSED, reason_code: ADAPTIVE_UNSUPPORTED}
+      arithmetic: "no idle estimate for Adaptive warehouses"
+    - id: WH01-F05
+      kind: NEGATIVE
+      given: "335 of 336 hours complete (one WMH hour not accepted)"
+      expected: {eligibility_status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}
+      arithmetic: "335 < 336 required complete hours"
+    - id: WH01-F06
+      kind: NEGATIVE
+      given: "hours where attributed (5 cr) > used (4 cr) plus otherwise idle-free hours"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET, metrics: {idle_share: "0"}, note: "residual_flag set; negative idle never emitted"}
+      arithmetic: "idle = max(0, 4 − 5) = 0"
+    - id: WH01-F07
+      kind: FALSE_POSITIVE
+      given: "5-s jobs every 10 min, AUTO_SUSPEND 60 s (known), idle 30/100 cr"
+      expected: {eligibility_status: QUALIFIED, severity_tier: LOW, potential_30d: null, note: "template wh.idle_short_bursts.v1 (review consolidation); WH02 NOT_QUALIFIED (AS 60 ≤ 300) so the group has no estimate — shown 'up to 128.57', never 0"}
+      arithmetic: "AS 60 ≤ 60 → LOW tier guard"
+    - id: WH01-F08
+      kind: GROUPING
+      given: "WH01 ceiling 60.00 (30-d) and WH02 potential 45.00 (30-d) on WAREHOUSE_IDLE(w); pool cost 60.00"
+      expected: {eligibility_status: QUALIFIED, group_value_30d: "45.00"}
+      arithmetic: "value = min(pool 60, ceiling 60, max(45, Σ children 0)) = 45"
+- id: WH02
+  version: 1.0.0
+  name: Auto-suspend setting
+  family: WAREHOUSE
+  release: R1
+  status: ACTIVE
+  owner_task: INS-002
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: START_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: END_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: WAREHOUSE_ID, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: WAREHOUSE_SIZE, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: EXECUTION_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: CLUSTER_NUMBER, used_for: ESTIMATE, capability_key: QH_CLUSTER_NUMBER, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: WAREHOUSE_TYPE, used_for: ESTIMATE, capability_key: QH_WAREHOUSE_TYPE, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: AUTO_SUSPEND_S, used_for: DETECTION, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: WAREHOUSE_SIZE, used_for: ESTIMATE, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: WAREHOUSE_TYPE, used_for: ESTIMATE, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: GENERATION, used_for: ESTIMATE, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_USED_COMPUTE, used_for: ESTIMATE, capability_key: WMH, projection: REQUIRED_CORE, note: "calibration guard (INS-002-S07)"}
+    - {kind: DATASET, dataset: fct_rate, used_for: ESTIMATE, capability_key: WMH, projection: PRODUCED_DATASET}
+  feature_datasets: [fct_ins_wh_busy_intervals, fct_ins_wh_hourly, dim_warehouse_config]
+  eligibility: {min_history_days: 14, completeness: "14 complete UTC days of QH (hot tier ≤ hot_days) and WMH for the warehouse", backfill_eligible: true, maturity: PROVISIONAL}
+  windows:
+    evaluation_cadence: DAILY
+    current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}
+    baseline: null
+  predicate:
+    expression: "Busy intervals = union of [START_TIME, END_TIME] per (warehouse_id, cluster_number) for queries with EXECUTION_TIME > 0 and non-null WAREHOUSE_SIZE; gaps g between busy intervals while the warehouse is running. AS_cur from dim_warehouse_config (as-of join); disabled (0/NULL) = ∞. QUALIFIED iff AS_cur > wh02.qualifying_auto_suspend_s (or disabled) AND count(gaps with g ≥ AS_tgt) ≥ wh02.min_gaps AND calibration relative error ≤ wh02.calibration_max_rel_error AND impact_amount_30d > floor"
+    comparisons:
+      - {metric: auto_suspend_current_s, op: GT, parameter: wh02.qualifying_auto_suspend_s}
+      - {metric: qualifying_gap_count, op: COUNT_GE, parameter: wh02.min_gaps}
+      - {metric: calibration_rel_error, op: LE, parameter: wh02.calibration_max_rel_error}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [wh02.target_auto_suspend_s, wh02.qualifying_auto_suspend_s, wh02.min_gaps, wh02.window_days, wh02.calibration_max_rel_error, wh02.resume_minimum_s, insights.impact_floor_30d]
+  impact:
+    impact_kind: ESTIMATE
+    window_amount: "min(WH01 idle cost of the same warehouse and window, Σ_g saving_s(g) × k(size, type, generation) / 3600 × effective_rate)"
+    run_rate_30d: "window_amount × 30 / 14"
+    floor_policy: APPLY
+    potential_method: WH02_GAP_SIMULATION
+    potential_formula: "per gap g: t_cur = min(g, AS_cur) (disabled → g); t_tgt = min(g, AS_tgt); penalty = [AS_tgt < g ≤ AS_cur] × max(0, wh02.resume_minimum_s − b_next) where b_next = length of the next busy period; saving_s = t_cur − t_tgt − penalty; potential_30d = impact_amount_30d; k from config/warehouse_credit_rates.v1.json"
+    ranking: MONETARY
+    routing: INSIGHTS
+  cost_pool: {kind: WAREHOUSE_IDLE, member_role: ESTIMATE, group_note: "group value = min(WH01 cap, WH02 estimate); the property test holds for any gap set (INS-002-S09)"}
+  suppressions:
+    - {when: "warehouse absent from the SHOW_WAREHOUSES snapshot (config unknown)", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_CONFIG"}
+    - {when: "size/type/generation has no entry in warehouse_credit_rates (unknown or TO VERIFY LIVE rate)", status: SUPPRESSED, reason_code: UNKNOWN_CREDIT_RATE}
+    - {when: "modeled (busy + tail) credits vs WMH CREDITS_USED_COMPUTE per warehouse-day relative error > 0.10 (e.g. hidden second cluster without CLUSTER_NUMBER)", status: SUPPRESSED, reason_code: CALIBRATION_FAILED}
+    - {when: "warehouse type ADAPTIVE", status: SUPPRESSED, reason_code: ADAPTIVE_UNSUPPORTED}
+    - {when: "fewer than 14 complete days", status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}
+  severity:
+    - {tier: HIGH, when: "AS_cur disabled (never suspends)"}
+    - {tier: MEDIUM, when: "otherwise"}
+  action_types: [CHANGE_AUTO_SUSPEND]
+  recommendation_template: wh.auto_suspend.v1
+  evidence: "≤ 50 gap samples (start, end, length_s, next_busy_s, saving_s, UTC ISO-8601); config snapshot id + valid_from; calibration table per day; copyable display-only text ALTER WAREHOUSE <quoted name> SET AUTO_SUSPEND = 60 with rollback line"
+  fixtures:
+    - id: WH02-F01
+      kind: POSITIVE
+      given: "MEDIUM classic Gen1 (4 cr/h), AS_cur 600 s → AS_tgt 60 s; 3 gaps/day × 14 d of 600 s each, b_next ≥ 60 s; rate 2.00 USD/credit; WH01 idle cost ≥ 50.40"
+      expected: {eligibility_status: QUALIFIED, severity_tier: MEDIUM, metrics: {qualifying_gap_count: "42", saving_credits: "25.2"}, impact_amount_window: "50.40", impact_amount_30d: "108.00", potential_30d: "108.00", currency: USD}
+      arithmetic: "per gap t_cur = min(600,600) = 600, t_tgt = min(600,60) = 60, penalty 0 → 540 s; 42 × 540 = 22 680 s; × 4 / 3600 = 25.2 cr; × 2.00 = 50.40 USD; × 30 / 14 = 108.00"
+    - id: WH02-F02
+      kind: POSITIVE
+      given: "as WH02-F01 but every next busy period b_next = 20 s"
+      expected: {eligibility_status: QUALIFIED, impact_amount_window: "46.666666666667", impact_amount_30d: "100.000000000000", potential_30d: "100.000000000000", currency: USD}
+      arithmetic: "penalty = [60 < 600 ≤ 600] × max(0, 60 − 20) = 40 s; saving 600 − 60 − 40 = 500 s; 42 × 500 = 21 000 s × 4 / 3600 = 23.333… cr × 2.00 = 46.666… USD (→ 46.666666666667); 30-d = 21000 × 8 × 30 / (3600 × 14) = 100 exactly"
+    - id: WH02-F03
+      kind: BOUNDARY
+      given: "AS_cur = 300 s, otherwise as WH02-F01"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD}
+      arithmetic: "300 > 300 is false"
+    - id: WH02-F04
+      kind: POSITIVE
+      given: "AUTO_SUSPEND disabled (0), gaps as WH02-F01"
+      expected: {eligibility_status: QUALIFIED, severity_tier: HIGH, impact_amount_window: "50.40", currency: USD, note: "t_cur = g when disabled"}
+      arithmetic: "t_cur = g = 600; identical to F01 because every gap is 600 s"
+    - id: WH02-F05
+      kind: MISSING_CAPABILITY
+      given: "warehouse metered in WMH but absent from the SHOW_WAREHOUSES snapshot"
+      expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_CONFIG"}
+      arithmetic: "absent settings suppress the setting recommendation"
+    - id: WH02-F06
+      kind: FLOOR
+      given: "contract fixture: XS (1 cr/h), AS 600 → 60, three 600-s gaps in 14 d, floor 0.00"
+      config: {insights.impact_floor_30d: "0.00"}
+      expected: {eligibility_status: QUALIFIED, impact_amount_window: "0.90", impact_amount_30d: "1.928571428571", currency: USD}
+      arithmetic: "3 × 540 × 1 / 3600 = 0.45 cr × 2.00 = 0.90 USD; 0.90 × 30 / 14 = 1.92857142857142857 → 1.928571428571"
+    - id: WH02-F07
+      kind: FLOOR
+      given: "same as WH02-F06 with the production floor 25.00 USD"
+      config: {insights.impact_floor_30d: "25.00"}
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: BELOW_IMPACT_FLOOR, impact_amount_30d: "1.928571428571", currency: USD}
+      arithmetic: "1.928571428571 > 25.00 is false"
+    - id: WH02-F08
+      kind: FALSE_POSITIVE
+      given: "multi-cluster warehouse, second cluster busy, CLUSTER_NUMBER not projected → modeled credits 60 % of WMH"
+      expected: {eligibility_status: SUPPRESSED, reason_code: CALIBRATION_FAILED, note: "WH01 ceiling only"}
+      arithmetic: "|modeled − metered| / metered = 0.40 > 0.10"
+- id: WH03
+  version: 1.0.0
+  name: Rightsizing experiment candidate
+  family: WAREHOUSE
+  release: R2
+  status: PLANNED
+  owner_task: INS-106
+  original_owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_LOAD_HISTORY, column: AVG_RUNNING, used_for: DETECTION, capability_key: WAREHOUSE_LOAD, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_LOAD_HISTORY, column: AVG_QUEUED_LOAD, used_for: DETECTION, capability_key: WAREHOUSE_LOAD, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_LOAD_HISTORY, column: AVG_QUEUED_PROVISIONING, used_for: DETECTION, capability_key: WAREHOUSE_LOAD, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_LOAD_HISTORY, column: AVG_BLOCKED, used_for: DETECTION, capability_key: WAREHOUSE_LOAD, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUEUED_OVERLOAD_TIME, used_for: DETECTION, capability_key: QH_QUEUE_TIMES, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: BYTES_SPILLED_TO_REMOTE_STORAGE, used_for: DETECTION, capability_key: QH_SPILL, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: BYTES_SPILLED_TO_LOCAL_STORAGE, used_for: DETECTION, capability_key: QH_SPILL, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_wh_load]
+  eligibility: {min_history_days: 14, completeness: "14 complete days of load history", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "low measured load (p95 AVG_RUNNING < wh03.low_load_running) AND no queued overload (WH06 NOT_QUALIFIED) AND no remote spill for 14 days; candidate experiment only, conditioned on the workload latency objective"
+    comparisons:
+      - {metric: avg_running_p95, op: LT, parameter: wh03.low_load_running}
+      - {metric: queued_overload_share, op: LE, value: "0"}
+  parameters: [wh03.low_load_running]
+  impact: {impact_kind: CEILING, window_amount: "warehouse compute cost × (1 − k(size−1)/k(size)) over the window — the most a one-size-down test could save", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: WAREHOUSE_TOTAL, member_role: CEILING, group_note: "joins WAREHOUSE_TOTAL(w); a future measured estimate (WH03_EXPERIMENT) would be the member potential (fixture 100 vs Σ 75 → 100)"}
+  suppressions:
+    - {when: "WH06 qualifies or any remote spill in the window", status: NOT_QUALIFIED, reason_code: GUARDRAIL_BLOCKED}
+    - {when: "WAREHOUSE_LOAD capability missing", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_LOAD"}
+  severity: [{tier: LOW, when: "always (experiment candidate)"}]
+  action_types: [RESIZE_WAREHOUSE]
+  recommendation_template: wh.rightsizing_experiment.v1
+  fixtures:
+    - {id: WH03-F01, kind: POSITIVE, given: "XL warehouse, p95 AVG_RUNNING 0.2, no queue, no spill for 14 d", expected: {eligibility_status: QUALIFIED, severity_tier: LOW, potential_30d: null, note: "proposes a controlled test; estimated saving null until size/runtime evidence exists"}, arithmetic: "predicate only"}
+    - {id: WH03-F02, kind: NEGATIVE, given: "same with queue share 30 % (WH06 qualified)", expected: {eligibility_status: NOT_QUALIFIED, reason_code: GUARDRAIL_BLOCKED}, arithmetic: "no downsizing proposal while queueing"}
+- id: WH04
+  version: 1.0.0
+  name: Under-utilization (alias of WH01 HIGH tier)
+  family: WAREHOUSE
+  release: R1
+  status: ALIAS
+  alias_of: {detector_id: WH01, severity_tier: HIGH}
+  owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_USED_COMPUTE, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_ATTRIBUTED_COMPUTE_QUERIES, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+  eligibility: {min_history_days: 14, completeness: "as WH01", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: HOUR, length: 336}, baseline: null}
+  predicate:
+    expression: "never evaluated on its own: a WH01 observation with idle_share > wh01.high_tier_threshold carries severity_tier HIGH and is returned by the filter detector=WH04 (G-INS-07)"
+    comparisons: [{metric: idle_share, op: GT, parameter: wh01.high_tier_threshold}]
+  parameters: [wh01.high_tier_threshold]
+  impact: {impact_kind: CEILING, window_amount: "as WH01", run_rate_30d: "as WH01", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: WAREHOUSE_IDLE, member_role: CEILING, group_note: "same observation as WH01; never a second member"}
+  suppressions: [{when: "always — alias", status: NO_OBSERVATION, reason_code: ALIAS_OF_OTHER_DETECTOR}]
+  severity: [{tier: HIGH, when: "idle_share > 0.50"}]
+  fixtures:
+    - {id: WH04-F01, kind: POSITIVE, given: "120 idle / 200 compute USD (60 %)", expected: {eligibility_status: NO_OBSERVATION, reason_code: ALIAS_OF_OTHER_DETECTOR, note: "WH01 observation with severity_tier HIGH; filter detector=WH04 returns it"}, arithmetic: "120/200 = 0.60 > 0.50"}
+    - {id: WH04-F02, kind: SUPPRESSION, given: "Adaptive warehouse (null attribution)", expected: {eligibility_status: NO_OBSERVATION, reason_code: ALIAS_OF_OTHER_DETECTOR, note: "WH01 is SUPPRESSED(ADAPTIVE_UNSUPPORTED)"}, arithmetic: "n/a"}
+- id: WH05
+  version: 1.0.0
+  name: Multi-cluster standing capacity
+  family: WAREHOUSE
+  release: R2
+  status: PLANNED
+  owner_task: INS-106
+  original_owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: MIN_CLUSTER_COUNT, used_for: DETECTION, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: MAX_CLUSTER_COUNT, used_for: EVIDENCE, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: SHOW_WAREHOUSES, column: SCALING_POLICY, used_for: DETECTION, capability_key: WAREHOUSE_CONFIG, projection: NEW_SOURCE_INS102}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_EVENTS_HISTORY, column: CLUSTER_NUMBER, used_for: DETECTION, capability_key: WAREHOUSE_EVENTS, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_EVENTS_HISTORY, column: EVENT_NAME, used_for: DETECTION, capability_key: WAREHOUSE_EVENTS, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: CLUSTER_NUMBER, used_for: DETECTION, capability_key: QH_CLUSTER_NUMBER, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_wh_events, dim_warehouse_config]
+  eligibility: {min_history_days: 14, completeness: "14 complete days of cluster events", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "(min_cluster_count > 1 AND ≥ 1 cluster idle > wh05.standing_idle_share of active cluster-hours) OR (scaling_policy = STANDARD AND median cluster lifetime < wh05.median_cluster_lifetime_s); max-cluster headroom alone is a governance observation with impact_kind NONE (G-INS-07)"
+    comparisons:
+      - {metric: standing_cluster_idle_share, op: GT, parameter: wh05.standing_idle_share}
+      - {metric: median_cluster_lifetime_s, op: LT, parameter: wh05.median_cluster_lifetime_s}
+  parameters: [wh05.standing_idle_share, wh05.median_cluster_lifetime_s]
+  impact: {impact_kind: CEILING, window_amount: "idle cost of standing clusters above the first (credits of idle cluster-hours × rate)", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: WAREHOUSE_IDLE, member_role: CEILING}
+  suppressions:
+    - {when: "only max_cluster_count > 1 with peak below max (headroom costs nothing)", status: NOT_QUALIFIED, reason_code: ZERO_COST_HEADROOM}
+    - {when: "cluster events unavailable", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_EVENTS"}
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_CLUSTER_COUNT, CHANGE_SCALING_POLICY]
+  recommendation_template: wh.multi_cluster.v1
+  fixtures:
+    - {id: WH05-F01, kind: NEGATIVE, given: "max 4 clusters, observed peak 1, min 1", expected: {eligibility_status: NOT_QUALIFIED, reason_code: ZERO_COST_HEADROOM, note: "governance note with impact_kind NONE, zero potential"}, arithmetic: "unused maximum clusters are not billed"}
+    - {id: WH05-F02, kind: POSITIVE, given: "min 2 clusters, second cluster idle 70 % of its active hours for 14 d", expected: {eligibility_status: QUALIFIED}, arithmetic: "0.70 > 0.50"}
+- id: WH06
+  version: 1.0.0
+  name: Concurrency mismatch (queueing)
+  family: WAREHOUSE
+  release: R2
+  status: PLANNED
+  owner_task: INS-106
+  original_owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUEUED_OVERLOAD_TIME, used_for: DETECTION, capability_key: QH_QUEUE_TIMES, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: TOTAL_ELAPSED_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+  feature_datasets: [fct_query_family_daily]
+  eligibility: {min_history_days: 3, completeness: "≥ 3 complete daily cohorts with ≥ 100 queries each", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "queue share = Σ QUEUED_OVERLOAD_TIME / Σ TOTAL_ELAPSED_TIME per daily cohort; QUALIFIED iff share > wh06.queue_share_threshold in ≥ wh06.min_cohorts cohorts each with ≥ wh06.min_queries queries"
+    comparisons:
+      - {metric: queue_share, op: GT, parameter: wh06.queue_share_threshold}
+      - {metric: qualifying_cohorts, op: COUNT_GE, parameter: wh06.min_cohorts}
+  parameters: [wh06.queue_share_threshold, wh06.min_cohorts, wh06.min_queries]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE, group_note: "guardrail + observation; no sizing prescription without runtime evidence"}
+  suppressions: [{when: "QH_QUEUE_TIMES not projected", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_QUEUE_TIMES"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_CLUSTER_COUNT, RESIZE_WAREHOUSE]
+  recommendation_template: wh.queueing.v1
+  fixtures:
+    - {id: WH06-F01, kind: POSITIVE, given: "3 daily cohorts of 120 queries each, queue 30 s of 100 s elapsed", expected: {eligibility_status: QUALIFIED, metrics: {queue_share: "0.3"}}, arithmetic: "30/100 = 0.30 > 0.20 in 3 cohorts"}
+    - {id: WH06-F02, kind: NEGATIVE, given: "same but one cohort has 99 queries", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "only 2 cohorts ≥ 100 queries"}
+- id: WH07
+  version: 1.0.0
+  name: Resume/suspend thrashing
+  family: WAREHOUSE
+  release: R2
+  status: PLANNED
+  owner_task: INS-106
+  original_owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_EVENTS_HISTORY, column: TIMESTAMP, used_for: DETECTION, capability_key: WAREHOUSE_EVENTS, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_EVENTS_HISTORY, column: EVENT_NAME, used_for: DETECTION, capability_key: WAREHOUSE_EVENTS, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_EVENTS_HISTORY, column: EVENT_STATE, used_for: DETECTION, capability_key: WAREHOUSE_EVENTS, projection: R2_ADAPTER}
+  feature_datasets: [fct_ins_wh_events]
+  eligibility: {min_history_days: 1, completeness: "complete event history for the evaluated day", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "≥ wh07.resume_events_per_hour verified resume events/hour in ≥ wh07.min_hours distinct hours AND median active interval < wh07.median_active_interval_s"
+    comparisons:
+      - {metric: resume_events_per_hour, op: GE, parameter: wh07.resume_events_per_hour}
+      - {metric: qualifying_hours, op: COUNT_GE, parameter: wh07.min_hours}
+      - {metric: median_active_interval_s, op: LT, parameter: wh07.median_active_interval_s}
+  parameters: [wh07.resume_events_per_hour, wh07.min_hours, wh07.median_active_interval_s]
+  impact: {impact_kind: EXPOSURE, window_amount: "Σ resume-minimum billed seconds (60 s − active interval, when positive) × k / 3600 × rate", run_rate_30d: "window_amount × 30", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: WAREHOUSE_IDLE, member_role: CEILING}
+  suppressions: [{when: "event history missing", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_EVENTS"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_AUTO_SUSPEND, CHANGE_WAREHOUSE_SCHEDULE]
+  recommendation_template: wh.thrashing.v1
+  fixtures:
+    - {id: WH07-F01, kind: POSITIVE, given: "6 resume events/hour in 3 distinct hours, median active interval 2 min", expected: {eligibility_status: QUALIFIED}, arithmetic: "6 ≥ 6 in 3 hours; 120 s < 300 s"}
+    - {id: WH07-F02, kind: MISSING_CAPABILITY, given: "no WAREHOUSE_EVENTS_HISTORY", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:WAREHOUSE_EVENTS"}, arithmetic: "missing event history suppresses"}
+- id: WH08
+  version: 1.0.0
+  name: Warehouse consolidation
+  family: WAREHOUSE
+  release: R2
+  status: PLANNED
+  owner_task: INS-106
+  original_owner_task: INS-002
+  resource: {type: WAREHOUSE, native_id: [warehouse_id], variant: "partner_warehouse_id"}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_WAREHOUSE_METERING_HISTORY, column: CREDITS_USED_COMPUTE, used_for: DETECTION, capability_key: WMH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: START_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: TENANT_CONFIG, dataset: tenant_isolation_policy, used_for: DETECTION, capability_key: TENANT_ISOLATION_POLICY, projection: NO_SOURCE}
+  feature_datasets: [fct_ins_wh_hourly, fct_ins_wh_busy_intervals]
+  eligibility: {min_history_days: 14, completeness: "14 complete days for both warehouses", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "two compatible workload scopes each with idle share > wh08.idle_share_threshold, non-overlapping measured peak windows and compatible security/SLA policy"
+    comparisons: [{metric: idle_share_each, op: GT, parameter: wh08.idle_share_threshold}]
+  parameters: [wh08.idle_share_threshold]
+  impact: {impact_kind: CEILING, window_amount: "idle cost of the smaller warehouse", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: WAREHOUSE_TOTAL, member_role: CEILING, group_note: "combined with WH01/WH02 of both warehouses; never double-counts the same idle credits"}
+  suppressions: [{when: "incompatible isolation requirement or policy unknown", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TENANT_ISOLATION_POLICY"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [CONSOLIDATE_WAREHOUSES]
+  recommendation_template: wh.consolidation.v1
+  fixtures:
+    - {id: WH08-F01, kind: SUPPRESSION, given: "both warehouses idle 60 % with disjoint peaks but isolation policy requires separation", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TENANT_ISOLATION_POLICY"}, arithmetic: "incompatible isolation requirement suppresses even if both are idle"}
+    - {id: WH08-F02, kind: POSITIVE, given: "both idle 60 %, disjoint peaks, compatible policy", expected: {eligibility_status: QUALIFIED}, arithmetic: "0.60 > 0.50 for both"}
+# =====================================================================================================================
+# QUERY family (INS-003 R1: Q01, Q02, Q03, Q07; INS-103 R2)
+# =====================================================================================================================
+- id: Q01
+  version: 1.0.0
+  name: Query family cost regression
+  family: QUERY
+  release: R1
+  status: ACTIVE
+  owner_task: INS-003
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: warehouse_id}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_ID, used_for: EVIDENCE, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: START_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: WAREHOUSE_ID, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: EXECUTION_STATUS, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH_VERSION, used_for: DETECTION, capability_key: QH_HASH_VERSION, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_TAG, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE, note: "exclusion of bridge_finops:* families (G-INS-15)"}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_ATTRIBUTION_HISTORY, column: CREDITS_ATTRIBUTED_COMPUTE, used_for: DETECTION, capability_key: QAH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_ATTRIBUTION_HISTORY, column: CREDITS_USED_QUERY_ACCELERATION, used_for: DETECTION, capability_key: QAH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_METERING_HISTORY, column: CREDITS_USED_COMPUTE, used_for: DETECTION, capability_key: QMH, projection: REQUIRED_CORE, note: "Adaptive warehouses only, summed across hours"}
+    - {kind: DATASET, dataset: fct_query_family_daily, used_for: DETECTION, capability_key: QH, projection: PRODUCED_DATASET, note: "WRK-104 D-11 aggregate (U-17); INS reads the view fct_ins_query_family_day"}
+  feature_datasets: [fct_ins_query_family_day]
+  eligibility: {min_history_days: 28, completeness: "every day of both cohorts complete in the family × day aggregate", backfill_eligible: true, maturity: PROVISIONAL}
+  windows:
+    evaluation_cadence: DAILY
+    current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13, note: "C = [D−13, D]"}
+    baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27, note: "B = [D−27, D−14]"}
+  predicate:
+    expression: "u = cost / executions_attributed per cohort; attribution coverage = executions_attributed / executions_success; QUALIFIED iff n_B ≥ q01.min_executions AND n_C ≥ q01.min_executions AND coverage_B ≥ q01.min_attribution_coverage AND coverage_C ≥ q01.min_attribution_coverage AND u_C / u_B − 1 > q01.unit_cost_rise_threshold AND impact_amount_30d > floor; cohorts with different hash_version are never compared"
+    comparisons:
+      - {metric: executions_baseline, op: GE, parameter: q01.min_executions}
+      - {metric: executions_current, op: GE, parameter: q01.min_executions}
+      - {metric: attribution_coverage_min, op: GE, parameter: q01.min_attribution_coverage}
+      - {metric: unit_cost_rise, op: GT, parameter: q01.unit_cost_rise_threshold}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [q01.min_executions, q01.min_attribution_coverage, q01.unit_cost_rise_threshold, q01.cohort_days, insights.impact_floor_30d]
+  impact:
+    impact_kind: ESTIMATE
+    window_amount: "unit_effect = (u_C − u_B) × n_C; decomposition identity cost_C − cost_B = unit_effect + volume_effect with volume_effect = (n_C − n_B) × u_B (asserted)"
+    run_rate_30d: "unit_effect × 30 / 14"
+    floor_policy: APPLY
+    potential_method: Q01_UNIT_COST_RETURN
+    potential_formula: "potential_30d = unit_effect × 30 / 14 — 'if unit cost returns to baseline'"
+    ranking: MONETARY
+    routing: INSIGHTS
+  cost_pool: {kind: QUERY_FAMILY, member_role: ESTIMATE, group_note: "Q02/Q03 on the same family join the group with null potential"}
+  suppressions:
+    - {when: "attribution coverage < 0.90 in either cohort (short queries lack QAH rows)", status: SUPPRESSED, reason_code: ATTRIBUTION_COVERAGE}
+    - {when: "QUERY_PARAMETERIZED_HASH_VERSION differs between cohorts", status: NO_OBSERVATION, reason_code: HASH_VERSION_CHANGED}
+    - {when: "family QUERY_TAG starts with bridge_finops:", status: NO_OBSERVATION, reason_code: BRIDGE_OVERHEAD_EXCLUDED}
+    - {when: "n_B < 10 or n_C < 10", status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY}
+    - {when: "QAH not active", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QAH"}
+    - {when: "QH_HASH_VERSION not projected", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_HASH_VERSION"}
+  severity:
+    - {tier: HIGH, when: "unit_cost_rise > 1.00"}
+    - {tier: MEDIUM, when: "otherwise"}
+  action_types: [REWRITE_QUERY, RESIZE_WAREHOUSE]
+  recommendation_template: q.cost_regression.v1
+  evidence: "per-cohort executions, cost, unit cost, coverage; warehouse-size mix per cohort (confounder evidence); sample QUERY_IDs (≤ 20); sanitized text only for viewers holding sql_text.read_sanitized"
+  fixtures:
+    - id: Q01-F01
+      kind: POSITIVE
+      given: "B: 10 attributed executions costing 20.00 USD (u 2.00); C: 20 executions costing 60.00 USD (u 3.00); coverage 1.0 both"
+      expected: {eligibility_status: QUALIFIED, severity_tier: MEDIUM, metrics: {unit_cost_rise: "0.5", unit_effect: "20.00", volume_effect: "20.00"}, impact_amount_window: "20.00", impact_amount_30d: "42.857142857143", potential_30d: "42.857142857143", currency: USD}
+      arithmetic: "3/2 − 1 = 0.50 > 0.20; unit = (3 − 2) × 20 = 20; volume = (20 − 10) × 2 = 20; Δ = 60 − 20 = 40 = 20 + 20; 20 × 30 / 14 = 42.857142857142857… → 42.857142857143"
+    - id: Q01-F02
+      kind: BOUNDARY
+      given: "u_B 2.00 → u_C 2.40 (+20 % exactly), n 10 → 10"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD, metrics: {unit_cost_rise: "0.2"}}
+      arithmetic: "2.40 / 2.00 − 1 = 0.20; 0.20 > 0.20 false"
+    - id: Q01-F03
+      kind: SUPPRESSION
+      given: "attribution coverage 0.85 in C"
+      expected: {eligibility_status: SUPPRESSED, reason_code: ATTRIBUTION_COVERAGE}
+      arithmetic: "0.85 < 0.90"
+    - id: Q01-F04
+      kind: NEGATIVE
+      given: "hash version 1 in B, 2 in C for the same text"
+      expected: {eligibility_status: NO_OBSERVATION, reason_code: HASH_VERSION_CHANGED, note: "no Q01 observation and no 'new family' insight"}
+      arithmetic: "never compared across versions"
+    - id: Q01-F05
+      kind: NEGATIVE
+      given: "family tagged bridge_finops:extract"
+      expected: {eligibility_status: NO_OBSERVATION, reason_code: BRIDGE_OVERHEAD_EXCLUDED}
+      arithmetic: "Bridge's own queries are never optimization targets"
+    - id: Q01-F06
+      kind: MISSING_CAPABILITY
+      given: "QAH DENIED for the account"
+      expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QAH"}
+      arithmetic: "evaluation row suppressed_by_reason {MISSING_CAPABILITY:QAH: n}"
+- id: Q02
+  version: 1.0.0
+  name: Query frequency regression
+  family: QUERY
+  release: R1
+  status: ACTIVE
+  owner_task: INS-003
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: warehouse_id}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH_VERSION, used_for: DETECTION, capability_key: QH_HASH_VERSION, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: START_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: USER_NAME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE, note: "HMAC pseudonym (D-10); identity tuple member"}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROLE_NAME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: WAREHOUSE_ID, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_TAG, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: fct_query_family_daily, used_for: DETECTION, capability_key: QH, projection: PRODUCED_DATASET}
+  feature_datasets: [fct_ins_query_family_day]
+  eligibility: {min_history_days: 28, completeness: "every day of both cohorts complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows:
+    evaluation_cadence: DAILY
+    current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}
+    baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}
+  predicate:
+    expression: "ratio = (n_C / 14) / (n_B / 14); dominant identity tuple (user_hmac, role, warehouse) share ≥ q02.identity_dominance in both cohorts and the same tuple; QUALIFIED iff n_B ≥ q02.min_baseline_executions AND ratio > q02.frequency_ratio_threshold"
+    comparisons:
+      - {metric: executions_baseline, op: GE, parameter: q02.min_baseline_executions}
+      - {metric: frequency_ratio, op: GT, parameter: q02.frequency_ratio_threshold}
+      - {metric: identity_dominance_min, op: GE, parameter: q02.identity_dominance}
+  parameters: [q02.frequency_ratio_threshold, q02.min_baseline_executions, q02.identity_dominance]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "volume_effect = (n_C − n_B) × u_B", run_rate_30d: "window_amount × 30 / 14", floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: QUERY_FAMILY, member_role: OBSERVATION_ONLY, group_note: "joins the family group with null potential; exempt from the floor (G-INS-08) and ranked below floor-qualified monetary insights"}
+  suppressions:
+    - {when: "dominant identity tuple share < 0.80 in either cohort or the tuple differs", status: SUPPRESSED, reason_code: WORKLOAD_IDENTITY_CHANGED}
+    - {when: "account shows AGGREGATE_QUERY_HISTORY rows (counts incomplete)", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:COMPLETE_QUERY_COUNTS"}
+    - {when: "hash version differs between cohorts", status: NO_OBSERVATION, reason_code: HASH_VERSION_CHANGED}
+    - {when: "bridge_finops: tagged family", status: NO_OBSERVATION, reason_code: BRIDGE_OVERHEAD_EXCLUDED}
+    - {when: "n_B < 10", status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY}
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [REDUCE_QUERY_FREQUENCY]
+  recommendation_template: q.frequency_regression.v1
+  fixtures:
+    - id: Q02-F01
+      kind: POSITIVE
+      given: "10/day → 20/day (n_B 140, n_C 280), u_B 2.00 USD, dominant tuple share 0.95 both cohorts"
+      expected: {eligibility_status: QUALIFIED, metrics: {frequency_ratio: "2"}, impact_amount_window: "280.00", impact_amount_30d: "600.00", potential_30d: null, currency: USD}
+      arithmetic: "20/10 = 2.0 > 1.5 (+100 %); excess = (280 − 140) × 2.00 = 280.00; 280 × 30 / 14 = 600.00"
+    - id: Q02-F02
+      kind: BOUNDARY
+      given: "10/day → 15/day"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD, metrics: {frequency_ratio: "1.5"}}
+      arithmetic: "15/10 = 1.5; 1.5 > 1.5 false"
+    - id: Q02-F03
+      kind: SUPPRESSION
+      given: "dominant tuple share 0.60 in C (identity shift)"
+      expected: {eligibility_status: SUPPRESSED, reason_code: WORKLOAD_IDENTITY_CHANGED}
+      arithmetic: "0.60 < 0.80; missing invocation never invents run count"
+    - id: Q02-F04
+      kind: MISSING_CAPABILITY
+      given: "probe found AGGREGATE_QUERY_HISTORY rows for the account"
+      expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:COMPLETE_QUERY_COUNTS"}
+      arithmetic: "counts may omit aggregated short queries (TO VERIFY LIVE)"
+- id: Q03
+  version: 1.0.0
+  name: Remote spill
+  family: QUERY
+  release: R1
+  status: ACTIVE
+  owner_task: INS-003
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: warehouse_id}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: BYTES_SPILLED_TO_REMOTE_STORAGE, used_for: DETECTION, capability_key: QH_SPILL, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: BYTES_SPILLED_TO_LOCAL_STORAGE, used_for: EVIDENCE, capability_key: QH_SPILL, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: QUERY_PARAMETERIZED_HASH_VERSION, used_for: DETECTION, capability_key: QH_HASH_VERSION, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_ATTRIBUTION_HISTORY, column: CREDITS_ATTRIBUTED_COMPUTE, used_for: DETECTION, capability_key: QAH, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: fct_query_family_daily, used_for: DETECTION, capability_key: QH, projection: PRODUCED_DATASET, note: "needs spill_remote_exec_count, spill_remote_bytes and spill_remote_attributed_credits (hand-off to WRK-104)"}
+  feature_datasets: [fct_ins_query_family_day]
+  eligibility: {min_history_days: 14, completeness: "every day of the current cohort complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: null}
+  predicate:
+    expression: "QUALIFIED iff count(executions in C with BYTES_SPILLED_TO_REMOTE_STORAGE > 0) ≥ q03.min_spilling_executions AND family attributed cost run-rate (pool cost) > floor; spill bytes are never converted to credits"
+    comparisons:
+      - {metric: spilling_executions, op: COUNT_GE, parameter: q03.min_spilling_executions}
+      - {metric: pool_cost_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [q03.min_spilling_executions, insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "attributed cost of the spilling executions in C (spill_remote_attributed_credits × rate)", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY_TO_POOL_COST, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: QUERY_FAMILY, member_role: OBSERVATION_ONLY}
+  suppressions:
+    - {when: "QH_SPILL not projected", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_SPILL"}
+    - {when: "bridge_finops: tagged family", status: NO_OBSERVATION, reason_code: BRIDGE_OVERHEAD_EXCLUDED}
+  severity:
+    - {tier: HIGH, when: "spill_remote_bytes in C > 100 GiB"}
+    - {tier: MEDIUM, when: "otherwise"}
+  action_types: [RESIZE_WAREHOUSE, REWRITE_QUERY]
+  recommendation_template: q.remote_spill.v1
+  fixtures:
+    - id: Q03-F01
+      kind: POSITIVE
+      given: "3 executions in C with 1 GiB (1 073 741 824 B) remote spill each; spilling executions cost 4.00 USD each; family cost in C 60.00 USD"
+      expected: {eligibility_status: QUALIFIED, metrics: {spilling_executions: "3", spill_remote_bytes: "3221225472"}, impact_amount_window: "12.00", impact_amount_30d: "25.714285714286", potential_30d: null, currency: USD}
+      arithmetic: "3 ≥ 3; pool 60 × 30 / 14 = 128.57 > 25; exposure 3 × 4.00 = 12.00; 12 × 30 / 14 = 25.7142857142857… → 25.714285714286"
+    - {id: Q03-F02, kind: NEGATIVE, given: "3 executions with local-only spill", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "remote spill count 0 < 3"}
+    - {id: Q03-F03, kind: BOUNDARY, given: "2 executions with remote spill", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "2 < 3"}
+    - id: Q03-F04
+      kind: FLOOR
+      given: "3 remote-spilling executions, family cost 10.00 USD over 14 d"
+      config: {insights.impact_floor_30d: "25.00"}
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: BELOW_IMPACT_FLOOR}
+      arithmetic: "10 × 30 / 14 = 21.428571428571 ≤ 25.00"
+- id: Q04
+  version: 1.0.0
+  name: Poor pruning
+  family: QUERY
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: table_id}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_QUERY_PRUNING_HISTORY, column: PARTITIONS_SCANNED, used_for: DETECTION, capability_key: TABLE_QUERY_PRUNING, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_QUERY_PRUNING_HISTORY, column: PARTITIONS_PRUNED, used_for: DETECTION, capability_key: TABLE_QUERY_PRUNING, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_QUERY_PRUNING_HISTORY, column: ROWS_SCANNED, used_for: DETECTION, capability_key: TABLE_QUERY_PRUNING, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_QUERY_PRUNING_HISTORY, column: ROWS_MATCHED, used_for: DETECTION, capability_key: TABLE_QUERY_PRUNING, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: PARTITIONS_SCANNED, used_for: EVIDENCE, capability_key: QH_PARTITIONS, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: PARTITIONS_TOTAL, used_for: EVIDENCE, capability_key: QH_PARTITIONS, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_table_pruning_hourly]
+  eligibility: {min_history_days: 14, completeness: "complete pruning history for the window", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "scan fraction = scanned / (scanned + pruned) > q04.scan_fraction AND selectivity = rows_matched / rows_scanned < q04.selectivity in ≥ q04.min_rows hourly rows (G-INS-05; no GET_QUERY_OPERATOR_STATS)"
+    comparisons:
+      - {metric: scan_fraction, op: GT, parameter: q04.scan_fraction}
+      - {metric: selectivity, op: LT, parameter: q04.selectivity}
+      - {metric: qualifying_rows, op: COUNT_GE, parameter: q04.min_rows}
+  parameters: [q04.scan_fraction, q04.selectivity, q04.min_rows]
+  impact: {impact_kind: EXPOSURE, window_amount: "attributed cost of the family's executions on the table", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: QUERY_FAMILY, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "ROWS_SCANNED = 0", status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}, {when: "pruning history unavailable", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TABLE_QUERY_PRUNING"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_CLUSTERING_KEY, REWRITE_QUERY]
+  recommendation_template: q.poor_pruning.v1
+  fixtures:
+    - {id: Q04-F01, kind: POSITIVE, given: "90 of 100 partitions scanned, 1 % rows matched, in 3 hourly rows", expected: {eligibility_status: QUALIFIED}, arithmetic: "0.90 > 0.80; 0.01 < 0.10; 3 ≥ 3"}
+    - {id: Q04-F02, kind: SUPPRESSION, given: "ROWS_SCANNED = 0", expected: {eligibility_status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}, arithmetic: "undefined selectivity"}
+- id: Q05
+  version: 1.0.0
+  name: Exploding join (on-demand evidence)
+  family: QUERY
+  release: R2
+  status: ON_DEMAND_EVIDENCE
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: query_operator_stats_on_demand, used_for: EVIDENCE, capability_key: QH, projection: NO_SOURCE, note: "GET_QUERY_OPERATOR_STATS via WRK-005 deep dive only (14-day window, MONITOR/OPERATE); never batch-extracted (G-INS-05, D-08)"}
+  eligibility: {min_history_days: 0, completeness: "completed query ≤ 14 days old", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: ON_DEMAND, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "join output rows / max(left input rows, right input rows) > q05.join_ratio for a completed query with meaningful cost; shown on the WRK-005 query deep dive, never a recurring insight"
+    comparisons: [{metric: join_explosion_ratio, op: GT, parameter: q05.join_ratio}]
+  parameters: [q05.join_ratio]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "unknown or zero denominator", status: NO_OBSERVATION, reason_code: ZERO_DENOMINATOR}]
+  severity: [{tier: LOW, when: "evidence only"}]
+  recommendation_template: null
+  fixtures:
+    - {id: Q05-F01, kind: POSITIVE, given: "join output 2000 rows, inputs 100 and 50", expected: {eligibility_status: NO_OBSERVATION, metrics: {join_explosion_ratio: "20"}, note: "ratio shown in the deep dive only"}, arithmetic: "2000 / max(100, 50) = 20 > 10"}
+    - {id: Q05-F02, kind: NEGATIVE, given: "unknown input row count", expected: {eligibility_status: NO_OBSERVATION, reason_code: ZERO_DENOMINATOR, note: "hidden"}, arithmetic: "no denominator"}
+- id: Q06
+  version: 1.0.0
+  name: Compilation overhead
+  family: QUERY
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: QUERY_FAMILY, native_id: [query_parameterized_hash, hash_version], variant: warehouse_id}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: COMPILATION_TIME, used_for: DETECTION, capability_key: QH_COMPILATION_TIME, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: EXECUTION_TIME, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+  feature_datasets: [fct_query_family_daily]
+  eligibility: {min_history_days: 14, completeness: "14 complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "compilation share = Σ COMPILATION_TIME / (Σ COMPILATION_TIME + Σ EXECUTION_TIME) > q06.compilation_share over ≥ q06.min_executions family executions in 14 days (elapsed-time evidence, not credit attribution)"
+    comparisons:
+      - {metric: compilation_share, op: GT, parameter: q06.compilation_share}
+      - {metric: executions, op: GE, parameter: q06.min_executions}
+  parameters: [q06.compilation_share, q06.min_executions]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "COMPILATION_TIME not projected", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_COMPILATION_TIME"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [REWRITE_QUERY]
+  recommendation_template: q.compilation_overhead.v1
+  fixtures:
+    - {id: Q06-F01, kind: POSITIVE, given: "compilation 600 ms, execution 400 ms per run, 120 runs in 14 d", expected: {eligibility_status: QUALIFIED, metrics: {compilation_share: "0.6"}}, arithmetic: "600 / (600 + 400) = 0.60 > 0.50; 120 ≥ 100"}
+    - {id: Q06-F02, kind: NEGATIVE, given: "same share, 99 executions", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "99 < 100"}
+- id: Q07
+  version: 1.0.0
+  name: Billed cloud-services anomaly
+  family: QUERY
+  release: R1
+  status: ACTIVE
+  owner_task: INS-003
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: ACCOUNT, native_id: [account_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_METERING_DAILY_HISTORY, column: USAGE_DATE, used_for: DETECTION, capability_key: MDH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_METERING_DAILY_HISTORY, column: CREDITS_USED_CLOUD_SERVICES, used_for: DETECTION, capability_key: MDH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_METERING_DAILY_HISTORY, column: CREDITS_ADJUSTMENT_CLOUD_SERVICES, used_for: DETECTION, capability_key: MDH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: CREDITS_USED_CLOUD_SERVICES, used_for: EVIDENCE, capability_key: QH_CLOUD_SERVICES_CREDITS, projection: REQUESTED_ING101, note: "contributors only (INS-003-S08); never allocate the adjustment per query"}
+    - {kind: DATASET, dataset: fct_rate, used_for: DETECTION, capability_key: MDH, projection: PRODUCED_DATASET}
+  feature_datasets: [fct_ins_cloud_services_daily]
+  eligibility: {min_history_days: 29, completeness: "28 complete baseline days + day D", backfill_eligible: true, maturity: PROVISIONAL}
+  windows:
+    evaluation_cadence: DAILY
+    current: {kind: SINGLE_DAY, unit: DAY, length: 1, offset: 0}
+    baseline: {kind: TRAILING_COMPLETE, unit: DAY, length: 28, offset: -28}
+  predicate:
+    expression: "billed_cs_d = Σ_service (CREDITS_USED_CLOUD_SERVICES + CREDITS_ADJUSTMENT_CLOUD_SERVICES) per account per UTC day, priced at the effective rate; GOV-005 anomaly evaluator on billed cost: robust z ≥ q07.robust_z AND |x − median| ≥ max(q07.min_relative_impact × |median|, one minor unit); when MAD = 0 the ABSOLUTE_DEVIATION rule |x − median| ≥ max(q07.mad_zero_relative_deviation × |median|, one minor unit) applies; upward direction only; gross cloud services are evidence only"
+    comparisons:
+      - {metric: robust_z, op: GE, parameter: q07.robust_z}
+      - {metric: excess_relative, op: GE, parameter: q07.min_relative_impact}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [q07.baseline_days, q07.robust_z, q07.min_relative_impact, q07.mad_zero_relative_deviation, insights.impact_floor_30d]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "billed_cs_cost_D − median(billed_cs_cost over baseline)", run_rate_30d: "window_amount × 30 (window_days = 1; 'if the excess persisted')", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: ACCOUNT_CLOUD_SERVICES, member_role: OBSERVATION_ONLY}
+  suppressions:
+    - {when: "any baseline day or D incomplete", status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}
+    - {when: "MDH not active", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:MDH"}
+  severity:
+    - {tier: HIGH, when: "robust z ≥ 6 or excess ≥ 100 % of median"}
+    - {tier: MEDIUM, when: "otherwise"}
+  action_types: [REWRITE_QUERY, OTHER]
+  recommendation_template: q.cloud_services_anomaly.v1
+  evidence: "28-day billed/gross/adjustment series; top 10 families by gross CS as explanatory contributors only when QH_CLOUD_SERVICES_CREDITS is projected, otherwise 'contributors unavailable' (not zero)"
+  fixtures:
+    - id: Q07-F01
+      kind: POSITIVE
+      given: "baseline 28 days billed cloud services 5.0 cr/day (10.00 USD/day at 2.00), MAD 0; day D billed 6.5 cr (13.00 USD)"
+      expected: {eligibility_status: QUALIFIED, metrics: {median_cost: "10.00", excess_cost: "3.00"}, impact_amount_window: "3.00", impact_amount_30d: "90.00", potential_30d: null, currency: USD}
+      arithmetic: "MAD = 0 → ABSOLUTE_DEVIATION: |13.00 − 10.00| = 3.00 ≥ max(0.20 × 10.00, 0.01) = 2.00 (credits: 1.5 ≥ 1.0); run-rate 3.00 × 30 = 90.00 > 25.00"
+    - id: Q07-F02
+      kind: FALSE_POSITIVE
+      given: "gross cloud services 5 → 8 cr with the adjustment absorbing it (billed flat at 0.0 for 29 days)"
+      expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}
+      arithmetic: "billed 0 → 0: |0 − 0| = 0 < max(0, 0.01)"
+    - {id: Q07-F03, kind: NEGATIVE, given: "one baseline day missing", expected: {eligibility_status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}, arithmetic: "27 < 28 complete days"}
+- id: Q08
+  version: 1.0.0
+  name: Retry waste
+  family: QUERY
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: LOGICAL_EXECUTION, native_id: [workload_key], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: EXECUTION_STATUS, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ERROR_CODE, used_for: DETECTION, capability_key: QH_ERROR_CODE, projection: REQUESTED_ING101}
+    - {kind: DATASET, dataset: fct_logical_execution, used_for: DETECTION, capability_key: LOGICAL_EXECUTIONS, projection: PRODUCED_DATASET, note: "WRK-004"}
+  feature_datasets: [fct_ins_retry_attempts]
+  eligibility: {min_history_days: 14, completeness: "14 complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "a verified logical execution has charged failed attempts before success; otherwise labelled 'suspected repeated execution' (no observation); QUERY_RETRY_* are Snowflake-internal retries and never count"
+    comparisons: [{metric: failed_charged_attempt_cost, op: GT, value: "0"}]
+  parameters: [insights.impact_floor_30d]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "Σ charged failed attempts before success", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: RETRY, member_role: OBSERVATION_ONLY, group_note: "Q08 + PL04 on the same attempt count once"}
+  suppressions: [{when: "no verified logical execution", status: NO_OBSERVATION, reason_code: MISSING_CAPABILITY:LOGICAL_EXECUTIONS}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [FIX_PIPELINE_FAILURES]
+  recommendation_template: q.retry_waste.v1
+  fixtures:
+    - {id: Q08-F01, kind: POSITIVE, given: "failed attempt cost 3.00 then success 5.00 in one logical execution", expected: {eligibility_status: QUALIFIED, impact_amount_window: "3.00", currency: USD}, arithmetic: "observed retry expense 3 counted once"}
+    - {id: Q08-F02, kind: NEGATIVE, given: "repeated identical queries without a verified logical execution", expected: {eligibility_status: NO_OBSERVATION, reason_code: "MISSING_CAPABILITY:LOGICAL_EXECUTIONS"}, arithmetic: "labelled suspected repeated execution only"}
+# =====================================================================================================================
+# STORAGE family (INS-004 R1: ST03, ST04; INS-104 R2)
+# =====================================================================================================================
+- id: ST01
+  version: 1.0.0
+  name: No observed reads (30 days)
+  family: STORAGE
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: TABLE, native_id: [table_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_ACCESS_DAILY_AGG, column: READ_QUERY_COUNT, used_for: DETECTION, capability_key: ACCESS_HISTORY_AGG, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_ACCESS_DAILY_AGG, column: LAST_READ_AT, used_for: EVIDENCE, capability_key: ACCESS_HISTORY_AGG, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ACTIVE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_SHARES_SNAPSHOT, column: OBJECT_ID, used_for: DETECTION, capability_key: SHARES_METADATA, projection: R2_ADAPTER}
+  feature_datasets: [fct_ins_object_access_daily, fct_ins_object_external_readers, fct_ins_table_storage_daily]
+  eligibility: {min_history_days: 30, completeness: "complete declared access evidence for all 30 days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 30}, baseline: null}
+  predicate:
+    expression: "no observed reads in connected accounts for 30 complete days AND positive retained storage; wording 'no reads observed in accounts connected to Bridge since <date>'"
+    comparisons: [{metric: read_query_count, op: EQ, value: "0"}, {metric: retained_bytes, op: GT, value: "0"}]
+  parameters: [st01.window_days, insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "table storage cost over 30 days", run_rate_30d: "window_amount", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: STORAGE_TABLE, member_role: OBSERVATION_ONLY}
+  suppressions:
+    - {when: "object in an outbound share, a replication group, or external/Iceberg table", status: SUPPRESSED, reason_code: SHARED_OR_EXTERNAL_READERS_POSSIBLE}
+    - {when: "access evidence denied or incomplete", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:ACCESS_HISTORY_AGG"}
+  severity: [{tier: LOW, when: "always (never recommend dropping automatically)"}]
+  action_types: [DROP_UNUSED_OBJECT]
+  recommendation_template: st.no_observed_reads.v1
+  fixtures:
+    - {id: ST01-F01, kind: POSITIVE, given: "no reads for 30 complete days, 2 TB retained, not shared", expected: {eligibility_status: QUALIFIED}, arithmetic: "0 reads; positive storage"}
+    - {id: ST01-F02, kind: SUPPRESSION, given: "table in an outbound share", expected: {eligibility_status: SUPPRESSED, reason_code: SHARED_OR_EXTERNAL_READERS_POSSIBLE}, arithmetic: "consumer reads are invisible to the provider"}
+- id: ST02
+  version: 1.0.0
+  name: Never observed read
+  family: STORAGE
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: TABLE, native_id: [table_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_ACCESS_DAILY_AGG, column: READ_QUERY_COUNT, used_for: DETECTION, capability_key: ACCESS_HISTORY_AGG, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ACTIVE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+  feature_datasets: [fct_ins_object_access_daily, fct_ins_object_external_readers]
+  eligibility: {min_history_days: 30, completeness: "complete access evidence over all retained observation history", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: ALL_OBSERVED, unit: DAY, length: null}, baseline: null}
+  predicate:
+    expression: "ST01 over all retained observation history; wording 'never observed read', never 'never used in lifetime'; a table predating enrollment shows its limited history explicitly"
+    comparisons: [{metric: read_query_count, op: EQ, value: "0"}]
+  parameters: [insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "table storage cost over the last 30 days", run_rate_30d: "window_amount", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: STORAGE_TABLE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "shared/replicated/external readers possible", status: SUPPRESSED, reason_code: SHARED_OR_EXTERNAL_READERS_POSSIBLE}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [DROP_UNUSED_OBJECT]
+  recommendation_template: st.never_observed_read.v1
+  fixtures:
+    - {id: ST02-F01, kind: POSITIVE, given: "no reads since enrollment 2026-06-01 (120 days)", expected: {eligibility_status: QUALIFIED, note: "text states 'observed since 2026-06-01 in connected accounts'"}, arithmetic: "0 reads"}
+    - {id: ST02-F02, kind: SUPPRESSION, given: "access evidence denied", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:ACCESS_HISTORY_AGG"}, arithmetic: "absence of permission is not proof"}
+- id: ST03
+  version: 1.0.0
+  name: Time-travel footprint
+  family: STORAGE
+  release: R1
+  status: ACTIVE
+  owner_task: INS-004
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: TABLE, native_id: [table_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ID, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ACTIVE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: TIME_TRAVEL_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: FAILSAFE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: RETAINED_FOR_CLONE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: CLONE_GROUP_ID, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: TABLE_DROPPED, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: fct_storage_rate, used_for: DETECTION, capability_key: STORAGE_RATE, projection: PRODUCED_DATASET, note: "FIN-006 storage rate per TB-month and tb_unit"}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLES, column: RETENTION_TIME, used_for: ESTIMATE, capability_key: TABLE_RETENTION, projection: R2_ADAPTER, note: "R2 numeric estimate TT × (1 − R_tgt/R_cur), disabled in R1"}
+  feature_datasets: [fct_ins_table_storage_daily]
+  eligibility: {min_history_days: 14, completeness: "14 consecutive complete daily snapshots (snapshot gaps are explicit rows with complete=false)", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SNAPSHOT_SERIES, unit: SNAPSHOT, length: 14}, baseline: null}
+  predicate:
+    expression: "tt_frac_s = TIME_TRAVEL_BYTES / (ACTIVE_BYTES + TIME_TRAVEL_BYTES + FAILSAFE_BYTES + RETAINED_FOR_CLONE_BYTES) on each of the 14 snapshots (RFC counted once at the owner); QUALIFIED iff every tt_frac_s > st03.tt_fraction_threshold AND impact_amount_30d > floor"
+    comparisons:
+      - {metric: tt_fraction_min, op: ALL_GT, parameter: st03.tt_fraction_threshold}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [st03.tt_fraction_threshold, st03.min_snapshots, insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "mean TIME_TRAVEL_BYTES / tb_unit × rate per TB-month × 14 / 30", run_rate_30d: "mean TIME_TRAVEL_BYTES / tb_unit × rate per TB-month (a TB-month is treated as 30 days)", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: STORAGE_TT, member_role: OBSERVATION_ONLY, group_note: "ST03 + ST04 on one table → one STORAGE_TABLE group, potential null, exposures shown separately"}
+  suppressions:
+    - {when: "fewer than 14 consecutive complete snapshots", status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY}
+    - {when: "TABLE_DROPPED not null", status: NO_OBSERVATION, reason_code: NOT_ACTIONABLE_DROPPED}
+    - {when: "denominator = 0 on any snapshot", status: INSUFFICIENT_DATA, reason_code: ZERO_DENOMINATOR}
+    - {when: "TSM snapshot source not enrolled", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TSM"}
+    - {when: "no storage rate for the account/currency", status: SUPPRESSED, reason_code: NO_PRICE}
+  severity: [{tier: HIGH, when: "min tt_frac_s > 0.60"}, {tier: MEDIUM, when: "otherwise"}]
+  action_types: [CHANGE_RETENTION]
+  recommendation_template: st.time_travel.v1
+  fixtures:
+    - id: ST03-F01
+      kind: POSITIVE
+      given: "14 daily snapshots: TT 4 TB of 10 TB physical (40 %); rate 23.00 USD/TB-month; tb_unit = 2^40 B"
+      expected: {eligibility_status: QUALIFIED, severity_tier: MEDIUM, metrics: {tt_fraction_min: "0.4"}, impact_amount_window: "42.933333333333", impact_amount_30d: "92.00", potential_30d: null, currency: USD}
+      arithmetic: "4/10 = 0.40 > 0.30 on all 14; 4 × 23.00 = 92.00 per 30 d; window = 92 × 14 / 30 = 42.9333… → 42.933333333333"
+    - {id: ST03-F02, kind: BOUNDARY, given: "exactly 30 % on every snapshot", expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD}, arithmetic: "0.30 > 0.30 false"}
+    - {id: ST03-F03, kind: NEGATIVE, given: "13 snapshots since enrollment 2026-09-29", expected: {eligibility_status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY, eligible_on: "2026-10-12"}, arithmetic: "eligible_on = first_snapshot_date + 13 d = 2026-09-29 + 13 = 2026-10-12"}
+    - {id: ST03-F04, kind: NEGATIVE, given: "dropped table with TT bytes", expected: {eligibility_status: NO_OBSERVATION, reason_code: NOT_ACTIONABLE_DROPPED}, arithmetic: "bytes shown in the storage view, not as an insight"}
+    - {id: ST03-F05, kind: NEGATIVE, given: "clone group: owner 10 TB physical incl. 2 TB RETAINED_FOR_CLONE_BYTES, clone 0 B owned", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET, note: "total bytes = owner physical bytes (10 TB), RFC counted once"}, arithmetic: "TT 1 TB / 10 TB = 0.10"}
+    - {id: ST03-F06, kind: NEGATIVE, given: "all byte classes 0 on one snapshot", expected: {eligibility_status: INSUFFICIENT_DATA, reason_code: ZERO_DENOMINATOR}, arithmetic: "0/0 undefined"}
+- id: ST04
+  version: 1.0.0
+  name: Fail-safe footprint
+  family: STORAGE
+  release: R1
+  status: ACTIVE
+  owner_task: INS-004
+  qualification_gate: {required: true, min_precision: "0.8", min_reviewed: 10, record: null}
+  resource: {type: TABLE, native_id: [table_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ID, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ACTIVE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: TIME_TRAVEL_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: FAILSAFE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: RETAINED_FOR_CLONE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: TABLE_DROPPED, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: fct_storage_rate, used_for: DETECTION, capability_key: STORAGE_RATE, projection: PRODUCED_DATASET}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLES, column: IS_TRANSIENT, used_for: EVIDENCE, capability_key: TABLE_RETENTION, projection: R2_ADAPTER, note: "transient eligibility evidence (R2)"}
+  feature_datasets: [fct_ins_table_storage_daily]
+  eligibility: {min_history_days: 14, completeness: "14 consecutive complete daily snapshots", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SNAPSHOT_SERIES, unit: SNAPSHOT, length: 14}, baseline: null}
+  predicate:
+    expression: "fs_frac_s = FAILSAFE_BYTES / (ACTIVE + TT + FS + RFC) using physical ownership; QUALIFIED iff every fs_frac_s > st04.fs_fraction_threshold AND impact_amount_30d > floor. Recommendation template: 'review whether data can be transient (recreate required, no fail-safe recovery)'; the phrases 'disable fail-safe' and 'immediate' are forbidden (template lint)"
+    comparisons:
+      - {metric: fs_fraction_min, op: ALL_GT, parameter: st04.fs_fraction_threshold}
+      - {metric: impact_amount_30d, op: GT, parameter: insights.impact_floor_30d}
+  parameters: [st04.fs_fraction_threshold, st03.min_snapshots, insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "mean FAILSAFE_BYTES / tb_unit × rate × 14 / 30", run_rate_30d: "mean FAILSAFE_BYTES / tb_unit × rate per TB-month", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: STORAGE_FS, member_role: OBSERVATION_ONLY}
+  suppressions:
+    - {when: "fewer than 14 consecutive complete snapshots", status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY}
+    - {when: "TABLE_DROPPED not null", status: NO_OBSERVATION, reason_code: NOT_ACTIONABLE_DROPPED}
+    - {when: "TSM not enrolled", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TSM"}
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CONVERT_TO_TRANSIENT]
+  recommendation_template: st.fail_safe.v1
+  fixtures:
+    - {id: ST04-F01, kind: POSITIVE, given: "FS 4 TB of 10 TB (40 %) on 14 snapshots; rate 23.00", expected: {eligibility_status: QUALIFIED, impact_amount_30d: "92.00", potential_30d: null, currency: USD}, arithmetic: "0.40 > 0.30; 4 × 23.00 = 92.00"}
+    - {id: ST04-F02, kind: BOUNDARY, given: "30 % exactly", expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD}, arithmetic: "0.30 > 0.30 false"}
+    - {id: ST04-F03, kind: GROUPING, given: "ST03 (92.00) and ST04 (92.00) on the same table", expected: {eligibility_status: QUALIFIED, group_value_30d: null, note: "one STORAGE_TABLE group, potential null, exposures shown separately (never summed into potential)"}, arithmetic: "no ESTIMATE member → null"}
+- id: ST05
+  version: 1.0.0
+  name: Unexpected storage growth
+  family: STORAGE
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: TABLE, native_id: [table_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: ACTIVE_BYTES, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_TABLE_STORAGE_METRICS, column: CLONE_GROUP_ID, used_for: DETECTION, capability_key: TSM, projection: REQUIRED_CORE}
+  feature_datasets: [fct_ins_table_storage_daily]
+  eligibility: {min_history_days: 8, completeness: "≥ 8 daily snapshots after enrollment", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SNAPSHOT_SERIES, unit: SNAPSHOT, length: 8}, baseline: null}
+  predicate:
+    expression: "physical storage rises > st05.growth over 7 days AND absolute increase > st05.byte_floor (tenant-configured); clone ownership prevents duplication"
+    comparisons: [{metric: growth_7d, op: GT, parameter: st05.growth}, {metric: absolute_increase_bytes, op: GT, parameter: st05.byte_floor}]
+  parameters: [st05.growth, st05.byte_floor]
+  impact: {impact_kind: EXPOSURE, window_amount: "added bytes / tb_unit × rate", run_rate_30d: "added bytes / tb_unit × rate per TB-month", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: STORAGE_TABLE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "fewer than 8 snapshots", status: INSUFFICIENT_DATA, reason_code: INSUFFICIENT_HISTORY}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [OTHER]
+  recommendation_template: st.growth.v1
+  fixtures:
+    - {id: ST05-F01, kind: POSITIVE, given: "100 GiB → 150 GiB in 7 days, byte floor 10 GiB", expected: {eligibility_status: QUALIFIED, metrics: {growth_7d: "0.5"}}, arithmetic: "50/100 = 0.50 > 0.25; 50 GiB > 10 GiB"}
+    - {id: ST05-F02, kind: NEGATIVE, given: "clone of a 100 GiB table created (no owned bytes)", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "clone counted once at the owner"}
+# =====================================================================================================================
+# PIPELINE family (INS-103 R2)
+# =====================================================================================================================
+- id: PL01
+  version: 1.0.0
+  name: dbt overscheduling
+  family: PIPELINE
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: DBT_MODEL, native_id: [dbt_project, dbt_unique_id], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_dbt_invocation, used_for: DETECTION, capability_key: DBT_INVOCATIONS, projection: PRODUCED_DATASET, note: "WRK-002 exact invocations"}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_INSERTED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_UPDATED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_DELETED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_pipeline_runs_daily]
+  eligibility: {min_history_days: 28, completeness: "both 14-day cohorts complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}}
+  predicate:
+    expression: "exact invocation frequency rises > pl01.frequency_rise while the approved rows-changed signal rises < pl01.change_rise"
+    comparisons: [{metric: frequency_rise, op: GT, parameter: pl01.frequency_rise}, {metric: change_rise, op: LT, parameter: pl01.change_rise}]
+  parameters: [pl01.frequency_rise, pl01.change_rise]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "(runs_C − runs_B) × cost per run in B", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: PIPELINE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "change signal missing", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_ROWS_CHANGED"}, {when: "no exact invocations (inferred groups never substitute)", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:DBT_INVOCATIONS"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_PIPELINE_SCHEDULE]
+  recommendation_template: pl.overscheduling.v1
+  fixtures:
+    - {id: PL01-F01, kind: POSITIVE, given: "10 → 20 runs with unchanged 100 changed rows", expected: {eligibility_status: QUALIFIED}, arithmetic: "rise 1.00 > 0.50; change rise 0 < 0.10"}
+    - {id: PL01-F02, kind: MISSING_CAPABILITY, given: "rows-changed signal missing", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_ROWS_CHANGED"}, arithmetic: "missing change signal suppresses"}
+- id: PL02
+  version: 1.0.0
+  name: Task overscheduling
+  family: PIPELINE
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: TASK, native_id: [task_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_TASK_HISTORY, column: SCHEDULED_TIME, used_for: DETECTION, capability_key: TASK_HISTORY, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_TASK_HISTORY, column: STATE, used_for: DETECTION, capability_key: TASK_HISTORY, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_INSERTED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_pipeline_runs_daily]
+  eligibility: {min_history_days: 28, completeness: "both cohorts complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}}
+  predicate:
+    expression: "PL01 predicate over verified task executions and the change signal"
+    comparisons: [{metric: frequency_rise, op: GT, parameter: pl01.frequency_rise}, {metric: change_rise, op: LT, parameter: pl01.change_rise}]
+  parameters: [pl01.frequency_rise, pl01.change_rise]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "(runs_C − runs_B) × cost per run in B", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: PIPELINE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "inferred query groups only", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TASK_HISTORY"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_PIPELINE_SCHEDULE]
+  recommendation_template: pl.overscheduling.v1
+  fixtures:
+    - {id: PL02-F01, kind: POSITIVE, given: "exact 20 task runs vs 10, unchanged rows", expected: {eligibility_status: QUALIFIED}, arithmetic: "rise 1.00 > 0.50"}
+    - {id: PL02-F02, kind: NEGATIVE, given: "inferred query groups without TASK_HISTORY", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:TASK_HISTORY"}, arithmetic: "inferred groups cannot substitute"}
+- id: PL03
+  version: 1.0.0
+  name: Low-change frequent execution
+  family: PIPELINE
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: PIPELINE, native_id: [workload_key], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_logical_execution, used_for: DETECTION, capability_key: LOGICAL_EXECUTIONS, projection: PRODUCED_DATASET}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_INSERTED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_UPDATED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: ROWS_DELETED, used_for: DETECTION, capability_key: QH_ROWS_CHANGED, projection: REQUESTED_ING101}
+  feature_datasets: [fct_ins_pipeline_runs_daily]
+  eligibility: {min_history_days: 14, completeness: "14 complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "≥ pl03.min_executions_per_day exact executions/day with zero approved change signal in > pl03.zero_change_share of executions for 14 days; a successful SELECT row count is never a change signal"
+    comparisons: [{metric: executions_per_day_min, op: GE, parameter: pl03.min_executions_per_day}, {metric: zero_change_share, op: GT, parameter: pl03.zero_change_share}]
+  parameters: [pl03.min_executions_per_day, pl03.zero_change_share]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "cost of zero-change executions", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: PIPELINE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "change signal missing", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:QH_ROWS_CHANGED"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [CHANGE_PIPELINE_SCHEDULE]
+  recommendation_template: pl.low_change.v1
+  fixtures:
+    - {id: PL03-F01, kind: POSITIVE, given: "24 executions/day, 23 of 24 zero-change, 14 days", expected: {eligibility_status: QUALIFIED}, arithmetic: "23/24 = 0.9583 > 0.90"}
+    - {id: PL03-F02, kind: NEGATIVE, given: "24 executions/day, 21 of 24 zero-change", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "21/24 = 0.875 ≤ 0.90"}
+- id: PL04
+  version: 1.0.0
+  name: Pipeline failure/retry waste
+  family: PIPELINE
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: PIPELINE, native_id: [workload_key], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_HISTORY, column: EXECUTION_STATUS, used_for: DETECTION, capability_key: QH, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_QUERY_ATTRIBUTION_HISTORY, column: CREDITS_ATTRIBUTED_COMPUTE, used_for: DETECTION, capability_key: QAH, projection: REQUIRED_CORE}
+    - {kind: DATASET, dataset: fct_logical_execution, used_for: DETECTION, capability_key: LOGICAL_EXECUTIONS, projection: PRODUCED_DATASET}
+  feature_datasets: [fct_ins_retry_attempts]
+  eligibility: {min_history_days: 14, completeness: "14 complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "charged failed/retried pipeline attempts / supported pipeline charge components > pl04.failure_share, using distinct charge links"
+    comparisons: [{metric: failure_share, op: GT, parameter: pl04.failure_share}]
+  parameters: [pl04.failure_share]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "Σ charged failed attempts (distinct charge links)", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: RETRY, member_role: OBSERVATION_ONLY, group_note: "counted once with Q08"}
+  suppressions: [{when: "no logical execution graph", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:LOGICAL_EXECUTIONS"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [FIX_PIPELINE_FAILURES]
+  recommendation_template: pl.failure_waste.v1
+  fixtures:
+    - {id: PL04-F01, kind: POSITIVE, given: "retry cost 10 of pipeline total 50", expected: {eligibility_status: QUALIFIED, metrics: {failure_share: "0.2"}}, arithmetic: "10/50 = 0.20 > 0.10"}
+    - {id: PL04-F02, kind: BOUNDARY, given: "retry cost 5 of 50", expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD}, arithmetic: "5/50 = 0.10 > 0.10 false"}
+- id: PL05
+  version: 1.0.0
+  name: Duplicate pipeline
+  family: PIPELINE
+  release: R2
+  status: PLANNED
+  owner_task: INS-103
+  original_owner_task: INS-003
+  resource: {type: PIPELINE, native_id: [output_object_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_ACCESS_DAILY_AGG, column: WRITE_QUERY_COUNT, used_for: DETECTION, capability_key: ACCESS_HISTORY_AGG, projection: R2_ADAPTER}
+    - {kind: DATASET, dataset: fct_logical_execution, used_for: DETECTION, capability_key: LOGICAL_EXECUTIONS, projection: PRODUCED_DATASET}
+  feature_datasets: [fct_ins_object_access_daily]
+  eligibility: {min_history_days: 14, completeness: "verified writer lineage for 14 days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "explicitly verified overlapping target/output lineage (two verified writers of one approved output) and repeated equivalent workload; hash similarity alone is insufficient; review candidate only, never auto-disable"
+    comparisons: [{metric: verified_writers, op: GE, value: "2"}]
+  parameters: []
+  impact: {impact_kind: EXPOSURE, window_amount: "cost of the smaller duplicate writer", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: PIPELINE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "only hash similarity", status: NO_OBSERVATION, reason_code: PREDICATE_NOT_MET}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [OTHER]
+  recommendation_template: pl.duplicate.v1
+  fixtures:
+    - {id: PL05-F01, kind: POSITIVE, given: "two verified writers of the same approved output", expected: {eligibility_status: QUALIFIED}, arithmetic: "2 ≥ 2"}
+    - {id: PL05-F02, kind: NEGATIVE, given: "similar query hashes, one verified writer", expected: {eligibility_status: NO_OBSERVATION, reason_code: PREDICATE_NOT_MET}, arithmetic: "hash similarity alone → nothing"}
+# =====================================================================================================================
+# INGESTION family (INS-104 R2; non-monetary since Snowpipe per-GB pricing, G-INS-03)
+# =====================================================================================================================
+- id: PI01
+  version: 1.0.0
+  name: Tiny files (ingestion hygiene)
+  family: INGESTION
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: PIPE, native_id: [pipe_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_COPY_HISTORY, column: FILE_SIZE, used_for: DETECTION, capability_key: COPY_HISTORY, projection: R2_ADAPTER}
+    - {kind: SOURCE_COLUMN, source_id: AU_COPY_HISTORY, column: PIPE_ID, used_for: DETECTION, capability_key: COPY_HISTORY, projection: R2_ADAPTER}
+  feature_datasets: [fct_ins_pipe_files_daily]
+  eligibility: {min_history_days: 1, completeness: "complete day of file loads", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "file Snowpipe median input file size < pi01.median_file_bytes with ≥ pi01.min_files files in a complete day; Snowpipe Streaming is ineligible"
+    comparisons: [{metric: median_file_bytes, op: LT, parameter: pi01.median_file_bytes}, {metric: files, op: GE, parameter: pi01.min_files}]
+  parameters: [pi01.median_file_bytes, pi01.min_files]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE, group_note: "excluded from potential totals and ranking (0.0037 credits/GB since 2025-12-08)"}
+  suppressions: [{when: "Snowpipe Streaming pipe", status: NO_OBSERVATION, reason_code: NOT_APPLICABLE_SOURCE}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [CHANGE_INGESTION_BATCHING]
+  recommendation_template: pi.tiny_files.v1
+  fixtures:
+    - {id: PI01-F01, kind: POSITIVE, given: "100 files of 1 MiB in a complete day", expected: {eligibility_status: QUALIFIED, potential_30d: null, note: "no monetary impact"}, arithmetic: "1 MiB < 16 MiB; 100 ≥ 100"}
+    - {id: PI01-F02, kind: NEGATIVE, given: "Streaming ingestion", expected: {eligibility_status: NO_OBSERVATION, reason_code: NOT_APPLICABLE_SOURCE}, arithmetic: "Streaming is ineligible"}
+- id: PI02
+  version: 1.0.0
+  name: High ingestion frequency (hygiene)
+  family: INGESTION
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: PIPE, native_id: [pipe_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_PIPE_USAGE_HISTORY, column: FILES_INSERTED, used_for: DETECTION, capability_key: PIPE_USAGE, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_COPY_HISTORY, column: FILE_SIZE, used_for: DETECTION, capability_key: COPY_HISTORY, projection: R2_ADAPTER}
+  feature_datasets: [fct_ins_pipe_files_daily]
+  eligibility: {min_history_days: 1, completeness: "complete hours", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "≥ pi02.min_ops_per_hour verified file-ingest operations/hour and median bytes/operation < pi01.median_file_bytes; impact uses the billed per-GB model (no per-file pricing assumption)"
+    comparisons: [{metric: ops_per_hour, op: GE, parameter: pi02.min_ops_per_hour}, {metric: median_bytes_per_op, op: LT, parameter: pi01.median_file_bytes}]
+  parameters: [pi02.min_ops_per_hour, pi01.median_file_bytes]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "COPY_HISTORY unavailable (median needs per-file sizes)", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:COPY_HISTORY"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [CHANGE_INGESTION_BATCHING]
+  recommendation_template: pi.high_frequency.v1
+  fixtures:
+    - {id: PI02-F01, kind: POSITIVE, given: "120 tiny operations in one hour", expected: {eligibility_status: QUALIFIED, potential_30d: null}, arithmetic: "120 ≥ 60"}
+    - {id: PI02-F02, kind: MISSING_CAPABILITY, given: "no COPY_HISTORY", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:COPY_HISTORY"}, arithmetic: "PIPE_USAGE_HISTORY is hourly and cannot give a median"}
+- id: PI03
+  version: 1.0.0
+  name: Low bytes per file (hygiene)
+  family: INGESTION
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: PIPE, native_id: [pipe_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_PIPE_USAGE_HISTORY, column: BYTES_INSERTED, used_for: DETECTION, capability_key: PIPE_USAGE, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_PIPE_USAGE_HISTORY, column: FILES_INSERTED, used_for: DETECTION, capability_key: PIPE_USAGE, projection: REQUIRED_CORE}
+  feature_datasets: [fct_ins_pipe_files_daily]
+  eligibility: {min_history_days: 1, completeness: "complete file-ingest population for the day", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "total bytes / positive file count < pi01.median_file_bytes on the complete file-ingest population"
+    comparisons: [{metric: bytes_per_file, op: LT, parameter: pi01.median_file_bytes}]
+  parameters: [pi01.median_file_bytes]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "zero or null file count", status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [CHANGE_INGESTION_BATCHING]
+  recommendation_template: pi.low_bytes.v1
+  fixtures:
+    - {id: PI03-F01, kind: POSITIVE, given: "100 MiB over 100 files", expected: {eligibility_status: QUALIFIED, metrics: {bytes_per_file: "1048576"}}, arithmetic: "100 MiB / 100 = 1 MiB < 16 MiB"}
+    - {id: PI03-F02, kind: SUPPRESSION, given: "file count 0", expected: {eligibility_status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}, arithmetic: "zero/null file count suppresses"}
+- id: PI04
+  version: 1.0.0
+  name: Snowpipe per-GB rate conformance (reconciliation check)
+  family: INGESTION
+  release: R2
+  status: PLANNED
+  owner_task: INS-104
+  original_owner_task: INS-004
+  resource: {type: PIPE, native_id: [pipe_id], variant: null}
+  required_inputs:
+    - {kind: SOURCE_COLUMN, source_id: AU_PIPE_USAGE_HISTORY, column: CREDITS_USED, used_for: DETECTION, capability_key: PIPE_USAGE, projection: REQUIRED_CORE}
+    - {kind: SOURCE_COLUMN, source_id: AU_PIPE_USAGE_HISTORY, column: BYTES_INSERTED, used_for: DETECTION, capability_key: PIPE_USAGE, projection: REQUIRED_CORE}
+  feature_datasets: [fct_ins_pipe_files_daily]
+  eligibility: {min_history_days: 1, completeness: "complete day after 2025-12-08", backfill_eligible: true, maturity: FINAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: null}
+  predicate:
+    expression: "effective credits per GB = CREDITS_USED / (BYTES_INSERTED / 10^9) deviates by > pi04.rate_tolerance from pi04.credits_per_gb (0.0037, per-GB pricing since 2025-12-08); windows before 2025-12-08 are excluded; routed to FIN-011 reconciliation, never an insight or a saving"
+    comparisons: [{metric: rate_deviation, op: GT, parameter: pi04.rate_tolerance}]
+  parameters: [pi04.rate_tolerance, pi04.credits_per_gb, pi04.pricing_effective_date]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: RECONCILIATION_CHECK, routing: FIN_RECONCILIATION}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "window before 2025-12-08", status: NO_OBSERVATION, reason_code: PRICING_ARCHITECTURE_CHANGED}]
+  severity: [{tier: MEDIUM, when: "always (reconciliation finding)"}]
+  action_types: []
+  recommendation_template: null
+  fixtures:
+    - {id: PI04-F01, kind: POSITIVE, given: "0.0040 credits/GB effective after 2025-12-08", expected: {eligibility_status: QUALIFIED, metrics: {rate_deviation: "0.081081081081"}, note: "FIN-011 reconciliation finding, not a saving"}, arithmetic: "|0.0040 − 0.0037| / 0.0037 = 0.08108… > 0.05"}
+    - {id: PI04-F02, kind: NEGATIVE, given: "window 2025-11-20 (pre per-GB pricing)", expected: {eligibility_status: NO_OBSERVATION, reason_code: PRICING_ARCHITECTURE_CHANGED}, arithmetic: "excluded"}
+# =====================================================================================================================
+# AI family (INS-005 R2; AI02/AI07 capability-gated)
+# =====================================================================================================================
+- id: AI01
+  version: 1.0.0
+  name: Model cost spike
+  family: AI
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: AI_MODEL, native_id: [ai_family, ai_model], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_ai_spend_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET, note: "FIN-018 effective-dated authority layer (no old/new UNION)"}
+  feature_datasets: [fct_ins_ai_daily]
+  eligibility: {min_history_days: 29, completeness: "complete current source days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: {kind: TRAILING_COMPLETE, unit: DAY, length: 28, offset: -28}}
+  predicate:
+    expression: "model/service spend follows the shared GOV-005 anomaly predicate on complete current source"
+    comparisons: [{metric: robust_z, op: GE, parameter: q07.robust_z}]
+  parameters: [q07.robust_z, q07.min_relative_impact, insights.impact_floor_30d]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "spend_D − median", run_rate_30d: "window_amount × 30", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: AI_SERVICE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "retired source (authority switch)", status: NO_OBSERVATION, reason_code: SOURCE_RETIRED}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: ai.cost_spike.v1
+  fixtures:
+    - {id: AI01-F01, kind: FALSE_POSITIVE, given: "source retired mid-window", expected: {eligibility_status: NO_OBSERVATION, reason_code: SOURCE_RETIRED}, arithmetic: "a retired source cannot create a false drop or recovery"}
+    - {id: AI01-F02, kind: POSITIVE, given: "median 50.00/day, day D 120.00, MAD 5", expected: {eligibility_status: QUALIFIED}, arithmetic: "z = 0.6745 × 70 / 5 = 9.44 ≥ 3.5"}
+- id: AI02
+  version: 1.0.0
+  name: Expensive model (quality-equivalent alternative)
+  family: AI
+  release: GATED
+  status: CAPABILITY_GATED
+  owner_task: INS-005
+  resource: {type: AI_MODEL, native_id: [ai_family, ai_model], variant: null}
+  required_inputs:
+    - {kind: CUSTOMER_INPUT, dataset: model_quality_evaluation, used_for: DETECTION, capability_key: MODEL_QUALITY_EVALUATION, projection: NO_SOURCE}
+    - {kind: DATASET, dataset: fct_ai_spend_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET}
+  eligibility: {min_history_days: 14, completeness: "approved quality evaluation + 14 complete days", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "an approved quality-equivalence evaluation exists AND observed alternative cost/request is lower; without quality evidence only spend concentration is shown"
+    comparisons: [{metric: alternative_cost_per_request_ratio, op: LT, value: "1"}]
+  parameters: []
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "no approved evaluation (always in R1/R2 until INS-005-S02)", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:MODEL_QUALITY_EVALUATION"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [CHANGE_CORTEX_MODEL]
+  recommendation_template: null
+  fixtures:
+    - {id: AI02-F01, kind: MISSING_CAPABILITY, given: "no quality evaluation uploaded", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:MODEL_QUALITY_EVALUATION"}, arithmetic: "no model-substitution recommendation without quality evidence"}
+    - {id: AI02-F02, kind: NEGATIVE, given: "evaluation approved but alternative costlier", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "ratio ≥ 1"}
+- id: AI03
+  version: 1.0.0
+  name: Tokens per request rise
+  family: AI
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: AI_MODEL, native_id: [ai_family, ai_model], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_ai_usage_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET, note: "token + request counts; grain TO VERIFY per view (INS-005-S01)"}
+  feature_datasets: [fct_ins_ai_daily]
+  eligibility: {min_history_days: 28, completeness: "both cohorts complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}}
+  predicate:
+    expression: "comparable request population tokens/request rises > ai03.rise versus the 14-day baseline"
+    comparisons: [{metric: tokens_per_request_rise, op: GT, parameter: ai03.rise}]
+  parameters: [ai03.rise]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "(tpr_C − tpr_B) × requests_C × cost per token in B", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: AI_SERVICE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "null or zero request count", status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: ai.tokens_per_request.v1
+  fixtures:
+    - {id: AI03-F01, kind: POSITIVE, given: "100 → 150 tokens/request (1000 tokens / 10 requests baseline)", expected: {eligibility_status: QUALIFIED, metrics: {tokens_per_request_rise: "0.5"}}, arithmetic: "1000/10 = 100; 150/100 − 1 = 0.50 > 0.25"}
+    - {id: AI03-F02, kind: SUPPRESSION, given: "null request count", expected: {eligibility_status: SUPPRESSED, reason_code: ZERO_DENOMINATOR}, arithmetic: "null request count suppresses"}
+- id: AI04
+  version: 1.0.0
+  name: User spend concentration
+  family: AI
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: AI_SERVICE, native_id: [ai_family], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_ai_usage_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET, note: "user identifier TO VERIFY per view; D-10 HMAC pseudonym only"}
+  feature_datasets: [fct_ins_ai_daily]
+  eligibility: {min_history_days: 7, completeness: "7 complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 7}, baseline: null}
+  predicate:
+    expression: "top authorized user exceeds ai04.top_user_share of service spend over 7 complete days AND floor; wording 'concentration', never 'abuse'; names resolved only for viewers holding identity.resolve"
+    comparisons: [{metric: top_user_share, op: GT, parameter: ai04.top_user_share}]
+  parameters: [ai04.top_user_share, insights.impact_floor_30d]
+  impact: {impact_kind: EXPOSURE, window_amount: "top user's spend", run_rate_30d: "window_amount × 30 / 7", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: AI_SERVICE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "user identifier unavailable", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:CORTEX_USAGE"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: ai.user_concentration.v1
+  fixtures:
+    - {id: AI04-F01, kind: POSITIVE, given: "top user 60 of 100 spend over 7 days", expected: {eligibility_status: QUALIFIED, metrics: {top_user_share: "0.6"}, note: "text contains no 'abuse'"}, arithmetic: "0.60 > 0.50"}
+    - {id: AI04-F02, kind: BOUNDARY, given: "top user 50 of 100", expected: {eligibility_status: NOT_QUALIFIED, reason_code: EQUAL_AT_THRESHOLD}, arithmetic: "0.50 > 0.50 false"}
+- id: AI05
+  version: 1.0.0
+  name: Agent spend anomaly
+  family: AI
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: AI_SERVICE, native_id: [agent_id], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_ai_spend_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET, note: "CORTEX_AGENT_USAGE_HISTORY via FIN-018"}
+  feature_datasets: [fct_ins_ai_daily]
+  eligibility: {min_history_days: 29, completeness: "complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: {kind: TRAILING_COMPLETE, unit: DAY, length: 28, offset: -28}}
+  predicate:
+    expression: "parent-inclusive agent spend follows the anomaly policy; child components remain explanatory"
+    comparisons: [{metric: robust_z, op: GE, parameter: q07.robust_z}]
+  parameters: [q07.robust_z]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "parent-inclusive spend_D − median", run_rate_30d: "window_amount × 30", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: AI_SERVICE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "incomplete day", status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: ai.agent_anomaly.v1
+  fixtures:
+    - {id: AI05-F01, kind: NEGATIVE, given: "parent 10 including child 4 in both cohorts", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET, metrics: {parent_spend: "10"}}, arithmetic: "parent 10 stays 10 (child not added)"}
+    - {id: AI05-F02, kind: POSITIVE, given: "parent median 10, day D 40, MAD 1", expected: {eligibility_status: QUALIFIED}, arithmetic: "z = 0.6745 × 30 / 1 = 20.2 ≥ 3.5"}
+- id: AI06
+  version: 1.0.0
+  name: Search service anomaly
+  family: AI
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: AI_SERVICE, native_id: [search_service_id], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_ai_spend_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET, note: "CORTEX_SEARCH_SERVING_USAGE_HISTORY + METERING_HISTORY search rows"}
+  feature_datasets: [fct_ins_ai_daily]
+  eligibility: {min_history_days: 29, completeness: "complete days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: SINGLE_DAY, unit: DAY, length: 1}, baseline: {kind: TRAILING_COMPLETE, unit: DAY, length: 28, offset: -28}}
+  predicate:
+    expression: "search service spend/usage follows the anomaly policy with serving and refresh components distinguished"
+    comparisons: [{metric: robust_z, op: GE, parameter: q07.robust_z}]
+  parameters: [q07.robust_z]
+  impact: {impact_kind: OBSERVED_EXCESS, window_amount: "component spend_D − median", run_rate_30d: "window_amount × 30", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: AI_SERVICE, member_role: OBSERVATION_ONLY}
+  suppressions: [{when: "incomplete day", status: INSUFFICIENT_DATA, reason_code: INCOMPLETE_COVERAGE}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: ai.search_anomaly.v1
+  fixtures:
+    - {id: AI06-F01, kind: FALSE_POSITIVE, given: "refresh (maintenance) spend doubles, serving flat", expected: {eligibility_status: QUALIFIED, note: "labelled refresh component change, not token growth"}, arithmetic: "components evaluated separately"}
+    - {id: AI06-F02, kind: NEGATIVE, given: "both components flat", expected: {eligibility_status: NOT_QUALIFIED, reason_code: PREDICATE_NOT_MET}, arithmetic: "z = 0"}
+- id: AI07
+  version: 1.0.0
+  name: Business unit cost
+  family: AI
+  release: GATED
+  status: CAPABILITY_GATED
+  owner_task: INS-005
+  resource: {type: AI_SERVICE, native_id: [ai_family], variant: null}
+  required_inputs:
+    - {kind: CUSTOMER_INPUT, dataset: business_transaction_daily, used_for: DETECTION, capability_key: CUSTOMER_DENOMINATOR, projection: NO_SOURCE}
+    - {kind: DATASET, dataset: fct_ai_spend_daily, used_for: DETECTION, capability_key: CORTEX_USAGE, projection: PRODUCED_DATASET}
+  eligibility: {min_history_days: 28, completeness: "approved denominator for both cohorts", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}}
+  predicate:
+    expression: "explicit approved business-transaction denominator exists; cost/transaction rises > ai07.rise; request count never substitutes"
+    comparisons: [{metric: unit_cost_rise, op: GT, parameter: ai07.rise}]
+  parameters: [ai07.rise]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "no approved denominator", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:CUSTOMER_DENOMINATOR"}]
+  severity: [{tier: LOW, when: "always"}]
+  action_types: [REDUCE_CORTEX_USAGE]
+  recommendation_template: null
+  fixtures:
+    - {id: AI07-F01, kind: POSITIVE, given: "200/100 → 300/100 with an approved denominator", expected: {eligibility_status: QUALIFIED, metrics: {unit_cost_rise: "0.5"}}, arithmetic: "2 → 3 per transaction = +50 % > 25 %"}
+    - {id: AI07-F02, kind: MISSING_CAPABILITY, given: "no denominator uploaded", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:CUSTOMER_DENOMINATOR"}, arithmetic: "request count cannot silently substitute"}
+# =====================================================================================================================
+# SPCS family (INS-005 R2; SP01/SP03 capability-gated)
+# =====================================================================================================================
+- id: SP01
+  version: 1.0.0
+  name: Compute pool under-utilization
+  family: SPCS
+  release: GATED
+  status: CAPABILITY_GATED
+  owner_task: INS-005
+  resource: {type: COMPUTE_POOL, native_id: [compute_pool_id], variant: null}
+  required_inputs:
+    - {kind: CUSTOMER_INPUT, dataset: spcs_platform_metrics, used_for: DETECTION, capability_key: SPCS_PLATFORM_METRICS_EVENT_TABLE, projection: NO_SOURCE, note: "no ACCOUNT_USAGE source (G-INS-06); needs an ADR for reading a customer event table"}
+  eligibility: {min_history_days: 14, completeness: "measured CPU during billed intervals for 14 complete days", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "authorized measured CPU utilization < sp01.cpu during billed active intervals for 14 complete days; utilization is never inferred from credits"
+    comparisons: [{metric: cpu_utilization, op: LT, parameter: sp01.cpu}]
+  parameters: [sp01.cpu]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "always until telemetry capability exists", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE"}]
+  severity: [{tier: LOW, when: "never emitted"}]
+  action_types: [RESIZE_COMPUTE_POOL]
+  recommendation_template: null
+  fixtures:
+    - {id: SP01-F01, kind: MISSING_CAPABILITY, given: "8 credits billed, no telemetry", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE", note: "evaluation summary shows 'requires customer telemetry'"}, arithmetic: "8 credits alone proves no utilization percentage"}
+    - {id: SP01-F02, kind: NEGATIVE, given: "hypothetical telemetry 25 % CPU", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE"}, arithmetic: "gated regardless of values"}
+- id: SP02
+  version: 1.0.0
+  name: Idle compute pool (billed with no running service)
+  family: SPCS
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: COMPUTE_POOL, native_id: [compute_pool_id], variant: null}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_spcs_pool_hourly, used_for: DETECTION, capability_key: SPCS_USAGE, projection: PRODUCED_DATASET, note: "SNOWPARK_CONTAINER_SERVICES_HISTORY CREDITS_USED per pool-hour (FIN-019)"}
+    - {kind: SOURCE_COLUMN, source_id: AU_SERVICES, column: STATUS, used_for: DETECTION, capability_key: SPCS_SERVICE_STATE, projection: R2_ADAPTER}
+  feature_datasets: [fct_ins_spcs_pool_hourly]
+  eligibility: {min_history_days: 3, completeness: "complete pool-hours and service state for 3 days", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "pool billed (CREDITS_USED > 0) for ≥ sp02.min_minutes on ≥ sp02.min_days days while AU.SERVICES shows no service/job RUNNING on that pool"
+    comparisons: [{metric: billed_idle_minutes_per_day, op: GE, parameter: sp02.min_minutes}, {metric: qualifying_days, op: COUNT_GE, parameter: sp02.min_days}]
+  parameters: [sp02.min_minutes, sp02.min_days]
+  impact: {impact_kind: CEILING, window_amount: "pool credits while no service ran × rate", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: null, potential_formula: null, ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: COMPUTE_POOL, member_role: CEILING}
+  suppressions: [{when: "service state unknown", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_SERVICE_STATE"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [SUSPEND_COMPUTE_POOL]
+  recommendation_template: sp.idle_pool.v1
+  fixtures:
+    - {id: SP02-F01, kind: POSITIVE, given: "one shared pool charge 8 across services, 90 min/day billed with no RUNNING service on 3 days", expected: {eligibility_status: QUALIFIED, note: "charge 8 stays 8 across services"}, arithmetic: "90 ≥ 60 on 3 days"}
+    - {id: SP02-F02, kind: MISSING_CAPABILITY, given: "unknown service state", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_SERVICE_STATE"}, arithmetic: "unknown workload telemetry suppresses"}
+- id: SP03
+  version: 1.0.0
+  name: Unexpected pool scaling
+  family: SPCS
+  release: GATED
+  status: CAPABILITY_GATED
+  owner_task: INS-005
+  resource: {type: COMPUTE_POOL, native_id: [compute_pool_id], variant: null}
+  required_inputs:
+    - {kind: CUSTOMER_INPUT, dataset: spcs_platform_metrics, used_for: DETECTION, capability_key: SPCS_PLATFORM_METRICS_EVENT_TABLE, projection: NO_SOURCE, note: "node-count history: none (SHOW COMPUTE POOLS is current state only)"}
+  eligibility: {min_history_days: 14, completeness: "node history", backfill_eligible: false, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: TRAILING_COMPLETE, unit: DAY, length: 14}, baseline: null}
+  predicate:
+    expression: "observed pool capacity/active-node measure increases > sp03.rise without an approved planned-change annotation"
+    comparisons: [{metric: node_rise, op: GT, parameter: sp03.rise}]
+  parameters: [sp03.rise]
+  impact: {impact_kind: NONE, window_amount: null, run_rate_30d: null, floor_policy: EXEMPT, potential_method: null, potential_formula: null, ranking: NON_MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: null, member_role: NONE}
+  suppressions: [{when: "always until telemetry capability exists", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE"}]
+  severity: [{tier: LOW, when: "never emitted"}]
+  action_types: [RESIZE_COMPUTE_POOL]
+  recommendation_template: null
+  fixtures:
+    - {id: SP03-F01, kind: MISSING_CAPABILITY, given: "2 → 4 nodes observed from a hypothetical source", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE"}, arithmetic: "capability gated"}
+    - {id: SP03-F02, kind: NEGATIVE, given: "no node history", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:SPCS_PLATFORM_METRICS_EVENT_TABLE"}, arithmetic: "no source"}
+- id: SP04
+  version: 1.0.0
+  name: Application cost per unit regression
+  family: SPCS
+  release: R2
+  status: PLANNED
+  owner_task: INS-005
+  resource: {type: APPLICATION, native_id: [application_id], variant: compute_pool_id}
+  required_inputs:
+    - {kind: DATASET, dataset: fct_spcs_app_attribution_daily, used_for: DETECTION, capability_key: SPCS_USAGE, projection: PRODUCED_DATASET, note: "FIN-019 app attribution"}
+    - {kind: CUSTOMER_INPUT, dataset: business_transaction_daily, used_for: DETECTION, capability_key: CUSTOMER_DENOMINATOR, projection: NO_SOURCE}
+  feature_datasets: [fct_ins_spcs_app_daily]
+  eligibility: {min_history_days: 28, completeness: "both cohorts complete", backfill_eligible: true, maturity: PROVISIONAL}
+  windows: {evaluation_cadence: DAILY, current: {kind: COHORT_CURRENT, unit: DAY, length: 14, offset: -13}, baseline: {kind: COHORT_BASELINE, unit: DAY, length: 14, offset: -27}}
+  predicate:
+    expression: "application-attributed cost per approved workload unit rises > sp04.rise over comparable 14-day periods; pool/app shared charges deduplicate; no denominator → spend-change evidence only"
+    comparisons: [{metric: unit_cost_rise, op: GT, parameter: sp04.rise}]
+  parameters: [sp04.rise, insights.impact_floor_30d]
+  impact: {impact_kind: ESTIMATE, window_amount: "(u_C − u_B) × units_C", run_rate_30d: "window_amount × 30 / 14", floor_policy: APPLY, potential_method: Q01_UNIT_COST_RETURN, potential_formula: "(u_C − u_B) × units_C × 30 / 14", ranking: MONETARY, routing: INSIGHTS}
+  cost_pool: {kind: APPLICATION, member_role: ESTIMATE}
+  suppressions: [{when: "no approved denominator", status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:CUSTOMER_DENOMINATOR"}]
+  severity: [{tier: MEDIUM, when: "always"}]
+  action_types: [RESIZE_COMPUTE_POOL]
+  recommendation_template: sp.app_unit_cost.v1
+  fixtures:
+    - {id: SP04-F01, kind: POSITIVE, given: "cost/unit 2.00 → 2.60 with approved units", expected: {eligibility_status: QUALIFIED, metrics: {unit_cost_rise: "0.3"}}, arithmetic: "2.60/2.00 − 1 = 0.30 > 0.25"}
+    - {id: SP04-F02, kind: MISSING_CAPABILITY, given: "no denominator", expected: {eligibility_status: SUPPRESSED, reason_code: "MISSING_CAPABILITY:CUSTOMER_DENOMINATOR", note: "spend-change evidence only"}, arithmetic: "no unit denominator"}

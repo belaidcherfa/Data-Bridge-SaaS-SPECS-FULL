@@ -1,0 +1,2006 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:sources:source-contract:v1",
+  "$comment": "contract=source-registry-schema version=1 status=DRAFT owner_task=ING-001 decisions=D-03,D-07,D-08,D-10,D-11,D-13,D-20,D-24,D-26 last_changed=2026-09-28. Produced by ING-001-S01. Every file data/contracts/sources/<source_id_lower>.v<major>.yaml validates against this schema; cross-field rules that JSON Schema cannot express are listed in x-bridge-loader-rules and enforced by load_registry() (ING-001-S02) before any customer connection is opened.",
+  "title": "SourceContract",
+  "description": "Executable activation contract of one Snowflake metadata source (Account Usage, Organization Usage, Data Sharing Usage view, or a SHOW command) extracted by the account-cycle runner (ING-106). One adapter per watermark mode; a new standard source needs only a contract file (ING-001-S03). Normative inputs: ING backlog §3 and §3.1, source-catalog.md, ADR-006 amendment, ADR-009 amendment, ADR-015 (maturity), D-08, D-11, D-13, D-20, D-26.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "schema_version",
+    "source_id",
+    "contract_version",
+    "schema_major",
+    "status",
+    "owner_task",
+    "decisions",
+    "last_changed",
+    "release",
+    "title",
+    "description",
+    "family",
+    "module",
+    "module_requirement",
+    "source_kind",
+    "fq_view",
+    "show_command",
+    "doc_url",
+    "scope",
+    "db_role",
+    "edition_gate",
+    "feature_gate",
+    "projection",
+    "extractor_columns",
+    "extension_schemas",
+    "watermark_mode",
+    "watermark_column",
+    "pruning_column",
+    "pruning_horizon_days",
+    "predicate_template",
+    "pending_refresh",
+    "horizon_alarm_days",
+    "cycle",
+    "window_steady_seconds",
+    "first_delay_seconds",
+    "settle_seconds",
+    "extraction_order_rank",
+    "semantics",
+    "key",
+    "partition_key",
+    "snapshot_key",
+    "aggregation_rule",
+    "primary_measure",
+    "suspect_guard",
+    "anti_entropy",
+    "backfill_supported",
+    "backfill_chunk_seconds",
+    "min_chunk_seconds",
+    "max_chunk_seconds",
+    "backfill_split_rows_threshold",
+    "sizing_query",
+    "retention_days",
+    "retention_basis",
+    "availability_start",
+    "retention_safety_days",
+    "retention_edge_guard_days",
+    "retention_class",
+    "journal_retention_days",
+    "raw_retention_days",
+    "query_detail_tiering",
+    "documented_latency_seconds",
+    "latency_verification",
+    "maturity",
+    "health",
+    "authority",
+    "limits",
+    "probe",
+    "transport_schema",
+    "accepted_fingerprints",
+    "activation",
+    "verification_record",
+    "vendor_facts",
+    "test_matrix",
+    "adapter_override",
+    "notes"
+  ],
+  "properties": {
+    "contract": {
+      "const": "source-contract"
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "Version of this JSON Schema the file is written against."
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+      "description": "Registry identifier; also the `source=` segment of every landing key (landing-keys.v1.yaml) and the RAW table stem (RAW.<SOURCE_ID>_V<major>). Prefix AU_ = SNOWFLAKE.ACCOUNT_USAGE, OU_ = SNOWFLAKE.ORGANIZATION_USAGE, DSU_ = SNOWFLAKE.DATA_SHARING_USAGE, SHOW_ = SHOW command snapshot."
+    },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,2}\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "description": "Semantic version of this contract. MAJOR = schema_major (RAW table/stage/pipe generation); MINOR = additive transport change (ING-001-S06); PATCH = documentation/operational parameter change."
+    },
+    "schema_major": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999,
+      "description": "Must equal the MAJOR of contract_version (loader rule LR-01)."
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "ACCEPTED",
+        "DEPRECATED"
+      ],
+      "description": "Contract review status (CONVENTIONS §1). Distinct from per-environment activation."
+    },
+    "owner_task": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^D-[0-9]{2}$"
+      },
+      "uniqueItems": true
+    },
+    "last_changed": {
+      "type": "string",
+      "format": "date"
+    },
+    "release": {
+      "enum": [
+        "R1",
+        "R2"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "family": {
+      "$ref": "#/$defs/source_family"
+    },
+    "module": {
+      "$ref": "#/$defs/module"
+    },
+    "module_requirement": {
+      "enum": [
+        "REQUIRED",
+        "OPTIONAL"
+      ],
+      "description": "READY guard (CON-005-S07): every REQUIRED source of every selected module must probe AVAILABLE or AVAILABLE_EMPTY; OPTIONAL failures only disable dependent features."
+    },
+    "source_kind": {
+      "enum": [
+        "VIEW",
+        "SHOW_COMMAND"
+      ]
+    },
+    "fq_view": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^SNOWFLAKE\\.(ACCOUNT_USAGE|ORGANIZATION_USAGE|DATA_SHARING_USAGE)\\.[A-Z][A-Z0-9_]*$",
+      "description": "Fully qualified view. Identifiers come only from registry constants and are emitted quoted by the query builder (ING-001-S04)."
+    },
+    "show_command": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "SHOW WAREHOUSES"
+      ],
+      "description": "Only for source_kind=SHOW_COMMAND; the projection is read through TABLE(RESULT_SCAN(LAST_QUERY_ID())) with explicit columns."
+    },
+    "doc_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://docs\\.snowflake\\.com/"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "db_role": {
+      "$ref": "#/$defs/db_role"
+    },
+    "edition_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_edition",
+        "verification"
+      ],
+      "properties": {
+        "minimum_edition": {
+          "enum": [
+            "STANDARD",
+            "ENTERPRISE",
+            "BUSINESS_CRITICAL"
+          ]
+        },
+        "verification": {
+          "$ref": "#/$defs/vendor_fact_status"
+        }
+      }
+    },
+    "feature_gate": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "feature",
+        "capability_flag",
+        "when_absent"
+      ],
+      "properties": {
+        "feature": {
+          "enum": [
+            "ADAPTIVE_WAREHOUSE",
+            "ORGANIZATION_BILLING_ACCESS",
+            "ORGANIZATION_ACCOUNT_ACCESS",
+            "SNOWPIPE_STREAMING",
+            "SNOWPARK_CONTAINER_SERVICES",
+            "CORTEX",
+            "MARKETPLACE_CONSUMER",
+            "NATIVE_APPS",
+            "REPLICATION",
+            "TABLE_STORAGE_METRICS_GRANT"
+          ]
+        },
+        "capability_flag": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Field of the capability snapshot (capability.json account_facts) that activates extraction, e.g. adaptive_present."
+        },
+        "when_absent": {
+          "enum": [
+            "NOT_ENABLED",
+            "NOT_SUPPORTED",
+            "SKIP_SILENTLY"
+          ]
+        }
+      }
+    },
+    "projection": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/projection_column"
+      }
+    },
+    "extractor_columns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/extractor_column"
+      },
+      "description": "Source-specific columns computed by the extractor on plaintext before privacy transforms (ING-107 order step 1), e.g. is_bridge_overhead (G-CON-11). Technical columns common to all sources are defined in _transport.v1.yaml and never listed here."
+    },
+    "extension_schemas": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "WorkloadMetaV1"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Named Arrow column groups appended by a library owned elsewhere (WorkloadMetaV1 = WRK-101-S05 allowlisted comment/tag metadata)."
+    },
+    "watermark_mode": {
+      "$ref": "#/$defs/watermark_mode"
+    },
+    "watermark_column": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "Source column the window predicate is half-open on (END_TIME for END_TIME_SWEEP, START_TIME/USAGE_DATE/DATE for partitions); null for SNAPSHOT."
+    },
+    "pruning_column": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "pruning_horizon_days": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 30,
+      "description": "END_TIME_SWEEP pruning bound (`<pruning_column> >= DATEADD(day, -<n>, :ws)`): 7-day maximum statement timeout + 1 day. Must be >= 8 for END_TIME_SWEEP."
+    },
+    "predicate_template": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000,
+      "description": "Exact predicate with bind variables only (:ws/:we for timestamps, :ds/:de for dates, :pending_from for PENDING_REFRESH). No literal values, no string interpolation (ING-001-S04 static scan)."
+    },
+    "pending_refresh": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "base_partition_column",
+        "open_row_predicate",
+        "pending_predicate_template",
+        "bound_days"
+      ],
+      "properties": {
+        "base_partition_column": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "open_row_predicate": {
+          "type": "string",
+          "description": "Predicate identifying still-mutable rows, e.g. QUERY_END_TIME IS NULL."
+        },
+        "bound_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "pending_predicate_template": {
+          "type": "string",
+          "description": "Re-read predicate for the pending set: hours >= :pending_from (oldest hour holding an open row) and < :we, bounded to bound_days before :we."
+        }
+      }
+    },
+    "horizon_alarm_days": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 30,
+      "description": "Alarm watermark_horizon_breach_total when an observed END - START exceeds this (ING-002-S10: 7 d; alarm fires at > 6 d)."
+    },
+    "cycle": {
+      "enum": [
+        "STEADY_HOURLY",
+        "DAILY_0300",
+        "ORG_DAILY_0610",
+        "ORG_SNAPSHOT_4X_DAILY",
+        "HOURLY_SNAPSHOT"
+      ],
+      "description": "Account-cycle slot (ORC-003-S02): hourly cycle at minute 5 + (hash(connection_id) mod 50); daily sources join the 03:00 UTC-hour cycle; ORG cycle daily at 06:10 UTC."
+    },
+    "window_steady_seconds": {
+      "type": "integer",
+      "enum": [
+        3600,
+        21600,
+        86400
+      ]
+    },
+    "first_delay_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 604800,
+      "description": "FIRST pass due at window_end + first_delay (PROVISIONAL)."
+    },
+    "settle_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1209600,
+      "description": "SETTLE pass due at window_end + settle; a window is settled once an accepted batch has extracted_at >= window_end + settle (ING-002-S02)."
+    },
+    "extraction_order_rank": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999,
+      "description": "Finance-first order inside a cycle and a backfill (lower first): OU billing -> MDH -> WMH/MH -> serverless/transfer/storage -> QAH -> QH (G-ING-08, ING-010-S04)."
+    },
+    "semantics": {
+      "enum": [
+        "EVENT_UPSERT",
+        "COMPLETE_PARTITION",
+        "SNAPSHOT"
+      ]
+    },
+    "key": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "uniqueItems": true,
+      "description": "EVENT_UPSERT business key in transport names, excluding tenant/account (always prepended)."
+    },
+    "partition_key": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "column",
+        "grain",
+        "scope"
+      ],
+      "properties": {
+        "column": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "grain": {
+          "enum": [
+            "HOUR",
+            "DAY"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "ACCOUNT",
+            "ORGANIZATION"
+          ]
+        }
+      }
+    },
+    "snapshot_key": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "uniqueItems": true,
+      "description": "SNAPSHOT entity key within one capture (capture = source_batch_id)."
+    },
+    "aggregation_rule": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Declared aggregation of truly identical dimensional rows inside a complete snapshot (source-catalog common gate), or null."
+    },
+    "primary_measure": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "expression",
+        "aggregate",
+        "sign"
+      ],
+      "properties": {
+        "expression": {
+          "type": "string",
+          "description": "Expression over transport names, used by the suspect guard and checksums."
+        },
+        "aggregate": {
+          "enum": [
+            "SUM",
+            "COUNT"
+          ]
+        },
+        "sign": {
+          "enum": [
+            "NON_NEGATIVE",
+            "SIGNED"
+          ]
+        }
+      }
+    },
+    "suspect_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "zero_rows",
+        "measure_drop_ratio",
+        "confirm_min_delay_seconds",
+        "confirm_tolerance_ratio",
+        "alarm_after_seconds"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "zero_rows": {
+          "type": "boolean",
+          "description": "A new complete partition with 0 rows while the selected revision has > 0 is SUSPECT."
+        },
+        "measure_drop_ratio": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^0\\.[0-9]{1,4}$",
+          "description": "Decimal string. SUSPECT when sum(new) < ratio x sum(selected). null = measure rule disabled (snapshots use zero_rows only)."
+        },
+        "confirm_min_delay_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirm_tolerance_ratio": {
+          "type": "string",
+          "pattern": "^0\\.[0-9]{1,6}$"
+        },
+        "alarm_after_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "anti_entropy": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/anti_entropy_pass"
+      }
+    },
+    "backfill_supported": {
+      "type": "boolean",
+      "description": "false for SNAPSHOT sources (history only after first capture)."
+    },
+    "backfill_chunk_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 300
+    },
+    "min_chunk_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 300
+    },
+    "max_chunk_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 300
+    },
+    "backfill_split_rows_threshold": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1000,
+      "description": "Split a chunk into hour chunks when the sizing estimate exceeds this row count (ING-010-S03: 2,000,000)."
+    },
+    "sizing_query": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Cheap aggregate used by backfill sizing (ING-010-S02), bind variables only."
+    },
+    "retention_days": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Documented source retention (Account Usage: 365). null when indefinite or snapshot-only."
+    },
+    "retention_basis": {
+      "enum": [
+        "DOCUMENTED",
+        "INDEFINITE_SINCE_SUPPORTED_START",
+        "SNAPSHOT_FROM_ENROLLMENT"
+      ]
+    },
+    "availability_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "First date with data in the source irrespective of retention (e.g. 2026-01-05 for CORTEX_AI_FUNCTIONS_USAGE_HISTORY)."
+    },
+    "retention_safety_days": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 14,
+      "description": "earliest = max(requested_start, now - retention_days + safety, availability_start, enrollment_at for SNAPSHOT) (ING-002-S06)."
+    },
+    "retention_edge_guard_days": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30,
+      "description": "Partitions with partition_date < now - retention_days + guard are never re-snapshotted (G-ING-07)."
+    },
+    "retention_class": {
+      "enum": [
+        "FINANCIAL",
+        "QUERY_GRAIN"
+      ],
+      "description": "D-26: FINANCIAL (billing, metering, storage, serverless, transfer, snapshots, inventory) keeps journal and RAW 400 d; QUERY_GRAIN (query, access, session sources) 90 d."
+    },
+    "journal_retention_days": {
+      "enum": [
+        90,
+        400
+      ]
+    },
+    "raw_retention_days": {
+      "enum": [
+        90,
+        400
+      ]
+    },
+    "query_detail_tiering": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "hot_days_default",
+        "hot_days_max",
+        "hot_columns",
+        "cold_columns",
+        "cold_expression_column",
+        "fallback_note"
+      ],
+      "properties": {
+        "hot_days_default": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 365
+        },
+        "hot_days_max": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 365
+        },
+        "hot_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cold_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cold_expression_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fallback_note": {
+          "type": "string"
+        }
+      },
+      "description": "D-11 / RECONCILIATION C-01 three tiers: HOT (<= hot_days, sanitized text), COLD (tail comment only, computed in the customer warehouse, never persisted as text), NONE."
+    },
+    "documented_latency_seconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "latency_verification": {
+      "$ref": "#/$defs/vendor_fact_status"
+    },
+    "maturity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_final_horizon_seconds",
+        "attribution_final_horizon_seconds",
+        "attribution_horizon_rule",
+        "month_stability_days",
+        "horizon_basis",
+        "fin_policy_ref"
+      ],
+      "properties": {
+        "data_final_horizon_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "D-13 charge/measurement FINAL at interval end + horizon (FIN §3.3)."
+        },
+        "attribution_final_horizon_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "D-13 attribution FINAL default (QAH: hour_end + T + 24 h, T = min(max statement timeout, 48 h) = 72 h)."
+        },
+        "attribution_horizon_rule": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "month_stability_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 31,
+          "description": "MONTH_STABLE at month end + N days (default 5; FIN-108 re-derives)."
+        },
+        "horizon_basis": {
+          "enum": [
+            "INTERVAL_END",
+            "CAPTURE_TIME"
+          ]
+        },
+        "fin_policy_ref": {
+          "type": "string",
+          "description": "Row of data/dbt/seeds/ref_source_maturity_policy.csv (FIN-104-S01) that must carry identical numbers (consistency test)."
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_lag_seconds",
+        "grace_seconds",
+        "delayed_after_seconds",
+        "stale_after_seconds"
+      ],
+      "properties": {
+        "expected_lag_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "first_delay + window_steady (ING §3.6)."
+        },
+        "grace_seconds": {
+          "type": "integer",
+          "minimum": 1800,
+          "description": "max(1800, 0.25 x expected_lag)."
+        },
+        "delayed_after_seconds": {
+          "type": "integer",
+          "description": "expected_lag + grace."
+        },
+        "stale_after_seconds": {
+          "type": "integer",
+          "description": "2 x (expected_lag + grace), capped at 86400 for hourly windows."
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measure_roles",
+        "service_families",
+        "authority_rank",
+        "effective_from",
+        "effective_to",
+        "rule"
+      ],
+      "properties": {
+        "measure_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CHARGE",
+              "CHARGE_CONDITIONAL",
+              "ESTIMATE_INPUT",
+              "ATTRIBUTION",
+              "ALLOCATION_WEIGHT",
+              "PRICING",
+              "INVENTORY",
+              "OPERATIONAL",
+              "ACTIVITY"
+            ]
+          }
+        },
+        "service_families": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "description": "FIN §3.2 service_family values this source contributes to (money authority is always the UICD family bucket)."
+        },
+        "authority_rank": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "description": "Revision selection rank: ACCOUNT_USAGE/ORGANIZATION_USAGE = 2, INFORMATION_SCHEMA hot path (R2) = 1."
+        },
+        "effective_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "Half-open authority window for effective-dated chains (Cortex, replication)."
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "rule": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_rows_per_window",
+        "max_result_bytes",
+        "oversized_row_bytes",
+        "oversized_text_bytes",
+        "statement_timeout_steady_seconds",
+        "statement_timeout_backfill_seconds"
+      ],
+      "properties": {
+        "max_rows_per_window": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "max_result_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "description": "Bisect when exceeded (ING-003-S07: 2 GiB)."
+        },
+        "oversized_row_bytes": {
+          "type": "integer",
+          "description": "A single row above this quarantines the window (16 MiB)."
+        },
+        "oversized_text_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "QUERY_TEXT above this is dropped with query_text_mode=OMITTED_SIZE (100 KiB)."
+        },
+        "statement_timeout_steady_seconds": {
+          "type": "integer",
+          "enum": [
+            900
+          ]
+        },
+        "statement_timeout_backfill_seconds": {
+          "type": "integer",
+          "enum": [
+            3600
+          ]
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "may_be_empty",
+        "canary",
+        "timeout_seconds",
+        "predicate_template"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "BOUNDED_48H_LIMIT_1",
+            "SNAPSHOT_COUNT",
+            "SHOW_COMMAND"
+          ]
+        },
+        "may_be_empty": {
+          "type": "boolean",
+          "description": "true = 0 rows in a bounded 48 h probe is AVAILABLE_EMPTY; false = SUSPECT_EMPTY unless proven otherwise (capability-classification.v1.yaml)."
+        },
+        "canary": {
+          "type": "boolean",
+          "description": "QUERY_HISTORY canary rule (G-CON-08, CON-005-S05)."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "enum": [
+            30
+          ]
+        },
+        "predicate_template": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Bounded probe predicate with :probe_from/:probe_to binds (last 48 h) or null for SNAPSHOT_COUNT/SHOW."
+        }
+      }
+    },
+    "transport_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "fingerprint",
+        "fingerprint_algorithm"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*\\.[0-9]+$"
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 over the canonical JSON of the full transport schema (technical + projection + extractor columns); algorithm in _transport.v1.yaml."
+        },
+        "fingerprint_algorithm": {
+          "const": "bridge-transport-fingerprint-v1"
+        }
+      }
+    },
+    "accepted_fingerprints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "describe_sha256",
+          "accepted_at",
+          "note"
+        ],
+        "properties": {
+          "describe_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Per-account DESCRIBE fingerprint of the projected columns (ING-009-S03: a set is accepted during BCR rollouts)."
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "DEV",
+        "STAGING",
+        "PROD"
+      ],
+      "properties": {
+        "DEV": {
+          "$ref": "#/$defs/activation_state"
+        },
+        "STAGING": {
+          "$ref": "#/$defs/activation_state"
+        },
+        "PROD": {
+          "$ref": "#/$defs/activation_state"
+        }
+      },
+      "description": "Per-environment activation state machine source_activation (ING-001-S07)."
+    },
+    "verification_record": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/verification_record"
+        }
+      ]
+    },
+    "vendor_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fact",
+          "status"
+        ],
+        "properties": {
+          "fact": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/vendor_fact_status"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "verify_in": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,3}-[0-9]{3}(-S[0-9]{2})?$"
+          }
+        }
+      }
+    },
+    "test_matrix": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/test_case"
+      }
+    },
+    "adapter_override": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "SHOW_WAREHOUSES_RESULT_SCAN",
+        "ACCESS_HISTORY_AGGREGATE"
+      ]
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "semantics": {
+            "const": "EVENT_UPSERT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "key": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "semantics": {
+            "const": "COMPLETE_PARTITION"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "partition_key": {
+            "type": "object"
+          },
+          "primary_measure": {
+            "type": "object"
+          },
+          "suspect_guard": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "semantics": {
+            "const": "SNAPSHOT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "snapshot_key": {
+            "minItems": 1
+          },
+          "watermark_mode": {
+            "const": "SNAPSHOT"
+          },
+          "backfill_supported": {
+            "const": false
+          },
+          "suspect_guard": {
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "zero_rows": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "watermark_mode": {
+            "const": "END_TIME_SWEEP"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pruning_column": {
+            "type": "string"
+          },
+          "pruning_horizon_days": {
+            "type": "integer",
+            "minimum": 8
+          },
+          "horizon_alarm_days": {
+            "type": "integer"
+          },
+          "watermark_column": {
+            "type": "string"
+          },
+          "predicate_template": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "watermark_mode": {
+            "const": "PENDING_REFRESH"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pending_refresh": {
+            "type": "object"
+          },
+          "predicate_template": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "watermark_mode": {
+            "enum": [
+              "START_TIME_INTERVAL",
+              "HOUR_PARTITION",
+              "DATE_PARTITION"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "watermark_column": {
+            "type": "string"
+          },
+          "predicate_template": {
+            "type": "string"
+          },
+          "pending_refresh": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "VIEW"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fq_view": {
+            "type": "string"
+          },
+          "show_command": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "fq_view": {
+            "type": "null"
+          },
+          "show_command": {
+            "type": "string"
+          },
+          "adapter_override": {
+            "const": "SHOW_WAREHOUSES_RESULT_SCAN"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retention_class": {
+            "const": "FINANCIAL"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "journal_retention_days": {
+            "const": 400
+          },
+          "raw_retention_days": {
+            "const": 400
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "journal_retention_days": {
+            "const": 90
+          },
+          "raw_retention_days": {
+            "const": 90
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "ORGANIZATION"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "module": {
+            "enum": [
+              "ORG_BILLING",
+              "ORG_INVENTORY",
+              "ORG_STORAGE"
+            ]
+          },
+          "cycle": {
+            "enum": [
+              "ORG_DAILY_0610",
+              "ORG_SNAPSHOT_4X_DAILY"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "module": {
+            "not": {
+              "enum": [
+                "ORG_BILLING",
+                "ORG_INVENTORY",
+                "ORG_STORAGE"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "anyOf": [
+              {
+                "properties": {
+                  "DEV": {
+                    "enum": [
+                      "VERIFIED",
+                      "ACTIVE"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "STAGING": {
+                    "enum": [
+                      "VERIFIED",
+                      "ACTIVE"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "PROD": {
+                    "enum": [
+                      "VERIFIED",
+                      "ACTIVE"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verification_record": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "properties": {
+              "PROD": {
+                "const": "ACTIVE"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "ACCEPTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "backfill_supported": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "backfill_chunk_seconds": {
+            "type": "integer"
+          },
+          "min_chunk_seconds": {
+            "type": "integer"
+          },
+          "max_chunk_seconds": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "scope": {
+      "enum": [
+        "ACCOUNT",
+        "ORGANIZATION"
+      ]
+    },
+    "source_family": {
+      "enum": [
+        "QUERY",
+        "SESSIONS",
+        "METERING",
+        "BILLING",
+        "PRICING",
+        "STORAGE",
+        "INVENTORY",
+        "GOVERNANCE",
+        "SERVERLESS",
+        "TRANSFER",
+        "WORKLOAD_EXECUTION",
+        "SERVICE_DETAIL",
+        "AI_SERVICES",
+        "MARKETPLACE",
+        "WAREHOUSE_CONFIG",
+        "WAREHOUSE_ACTIVITY"
+      ],
+      "description": "Bounded label used as the source_family metric dimension (OPS-001-S05 closed list)."
+    },
+    "module": {
+      "enum": [
+        "CORE_COST",
+        "QUERY_COST",
+        "QUERIES",
+        "WORKLOAD_SESSIONS",
+        "WORKLOAD_EXECUTION",
+        "STORAGE",
+        "STORAGE_OWNERS",
+        "STORAGE_TABLES",
+        "TAGS",
+        "SERVERLESS",
+        "TRANSFER",
+        "SERVICES_DETAIL",
+        "AI_SERVICES",
+        "MARKETPLACE",
+        "WAREHOUSE_CONFIG",
+        "GOVERNANCE_ACCESS",
+        "WAREHOUSE_ACTIVITY",
+        "ORG_BILLING",
+        "ORG_INVENTORY",
+        "ORG_STORAGE"
+      ],
+      "description": "Customer-selectable module (snowflake_privilege_map.v1.json); the module decides the SNOWFLAKE database roles rendered in the install script."
+    },
+    "watermark_mode": {
+      "enum": [
+        "END_TIME_SWEEP",
+        "START_TIME_INTERVAL",
+        "HOUR_PARTITION",
+        "DATE_PARTITION",
+        "SNAPSHOT",
+        "PENDING_REFRESH"
+      ]
+    },
+    "vendor_fact_status": {
+      "enum": [
+        "VERIFIED",
+        "VERIFIED_SNIPPET",
+        "TO_VERIFY_LIVE"
+      ],
+      "description": "VERIFIED = checked in source code or a live account; VERIFIED_SNIPPET = checked in official documentation snippets (readiness review 2026-09-28); TO_VERIFY_LIVE = must be confirmed on the INF-101 estate before activation."
+    },
+    "activation_state": {
+      "enum": [
+        "DRAFT",
+        "VERIFIED",
+        "ACTIVE",
+        "QUARANTINED",
+        "RETIRED"
+      ]
+    },
+    "db_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roles",
+        "alternatives",
+        "account_privileges",
+        "verification"
+      ],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/snowflake_database_role"
+          },
+          "uniqueItems": true,
+          "description": "Minimal SNOWFLAKE database role(s) granting read on the view (CON-003-S01 privilege map)."
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/snowflake_database_role"
+          },
+          "uniqueItems": true,
+          "description": "Roles that also grant read (e.g. GOVERNANCE_VIEWER for QAH); never rendered unless required by another module."
+        },
+        "account_privileges": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "MONITOR USAGE",
+              "IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "verification": {
+          "$ref": "#/$defs/vendor_fact_status"
+        }
+      }
+    },
+    "snowflake_database_role": {
+      "enum": [
+        "SNOWFLAKE.USAGE_VIEWER",
+        "SNOWFLAKE.GOVERNANCE_VIEWER",
+        "SNOWFLAKE.OBJECT_VIEWER",
+        "SNOWFLAKE.SECURITY_VIEWER",
+        "SNOWFLAKE.ORGANIZATION_BILLING_VIEWER",
+        "SNOWFLAKE.ORGANIZATION_USAGE_VIEWER",
+        "SNOWFLAKE.ORGANIZATION_ACCOUNTS_VIEWER",
+        "SNOWFLAKE.DATA_SHARING_USAGE_VIEWER"
+      ]
+    },
+    "privacy_class": {
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CUSTOMER_METADATA",
+        "PERSONAL",
+        "SQL_TEXT",
+        "SECRET"
+      ]
+    },
+    "privacy_action": {
+      "enum": [
+        "KEEP",
+        "SANITIZE_SQL",
+        "SANITIZE_TAG",
+        "HMAC_USER",
+        "DROP",
+        "TIER_WINDOW"
+      ],
+      "description": "ING-107-S01 actions; exactly one per projected field. TIER_WINDOW = SANITIZE_SQL inside the HOT tier, not projected otherwise. DROP = read in the customer warehouse, consumed in process (e.g. is_bridge_overhead, WRK-101 fragment path), never written."
+    },
+    "projection_column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "transport_name",
+        "expression",
+        "snowflake_type",
+        "precision",
+        "scale",
+        "nullable",
+        "required",
+        "tier",
+        "privacy_class",
+        "privacy_action",
+        "arrow_type",
+        "raw_type",
+        "exact_decimal_parse",
+        "float_exception",
+        "vendor_fact",
+        "requested_by",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^([A-Z][A-Z0-9_]*|\"[a-z][a-z0-9_]*\")$",
+          "description": "Source column (UPPER) or RESULT_SCAN column (quoted lower) or alias of an expression. '*' is impossible by pattern."
+        },
+        "transport_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "description": "Lower-snake Parquet field and RAW column name. Renamed when a privacy transform changes meaning (query_text_sanitized, user_name_pseudonym, query_tag_sanitized)."
+        },
+        "expression": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000,
+          "description": "SQL expression built only from registry constants (e.g. TRY_PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::VARCHAR); null = plain column."
+        },
+        "snowflake_type": {
+          "enum": [
+            "NUMBER",
+            "FLOAT",
+            "VARCHAR",
+            "BOOLEAN",
+            "DATE",
+            "TIMESTAMP_LTZ",
+            "TIMESTAMP_NTZ",
+            "TIMESTAMP_TZ",
+            "VARIANT",
+            "OBJECT",
+            "ARRAY",
+            "BINARY"
+          ]
+        },
+        "precision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 38
+        },
+        "scale": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 37
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Source nullability as documented/observed. Key and partition columns must be false."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Required = removal/rename is BREAKING (quarantine); optional = TRANSFORMABLE (null + missing_optional flag)."
+        },
+        "tier": {
+          "enum": [
+            "ALL",
+            "HOT",
+            "COLD"
+          ]
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "privacy_action": {
+          "$ref": "#/$defs/privacy_action"
+        },
+        "arrow_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "pyarrow str() of the transport type per _transport.v1.yaml type map; null when privacy_action=DROP (never transported)."
+        },
+        "raw_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "RAW column type in RAW.<SOURCE>_V<major>; null when not transported."
+        },
+        "exact_decimal_parse": {
+          "type": "boolean",
+          "description": "VARCHAR/VARIANT numeric that dbt parses as exact decimal with quarantine-on-malformed (e.g. SERVERLESS_TASK_HISTORY.CREDITS_USED)."
+        },
+        "float_exception": {
+          "type": "boolean",
+          "description": "Documented FLOAT source kept as float64 (ING-003-S04 guard allowlist); never money."
+        },
+        "vendor_fact": {
+          "$ref": "#/$defs/vendor_fact_status"
+        },
+        "requested_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+          },
+          "uniqueItems": true
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "extractor_column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transport_name",
+        "arrow_type",
+        "raw_type",
+        "nullable",
+        "privacy_class",
+        "rule",
+        "owner_task"
+      ],
+      "properties": {
+        "transport_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "arrow_type": {
+          "type": "string"
+        },
+        "raw_type": {
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "privacy_class": {
+          "$ref": "#/$defs/privacy_class"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "owner_task": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+        }
+      }
+    },
+    "anti_entropy_pass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schedule",
+        "method",
+        "window",
+        "additive_only",
+        "checksum_measures"
+      ],
+      "properties": {
+        "schedule": {
+          "enum": [
+            "DAILY",
+            "WEEKLY",
+            "MONTHLY_DAY_3",
+            "MONTHLY"
+          ]
+        },
+        "method": {
+          "enum": [
+            "RESNAPSHOT",
+            "CHECKSUM"
+          ]
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "n"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "LAST_N_DAYS",
+                "PREVIOUS_MONTH",
+                "OPEN_AND_PREVIOUS_MONTH_UNTIL_STABLE",
+                "LAST_N_MONTHS"
+              ]
+            },
+            "n": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 400
+            }
+          }
+        },
+        "additive_only": {
+          "type": "boolean",
+          "description": "true for EVENT_UPSERT sources: re-extraction of mismatched days upserts and never deletes (G-ING-07)."
+        },
+        "checksum_measures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Aggregates compared per END_TIME/partition day for CHECKSUM passes."
+        }
+      }
+    },
+    "test_case": {
+      "enum": [
+        "EMPTY_AUTHORIZED_WINDOW",
+        "MISSING_GRANT",
+        "MISSING_OPTIONAL_COLUMN",
+        "MISSING_KEY",
+        "DECIMAL_TYPE_EDGE",
+        "DUPLICATE_PHYSICAL_ATTEMPT",
+        "SAME_KEY_REVISED_MEASURE",
+        "COMPLETE_PARTITION_DELETED_ROW",
+        "LATE_DATA_BEYOND_SETTLE",
+        "RETENTION_CLAMP",
+        "ACCOUNT_RENAME",
+        "TENANT_ID_COLLISION",
+        "REPLAY_PRIOR_SCHEMA_VERSION",
+        "LONG_QUERY_OVER_2H",
+        "LONG_QUERY_OVER_15H",
+        "NO_FLOAT_FOR_NUMBER",
+        "TIMESTAMP_LTZ_LOGICAL_TYPE",
+        "SILENT_EMPTY_SUSPECT",
+        "PER_ACCOUNT_FINGERPRINT_BCR",
+        "NATIVE_UNIT_TOTALS",
+        "INDEPENDENT_BILLING_COMPARISON",
+        "PRE_ENROLLMENT_UNAVAILABLE",
+        "PENDING_REFRESH_CLOSE",
+        "PRIVACY_SENTINEL",
+        "BRIDGE_OVERHEAD_FLAG",
+        "TIER_PROJECTION",
+        "EFFECTIVE_DATED_AUTHORITY",
+        "EDITION_GATED_NOT_SUPPORTED",
+        "KEY_UNIQUENESS_7D"
+      ]
+    },
+    "verification_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified_at",
+        "environment",
+        "estate_account_alias",
+        "edition",
+        "cloud_region",
+        "describe_sha256",
+        "bounded_select_query_id",
+        "key_uniqueness",
+        "observed_latency_seconds_p99",
+        "retention_min_watermark",
+        "wif_extraction_batch_id",
+        "replay_fixture_ref",
+        "test_matrix_results",
+        "evidence_ref",
+        "reviewer"
+      ],
+      "properties": {
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "environment": {
+          "enum": [
+            "DEV",
+            "STAGING",
+            "PROD"
+          ]
+        },
+        "estate_account_alias": {
+          "type": "string",
+          "pattern": "^INF101-[A-Z0-9-]+$",
+          "description": "INF-101 estate alias, never a real locator."
+        },
+        "edition": {
+          "enum": [
+            "STANDARD",
+            "ENTERPRISE",
+            "BUSINESS_CRITICAL",
+            "VPS"
+          ]
+        },
+        "cloud_region": {
+          "type": "string"
+        },
+        "describe_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bounded_select_query_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "key_uniqueness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window_days",
+            "duplicate_key_rows",
+            "resolution"
+          ],
+          "properties": {
+            "window_days": {
+              "type": "integer",
+              "minimum": 7
+            },
+            "duplicate_key_rows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resolution": {
+              "type": "string"
+            }
+          }
+        },
+        "observed_latency_seconds_p99": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "retention_min_watermark": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "wif_extraction_batch_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "replay_fixture_ref": {
+          "type": "string"
+        },
+        "test_matrix_results": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_RUN"
+            ]
+          }
+        },
+        "evidence_ref": {
+          "type": "string",
+          "pattern": "^docs/evidence/(ING|CON|INS|FIN)-[0-9]{3}/"
+        },
+        "reviewer": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "x-bridge-loader-rules": [
+    {
+      "id": "LR-01",
+      "rule": "schema_major equals the MAJOR component of contract_version."
+    },
+    {
+      "id": "LR-02",
+      "rule": "first_delay_seconds <= settle_seconds."
+    },
+    {
+      "id": "LR-03",
+      "rule": "settle_seconds >= documented_latency_seconds when documented_latency_seconds is not null (a pass schedule shorter than the documented latency is rejected)."
+    },
+    {
+      "id": "LR-04",
+      "rule": "END_TIME_SWEEP: watermark_column and pruning_column are projected (by source name) and not nullable; predicate_template contains '<watermark_column> >= :ws AND <watermark_column> < :we' and '<pruning_column> >= DATEADD(day, -<pruning_horizon_days>, :ws)'."
+    },
+    {
+      "id": "LR-05",
+      "rule": "Every key, snapshot_key and partition_key.column names a projected transport_name whose nullable=false."
+    },
+    {
+      "id": "LR-06",
+      "rule": "transport_name values are unique after case folding across projection, extractor_columns, technical columns (_transport.v1.yaml) and extension schemas; no projection transport_name equals a technical column name."
+    },
+    {
+      "id": "LR-07",
+      "rule": "primary_measure.expression references only projected transport names (or COUNT(*)); anti_entropy checksum_measures reference only projected source column names (they run in the customer warehouse)."
+    },
+    {
+      "id": "LR-08",
+      "rule": "source_id is unique across the registry; the file name is lower(source_id) + '.v' + schema_major + '.yaml'."
+    },
+    {
+      "id": "LR-09",
+      "rule": "health numbers equal the formula of ING §3.6 computed from first_delay_seconds and window_steady_seconds (source-health.v1.yaml)."
+    },
+    {
+      "id": "LR-10",
+      "rule": "Sources whose key includes a metering hour (AU_QUERY_METERING_HISTORY) must list query_metering_hour in key (ING-001-S08 QMH grain oracle)."
+    },
+    {
+      "id": "LR-11",
+      "rule": "authority.measure_roles containing CHARGE is forbidden for SNOWFLAKE.ORGANIZATION_USAGE.MONETIZED_USAGE_DAILY and any provider or disbursement view (G-FIN-05)."
+    },
+    {
+      "id": "LR-12",
+      "rule": "maturity horizons are >= settle_seconds; numbers equal the matching ref_source_maturity_policy row (FIN-104)."
+    },
+    {
+      "id": "LR-13",
+      "rule": "arrow_type and raw_type equal the _transport.v1.yaml type map for (snowflake_type, precision, scale) unless exact_decimal_parse or float_exception is true; no 'double' arrow type unless float_exception=true (ING-003-S04)."
+    },
+    {
+      "id": "LR-14",
+      "rule": "transport_schema.fingerprint equals bridge-transport-fingerprint-v1 recomputed from the file."
+    },
+    {
+      "id": "LR-15",
+      "rule": "query_detail_tiering is required when any projection column has tier HOT or COLD; HOT columns use privacy_action TIER_WINDOW, COLD columns use DROP."
+    },
+    {
+      "id": "LR-16",
+      "rule": "The predicate and projection never produce 'SELECT *'; identifiers are emitted from registry constants only (ING-001-S04)."
+    }
+  ]
+}

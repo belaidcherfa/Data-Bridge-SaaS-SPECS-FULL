@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.ops.support_grant.status_changed:v1",
+  "$comment": "contract=event-bridge.ops.support_grant.status_changed version=1 status=DRAFT owner_task=SEC-104 decisions=D-25 last_changed=2026-09-28",
+  "title": "bridge.ops.support_grant.status_changed v1 payload",
+  "description": "A support access grant changed status (support_access.yaml); activation creates and end removes the synthetic SUPPORT membership.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grant_id",
+    "from_status",
+    "to_status",
+    "event",
+    "support_scopes",
+    "starts_at",
+    "expires_at",
+    "approval_mode",
+    "revoke_reason_code"
+  ],
+  "properties": {
+    "grant_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "REQUESTED",
+        "APPROVED",
+        "ACTIVE",
+        "DENIED",
+        "CANCELLED",
+        "REVOKED",
+        "EXPIRED",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "REQUESTED",
+        "APPROVED",
+        "ACTIVE",
+        "DENIED",
+        "CANCELLED",
+        "REVOKED",
+        "EXPIRED"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "event": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[a-z_]+$"
+    },
+    "support_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "health_read",
+          "analytics_read"
+        ]
+      },
+      "x-privacy": "INTERNAL"
+    },
+    "starts_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "approval_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "MEMBER",
+        "AUTO_POLICY_HEALTH_READ",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "revoke_reason_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "CUSTOMER_REVOKED",
+        "OPERATOR_DONE",
+        "SECURITY_CONTAINMENT",
+        "TENANT_SUSPENDED",
+        "TENANT_OFFBOARDING",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "grant_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e34",
+      "from_status": "APPROVED",
+      "to_status": "ACTIVE",
+      "event": "activated",
+      "support_scopes": [
+        "health_read"
+      ],
+      "starts_at": "2026-10-05T09:00:00.000Z",
+      "expires_at": "2026-10-05T13:00:00.000Z",
+      "approval_mode": "MEMBER",
+      "revoke_reason_code": null
+    }
+  ]
+}

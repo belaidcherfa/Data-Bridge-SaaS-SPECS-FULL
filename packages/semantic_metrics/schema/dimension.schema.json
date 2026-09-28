@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:semantic:dimension:v1",
+  "$comment": "contract=semantic-dimension-schema version=1 status=DRAFT owner_task=API-001 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28 canonical=docs/09-api/semantic-api.md backlog=docs/22-implementation-readiness/backlog/API.md#3.2 (catalog), G-API-10 (autocomplete), SEC Appendix A.4/G.2 (entitlement, pseudonyms)",
+  "title": "SemanticDimension",
+  "description": "One registry dimension (packages/semantic_metrics/dimensions/<id>.yaml): type, cardinality class, entitlement flag, PII flag (D-10), hierarchy, autocomplete and per-relation column bindings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "release",
+    "label_key",
+    "description_key",
+    "kind",
+    "value_type",
+    "cardinality_class",
+    "entitlement",
+    "privacy",
+    "filter_ops",
+    "autocomplete",
+    "label",
+    "bindings",
+    "owner_task"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "DEPRECATED",
+        "RETIRED"
+      ]
+    },
+    "release": {
+      "enum": [
+        "R1",
+        "R2"
+      ]
+    },
+    "label_key": {
+      "type": "string",
+      "pattern": "^dimension\\.[a-z0-9_]+\\.label$"
+    },
+    "description_key": {
+      "type": "string",
+      "pattern": "^dimension\\.[a-z0-9_]+\\.description$"
+    },
+    "group": {
+      "enum": [
+        "TIME",
+        "BILLING",
+        "RESOURCE",
+        "ACTOR",
+        "WORKLOAD",
+        "OWNERSHIP",
+        "QUALITY"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "TIME",
+        "ENTITY",
+        "ENUM",
+        "BOOLEAN",
+        "ATTRIBUTE"
+      ],
+      "description": "ENTITY: opaque internal id with a dictionary label; ENUM: closed value set with i18n labels; ATTRIBUTE: free string value (e.g. region, role name)."
+    },
+    "value_type": {
+      "enum": [
+        "DATE",
+        "UUID",
+        "STRING",
+        "ENUM",
+        "BOOLEAN",
+        "HASH"
+      ]
+    },
+    "enum_values": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9][A-Z0-9_]*$"
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grain",
+        "truncation"
+      ],
+      "properties": {
+        "grain": {
+          "enum": [
+            "DAY",
+            "WEEK",
+            "MONTH"
+          ]
+        },
+        "truncation": {
+          "type": "string",
+          "description": "Normative truncation of the relation time column (UTC; ISO week starting Monday, WEEK_START=1)."
+        },
+        "derivable_from": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "DAY",
+              "HOUR"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "cardinality_class": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "description": "LOW ≤ 100 values per tenant, MEDIUM ≤ 10,000, HIGH above. HIGH dimensions require autocomplete.min_prefix ≥ 2 and route to async beyond records_sync_max_range_days (planner_limits.yaml)."
+    },
+    "entitlement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_entitlement_dimension"
+      ],
+      "properties": {
+        "is_entitlement_dimension": {
+          "type": "boolean",
+          "description": "Dimension of the SEC-101 scope grammar (organization, account, group_set, group). Filters on it are intersected with the caller's scope; unauthorized values are dropped with one count-free FILTER_VALUES_UNAVAILABLE warning."
+        },
+        "scope_grammar_dimension": {
+          "enum": [
+            "organization",
+            "account",
+            "group_set",
+            "group"
+          ]
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class"
+      ],
+      "properties": {
+        "class": {
+          "enum": [
+            "PUBLIC",
+            "INTERNAL",
+            "CUSTOMER_METADATA",
+            "PERSONAL"
+          ],
+          "description": "CONVENTIONS §12."
+        },
+        "pseudonymized": {
+          "type": "boolean",
+          "default": false,
+          "description": "Value is a D-10 pseudonym (u1_…); display names are resolved in the API after the Snowflake query only for callers holding resolve_capability."
+        },
+        "resolve_capability": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+        },
+        "group_by_capability": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
+          "description": "Capability required to group by this dimension at all."
+        }
+      }
+    },
+    "hierarchy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent",
+        "level"
+      ],
+      "properties": {
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ancestor_dimension": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Dimension exposing rollups per ancestor (group → group_ancestor)."
+        }
+      }
+    },
+    "filter_ops": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "EQ",
+          "IN",
+          "NOT_IN",
+          "PREFIX",
+          "IS_NULL",
+          "IS_NOT_NULL",
+          "BETWEEN"
+        ]
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "max_filter_values": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500,
+      "default": 500
+    },
+    "autocomplete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "min_prefix": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "source_relation": {
+          "type": "string",
+          "pattern": "^v_[a-z0-9_]+$",
+          "description": "Policy-protected relation queried through the broker (never an unscoped PG list, SEC Appendix A.4 (5))."
+        },
+        "match_column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "min_prefix",
+              "max_results",
+              "source_relation",
+              "match_column"
+            ]
+          }
+        }
+      ]
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "VALUE",
+            "ENUM_I18N",
+            "DICTIONARY_RELATION",
+            "PG_IDENTITY_DICTIONARY",
+            "TIME_FORMAT"
+          ]
+        },
+        "relation": {
+          "type": "string",
+          "pattern": "^v_[a-z0-9_]+$"
+        },
+        "key_column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "label_column": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "i18n_prefix": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "DICTIONARY_RELATION"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "relation",
+              "key_column",
+              "label_column"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "ENUM_I18N"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "i18n_prefix"
+            ]
+          }
+        }
+      ]
+    },
+    "sentinels": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "__UNATTRIBUTED__",
+          "__UNALLOCATED__",
+          "__SHARED__",
+          "__NO_HASH__",
+          "__OTHER__",
+          "__UNKNOWN__",
+          "__ORGANIZATION__"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Sentinel values the dimension can carry; rendered with i18n labels (dimension.sentinel.<VALUE>)."
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "relation",
+          "column_ref"
+        ],
+        "properties": {
+          "relation": {
+            "type": "string",
+            "pattern": "^v_[a-z0-9_]+$"
+          },
+          "column_ref": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "join_path": {
+            "type": "string",
+            "pattern": "^jp_[a-z0-9_]+$"
+          },
+          "expression": {
+            "enum": [
+              "COLUMN",
+              "DATE_TRUNC_WEEK",
+              "DATE_TRUNC_MONTH",
+              "DATE_OF_TIMESTAMP"
+            ],
+            "default": "COLUMN"
+          }
+        }
+      }
+    },
+    "sortable": {
+      "type": "boolean",
+      "default": true
+    },
+    "owner_task": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "ENUM"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "enum_values"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "TIME"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "time"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cardinality_class": {
+            "const": "HIGH"
+          },
+          "autocomplete": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "autocomplete": {
+            "properties": {
+              "min_prefix": {
+                "minimum": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "privacy"
+        ],
+        "properties": {
+          "privacy": {
+            "required": [
+              "pseudonymized"
+            ],
+            "properties": {
+              "pseudonymized": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "privacy": {
+            "required": [
+              "resolve_capability"
+            ],
+            "properties": {
+              "class": {
+                "const": "PERSONAL"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

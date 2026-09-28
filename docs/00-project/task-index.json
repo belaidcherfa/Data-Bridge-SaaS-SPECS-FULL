@@ -3,6 +3,9 @@
   "product": "Bridge Data FinOps",
   "work_type": "implementation_plan",
   "implementation_status": "NOT_STARTED",
+  "superseded_by": "docs/22-implementation-readiness/revised-task-graph.json",
+  "superseded_on": "2026-09-28",
+  "superseded_note": "Historical baseline. Execute from the revised task graph and docs/22-implementation-readiness/backlog/ per the recorded decision record.",
   "task_count": 151,
   "topological_order": [
     "FND-001",

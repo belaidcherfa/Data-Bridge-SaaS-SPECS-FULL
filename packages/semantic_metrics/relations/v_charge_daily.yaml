@@ -1,0 +1,131 @@
+# contract=semantic-relation:v_charge_daily version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_daily_charge
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_charge_daily
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: Active fct_charge rows (D-12 fine bucket grain, family-bucket supersession applied) at the pinned publication. `spend` is Σ cost_effective here; resource groupings are substituted
+  by attributed_cost (G-API-02). Organization-scope rows (account_id NULL) are readable only by profiles whose clause has an unrestricted account on that organization (G-FIN-25).
+serving_view: bridge.serving.serving_daily_charge
+dataset_id: charge_daily
+dbt_model: serving_daily_charge
+upstream_owner_tasks: [FIN-001, DBT-006]
+grain_keys: [tenant_id, charge_row_id]
+tenant_column: tenant_id
+time: {column: usage_date, type: DATE, grain: DAY, period_semantics: USAGE_DATE}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [ou.usage_in_currency_daily, au.metering_daily_history, ou.rate_sheet_daily]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL, description: UTC billing day.}
+- {name: charge_row_id, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL, description: sha256(bucket_key ␟ revision_id) (FIN §3.1).}
+- {name: bucket_key, type: VARCHAR(64), nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- {name: family_bucket_key, type: VARCHAR(64), nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- name: scope_kind
+  type: VARCHAR(12)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [ACCOUNT, ORGANIZATION]
+- {name: account_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: Internal account id; NULL iff scope_kind = ORGANIZATION (D-12).}
+- {name: region, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA, description: Snowflake region id of the account (e.g. AWS_EU_CENTRAL_1); NULL for organization-scope
+    rows.}
+- name: cloud
+  type: VARCHAR(8)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [AWS, AZURE, GCP]
+- name: service_family
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [WAREHOUSE_COMPUTE, CLOUD_SERVICES, STORAGE, SNOWPIPE_FILE, SNOWPIPE_STREAMING, SERVERLESS_TASK, SERVERLESS_ALERT, AUTO_CLUSTERING, SEARCH_OPTIMIZATION, MATERIALIZED_VIEW,
+    QUERY_ACCELERATION, AI_SERVICES, SPCS, DATA_TRANSFER, REPLICATION, MARKETPLACE, ORGANIZATION_FEES, ADJUSTMENTS, HYBRID_TABLE_REQUESTS, UNMAPPED_BILLABLE_SERVICE]
+  description: FIN crosswalk family (ref_service_crosswalk, crosswalk_version on the charge).
+- name: service_category
+  type: VARCHAR
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [COMPUTE, CLOUD_SERVICES, STORAGE, SERVERLESS, AI, SPCS, DATA_TRANSFER, REPLICATION, APPLICATIONS_MARKETPLACE, ORGANIZATION, ADJUSTMENT, OTHER]
+  description: Deterministic grouping of service_family (dimensions/service_category.yaml).
+- {name: service_type, type: VARCHAR, nullable: false, role: DIMENSION, privacy: INTERNAL, description: 'Raw Snowflake SERVICE_TYPE (service_type_raw), upper-cased and trimmed.'}
+- {name: sub_service, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL, description: Raw USAGE_TYPE (usage_type_raw) or the AI/serverless sub-type where the source provides
+    it.}
+- {name: rating_type, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: billing_type, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: balance_source, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: is_adjustment, type: BOOLEAN, nullable: false, role: DIMENSION, privacy: INTERNAL}
+- name: entry_kind
+  type: VARCHAR
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [CONSUMPTION, ADJUSTMENT, FEE, CREDIT, PRIOR_PERIOD_ADJUSTMENT, UNMAPPED]
+- name: funding_class
+  type: VARCHAR
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [CONTRACT, FREE, REBATE, ON_DEMAND, UNKNOWN]
+- name: measure_role
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [CHARGE]
+  description: Always CHARGE in this relation.
+- name: price_basis
+  type: VARCHAR(32)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [BILLED_SOURCE, CONTRACT_RATE_ESTIMATE, CUSTOMER_APPROVED_RATE, UNKNOWN]
+- name: native_unit
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [CREDIT, TB_MONTH, TB, CURRENCY, UNIT]
+- {name: quantity, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: credits, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: NULL for non-credit families.}
+- {name: effective_credits, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Adjusted billed credits (credit-rated families only).}
+- {name: cost_effective, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Signed money; NULL iff null_reason IS NOT NULL.}
+- {name: currency, type: VARCHAR(3), nullable: false, role: DIMENSION, privacy: INTERNAL, description: ISO 4217 currency of the money columns of the row.}
+- {name: null_reason, type: VARCHAR, nullable: true, role: STATUS, privacy: INTERNAL, description: 'FIN null reason (RATE_MISSING, RATE_AMBIGUOUS, BILLING_UNAVAILABLE, …) mapped to API
+    NullReason NO_PRICE.'}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- name: period_stability
+  type: VARCHAR(8)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [OPEN, STABLE]
+- {name: accounting_period, type: VARCHAR(7), nullable: false, role: DIMENSION, privacy: INTERNAL, description: YYYY-MM; differs from month(usage_date) only for PRIOR_PERIOD_ADJUSTMENT.}
+- {name: account_connected, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL}
+- {name: is_trial_account, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: 'D-35: TRUE for Snowflake trial accounts (demonstration only); excluded from reconciliation
+    claims.'}
+- {name: flags, type: ARRAY, nullable: true, role: FLAG, privacy: INTERNAL}
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.commercial.plan.published:v1",
+  "$comment": "contract=event-bridge.commercial.plan.published version=1 status=DRAFT owner_task=LCH-101 decisions=D-17 last_changed=2026-09-28",
+  "title": "bridge.commercial.plan.published v1 payload",
+  "description": "A plan version was published (platform event, tenant_id null).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_id",
+    "plan_version",
+    "plan_key",
+    "kind"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "plan_version": {
+      "type": "integer",
+      "x-privacy": "INTERNAL",
+      "minimum": 1
+    },
+    "plan_key": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "PILOT",
+        "COMMERCIAL"
+      ],
+      "x-privacy": "INTERNAL"
+    }
+  },
+  "examples": [
+    {
+      "plan_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e21",
+      "plan_version": 2,
+      "plan_key": "COMMERCIAL_STANDARD",
+      "kind": "COMMERCIAL"
+    }
+  ]
+}

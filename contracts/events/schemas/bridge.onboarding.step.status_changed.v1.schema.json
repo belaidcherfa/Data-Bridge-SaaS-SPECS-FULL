@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.step.status_changed:v1",
+  "$comment": "contract=event-bridge.onboarding.step.status_changed version=1 status=DRAFT owner_task=ONB-001 decisions=D-08,D-35 last_changed=2026-09-28",
+  "title": "bridge.onboarding.step.status_changed v1 payload",
+  "description": "A projected step status changed (emitted only on change, never on identical recomputation).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "step_key",
+    "account_id",
+    "from_status",
+    "to_status",
+    "status_code",
+    "computed_at",
+    "source_versions_sha256"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "step_key": {
+      "type": "string",
+      "enum": [
+        "ORG_CREATED",
+        "SNOWFLAKE_ORG_CONNECTED",
+        "ACCOUNTS_DISCOVERED",
+        "ACCOUNTS_SELECTED",
+        "ACCOUNT_WIF_INSTALLED",
+        "CAPABILITIES_VERIFIED",
+        "HISTORY_PLAN_ACCEPTED",
+        "HISTORY_SYNCED",
+        "RECONCILED",
+        "OWNERSHIP_CLASSIFIED",
+        "ALLOCATION_SIMULATED",
+        "BUDGET_CREATED",
+        "MONITORS_CREATED",
+        "INSIGHT_REVIEWED",
+        "FIRST_VALUE_PACK"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "account_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "x-privacy": "INTERNAL"
+    },
+    "from_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "BLOCKED_BY_PREREQ",
+        "READY",
+        "IN_PROGRESS",
+        "WAITING_ON_CUSTOMER",
+        "WAITING_ON_SYSTEM",
+        "COMPLETED",
+        "COMPLETED_WITH_LIMITATIONS",
+        "FAILED",
+        "BLOCKED",
+        "SKIPPED_OPTIONAL",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "to_status": {
+      "type": "string",
+      "enum": [
+        "BLOCKED_BY_PREREQ",
+        "READY",
+        "IN_PROGRESS",
+        "WAITING_ON_CUSTOMER",
+        "WAITING_ON_SYSTEM",
+        "COMPLETED",
+        "COMPLETED_WITH_LIMITATIONS",
+        "FAILED",
+        "BLOCKED",
+        "SKIPPED_OPTIONAL"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "status_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "x-privacy": "INTERNAL",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "computed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "x-privacy": "INTERNAL"
+    },
+    "source_versions_sha256": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "step_key": "CAPABILITIES_VERIFIED",
+      "account_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e02",
+      "from_status": "COMPLETED",
+      "to_status": "FAILED",
+      "status_code": "MISSING_GRANT_QUERY_HISTORY",
+      "computed_at": "2026-10-04T10:01:12.345Z",
+      "source_versions_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

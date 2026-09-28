@@ -1,0 +1,58 @@
+# contract=state-machine-destination version=1 status=DRAFT owner_task=GOV-006 decisions=D-20,D-23 last_changed=2026-09-28
+# Notification destination (monitor.destination): EMAIL (SES), SLACK (OAuth v2 bot token), TEAMS (Workflows
+# webhook + Adaptive Card), WEBHOOK (Standard Webhooks v1). All four are R1 (D-20). Secrets live only in AWS
+# Secrets Manager under /bridge/{env}/tenant/{tenant_id}/destination/{id} (secret_ref); never in PostgreSQL,
+# logs or API responses. UI labels: CONFIGURED = "configured", VERIFIED = "verified", DEGRADED = "degraded".
+# Sources: backlog/GOV.md G-GOV-09..G-GOV-12, GOV-006-S01..S13, GOV-007-S04.
+machine: destination
+version: 1
+owner_task: GOV-006
+entity: monitor.destination
+state_field: status
+initial: CONFIGURED
+terminal: [DELETED]
+states:
+  CONFIGURED: {description: "Created or updated (new version) and statically validated (URL rules, Slack channel via conversations.info, email recipients are verified tenant members). No accepted delivery yet for this version."}
+  VERIFIED: {description: "At least one ACCEPTED/ACCEPTED_BY_PROVIDER delivery or requested test for the current version."}
+  DEGRADED: {description: "≥ 3 consecutive TRANSIENT/RATE_LIMITED final attempts or a delivery went DEAD for transient reasons; still dispatching."}
+  PAUSED: {description: "No dispatch. status_reason = remediation code (PERMANENT_4XX, WORKFLOW_DISABLED_OR_OWNER_REMOVED, REDIRECT_NOT_ALLOWED, ADDRESS_DENIED, USER_PAUSED, SCOPE_REVOKED). Pending deliveries go DEAD(DESTINATION_PAUSED) and are replayable after the fix."}
+  REVOKED: {description: "Provider revoked access (Slack tokens_revoked/app_uninstalled/invalid_auth/token_revoked). Requires reinstall or reconfiguration."}
+  DELETED: {description: "Soft-deleted; secret scheduled for deletion; history retained for delivery audit."}
+transitions:
+  - {from: CONFIGURED, to: VERIFIED, event: delivery_accepted, actors: ["system:notification-dispatcher"], guards: [attempt_for_current_version], effects: [set_verified_at, emit:bridge.governance.destination.verified]}
+  - {from: CONFIGURED, to: CONFIGURED, event: updated, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [new_destination_version, emit:bridge.governance.destination.updated]}
+  - {from: VERIFIED, to: CONFIGURED, event: updated, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [new_destination_version, emit:bridge.governance.destination.updated]}
+  - {from: DEGRADED, to: CONFIGURED, event: updated, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [new_destination_version, emit:bridge.governance.destination.updated]}
+  - {from: VERIFIED, to: DEGRADED, event: transient_failures_threshold, actors: ["system:notification-dispatcher"], guards: [three_consecutive_transient_finals], effects: [notify:destination_owner, emit:bridge.governance.destination.degraded]}
+  - {from: DEGRADED, to: VERIFIED, event: delivery_accepted, actors: ["system:notification-dispatcher"], guards: [], effects: [reset_failure_counter, emit:bridge.governance.destination.verified]}
+  - {from: CONFIGURED, to: PAUSED, event: permanent_failure, actors: ["system:notification-dispatcher"], guards: [], effects: [set_status_reason, dead_letter_pending:DESTINATION_PAUSED, notify:destination_owner, emit:bridge.governance.destination.paused]}
+  - {from: VERIFIED, to: PAUSED, event: permanent_failure, actors: ["system:notification-dispatcher"], guards: [], effects: [set_status_reason, dead_letter_pending:DESTINATION_PAUSED, notify:destination_owner, emit:bridge.governance.destination.paused]}
+  - {from: DEGRADED, to: PAUSED, event: permanent_failure, actors: ["system:notification-dispatcher"], guards: [], effects: [set_status_reason, dead_letter_pending:DESTINATION_PAUSED, notify:destination_owner, emit:bridge.governance.destination.paused]}
+  - {from: CONFIGURED, to: PAUSED, event: paused_by_user, actors: [notification.destination.manage], guards: [], effects: ["set_status_reason:USER_PAUSED", emit:bridge.governance.destination.paused]}
+  - {from: VERIFIED, to: PAUSED, event: paused_by_user, actors: [notification.destination.manage], guards: [], effects: ["set_status_reason:USER_PAUSED", emit:bridge.governance.destination.paused]}
+  - {from: DEGRADED, to: PAUSED, event: paused_by_user, actors: [notification.destination.manage], guards: [], effects: ["set_status_reason:USER_PAUSED", emit:bridge.governance.destination.paused]}
+  - {from: CONFIGURED, to: PAUSED, event: authorized_scope_revoked, actors: ["system:membership-watcher"], guards: [creator_scope_no_longer_covers_authorized_scope], effects: ["set_status_reason:SCOPE_REVOKED", notify:tenant_admins, emit:bridge.governance.destination.paused]}
+  - {from: VERIFIED, to: PAUSED, event: authorized_scope_revoked, actors: ["system:membership-watcher"], guards: [creator_scope_no_longer_covers_authorized_scope], effects: ["set_status_reason:SCOPE_REVOKED", notify:tenant_admins, emit:bridge.governance.destination.paused]}
+  - {from: DEGRADED, to: PAUSED, event: authorized_scope_revoked, actors: ["system:membership-watcher"], guards: [creator_scope_no_longer_covers_authorized_scope], effects: ["set_status_reason:SCOPE_REVOKED", notify:tenant_admins, emit:bridge.governance.destination.paused]}
+  - {from: PAUSED, to: CONFIGURED, event: resumed, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [clear_status_reason, emit:bridge.governance.destination.resumed]}
+  - {from: PAUSED, to: CONFIGURED, event: updated, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [new_destination_version, clear_status_reason, emit:bridge.governance.destination.updated]}
+  - {from: CONFIGURED, to: REVOKED, event: provider_revoked, actors: ["system:slack-events", "system:notification-dispatcher"], guards: [], effects: [dead_letter_pending:DESTINATION_REVOKED, notify:destination_owner, emit:bridge.governance.destination.revoked]}
+  - {from: VERIFIED, to: REVOKED, event: provider_revoked, actors: ["system:slack-events", "system:notification-dispatcher"], guards: [], effects: [dead_letter_pending:DESTINATION_REVOKED, notify:destination_owner, emit:bridge.governance.destination.revoked]}
+  - {from: DEGRADED, to: REVOKED, event: provider_revoked, actors: ["system:slack-events", "system:notification-dispatcher"], guards: [], effects: [dead_letter_pending:DESTINATION_REVOKED, notify:destination_owner, emit:bridge.governance.destination.revoked]}
+  - {from: PAUSED, to: REVOKED, event: provider_revoked, actors: ["system:slack-events"], guards: [], effects: [emit:bridge.governance.destination.revoked]}
+  - {from: REVOKED, to: CONFIGURED, event: reinstalled, actors: [notification.destination.manage], guards: [config_valid, authorized_scope_within_actor_scope], effects: [new_destination_version, emit:bridge.governance.destination.updated]}
+  - {from: CONFIGURED, to: DELETED, event: deleted, actors: [notification.destination.manage], guards: [], effects: [cancel_pending_deliveries, schedule_secret_deletion, emit:bridge.governance.destination.deleted]}
+  - {from: VERIFIED, to: DELETED, event: deleted, actors: [notification.destination.manage], guards: [], effects: [cancel_pending_deliveries, schedule_secret_deletion, emit:bridge.governance.destination.deleted]}
+  - {from: DEGRADED, to: DELETED, event: deleted, actors: [notification.destination.manage], guards: [], effects: [cancel_pending_deliveries, schedule_secret_deletion, emit:bridge.governance.destination.deleted]}
+  - {from: PAUSED, to: DELETED, event: deleted, actors: [notification.destination.manage], guards: [], effects: [cancel_pending_deliveries, schedule_secret_deletion, emit:bridge.governance.destination.deleted]}
+  - {from: REVOKED, to: DELETED, event: deleted, actors: [notification.destination.manage], guards: [], effects: [cancel_pending_deliveries, schedule_secret_deletion, emit:bridge.governance.destination.deleted]}
+guards:
+  attempt_for_current_version: "The accepted attempt used destination_version = current version."
+  config_valid: "Type-specific validation: EMAIL recipients are ACTIVE tenant members with verified email and not suppressed; SLACK channel resolvable by conversations.info with the installation's bot token and the bot is a member for private channels; TEAMS URL host ends with .environment.api.powerplatform.com, path starts /powerautomate/automations/direct/workflows/ (logic.azure.com → 422 GOV_TEAMS_LEGACY_URL); WEBHOOK URL passes the SSRF validator (docs/12-budgets-monitoring/ssrf-validator.md, else 422 GOV_WEBHOOK_URL_FORBIDDEN)."
+  authorized_scope_within_actor_scope: "authorized_scope = the creator's scope (or a narrower one); revalidated on every update and at send time."
+  three_consecutive_transient_finals: "consecutive_transient_failures >= 3."
+  creator_scope_no_longer_covers_authorized_scope: "The authorizing member lost the scope recorded as authorized_scope (permission_epoch bump)."
+invariants:
+  - "Secrets (Teams URL, webhook URL, whsec_ signing keys, Slack xoxb- tokens) are write-only: never returned by the API, never logged, never stored in PostgreSQL (CHECK on config_json)."
+  - "A requested test sends a clearly labelled TEST payload; ≤ 5 tests per destination per hour."
+  - "Each update creates a new destination version; deliveries pin destination_version at their first attempt."

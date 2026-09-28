@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:events:bridge.onboarding.intervention.recorded:v1",
+  "$comment": "contract=event-bridge.onboarding.intervention.recorded version=1 status=DRAFT owner_task=ONB-001 decisions=D-38 last_changed=2026-09-28",
+  "title": "bridge.onboarding.intervention.recorded v1 payload",
+  "description": "An operator action during onboarding was recorded as a manual intervention (G-ONB-05).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "intervention_id",
+    "step_key",
+    "reason_code",
+    "ops_call_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "intervention_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "x-privacy": "INTERNAL"
+    },
+    "step_key": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "ORG_CREATED",
+        "SNOWFLAKE_ORG_CONNECTED",
+        "ACCOUNTS_DISCOVERED",
+        "ACCOUNTS_SELECTED",
+        "ACCOUNT_WIF_INSTALLED",
+        "CAPABILITIES_VERIFIED",
+        "HISTORY_PLAN_ACCEPTED",
+        "HISTORY_SYNCED",
+        "RECONCILED",
+        "OWNERSHIP_CLASSIFIED",
+        "ALLOCATION_SIMULATED",
+        "BUDGET_CREATED",
+        "MONITORS_CREATED",
+        "INSIGHT_REVIEWED",
+        "FIRST_VALUE_PACK",
+        null
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "GRANT_FIX_ASSISTANCE",
+        "SCRIPT_EXECUTION_SUPPORT",
+        "NETWORK_ALLOWLIST_SUPPORT",
+        "BACKFILL_REPLAN",
+        "REPLAY",
+        "RECONCILIATION_INVESTIGATION",
+        "CONFIGURATION_ON_BEHALF",
+        "ENTITLEMENT_ADJUSTMENT",
+        "OTHER"
+      ],
+      "x-privacy": "INTERNAL"
+    },
+    "ops_call_id": {
+      "type": "string",
+      "x-privacy": "INTERNAL",
+      "maxLength": 128
+    }
+  },
+  "examples": [
+    {
+      "run_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e01",
+      "intervention_id": "01926f3a-8b2c-7d10-9e4f-5a6b7c8d9e12",
+      "step_key": "HISTORY_SYNCED",
+      "reason_code": "REPLAY",
+      "ops_call_id": "req_01926f3a8b2c"
+    }
+  ]
+}

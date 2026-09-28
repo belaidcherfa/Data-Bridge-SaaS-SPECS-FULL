@@ -1,0 +1,33 @@
+# contract=spectral-ruleset version=1 status=DRAFT owner_task=FND-103 last_changed=2026-09-28
+extends: ["spectral:oas"]
+rules:
+  bridge-paths-kebab-case:
+    description: Path segments are kebab-case (CONVENTIONS §2).
+    given: "$.paths[*]~"
+    then: {function: pattern, functionOptions: {match: "^(/(v1|[a-z0-9-]+|\\{[a-z_]+\\}))+$"}}
+    severity: error
+  bridge-properties-snake-case:
+    description: JSON properties are snake_case.
+    given: "$..properties[*]~"
+    then: {function: pattern, functionOptions: {match: "^[a-z][a-z0-9_]*$"}}
+    severity: error
+  bridge-no-number-money:
+    description: Properties named amount/cost/*_amount must be decimal strings or Money objects, never numbers.
+    given: "$..properties[?(@property.match(/(^amount$|_amount$|^cost$|_cost$|^price$|_price$))/)]"
+    then: {field: type, function: pattern, functionOptions: {notMatch: "^(number|integer)$"}}
+    severity: error
+  bridge-problem-responses:
+    description: Every operation declares a 4xx problem response.
+    given: "$.paths[*][get,post,put,patch,delete].responses"
+    then: {function: schema, functionOptions: {schema: {anyOf: [{required: ["400"]}, {required: ["404"]}, {required: ["422"]}, {required: ["default"]}]}}}
+    severity: warn
+  bridge-tenant-header:
+    description: Tenant-scoped operations reference the X-Bridge-Tenant parameter (x-bridge-tenant-scoped true by default).
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then: {field: parameters, function: truthy}
+    severity: warn
+  bridge-operation-id:
+    description: operationId is lowerCamelCase and unique.
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then: {field: operationId, function: pattern, functionOptions: {match: "^[a-z][A-Za-z0-9]+$"}}
+    severity: error

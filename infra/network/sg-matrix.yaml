@@ -1,0 +1,430 @@
+# contract=security-group-matrix version=1 status=DRAFT owner_task=INF-002 decisions=D-07,D-22,D-28,D-33 last_changed=2026-09-28
+# Security-group matrix (INF-002-S06): source of infra/terraform/modules/security_groups and of the generated
+# docs/runbooks/sg-matrix.md. `from`/`to` are security-group names, CIDRs or AWS managed prefix lists. Rules are the
+# complete allowlist: anything not listed is denied. Reachability expectations are INF-002-S10/INF-006-S14/INF-005-S11 oracles.
+schema_version: 1
+invariants:
+- No ingress rule from 0.0.0.0/0 or ::/0 on any security group.
+- Data security groups (sg-aurora, sg-valkey, sg-endpoints) have no egress rules.
+- Only sg-alb-internal accepts traffic originating outside the VPC, and only from the CloudFront VPC-origin source.
+- No task has a public IP (Security Hub ECS.2).
+security_groups:
+- name: sg-alb-internal
+  attached_to:
+  - internal ALB
+  ingress:
+  - from: CloudFront VPC-origin source (managed prefix list com.amazonaws.global.cloudfront.origin-facing or the CloudFront VPC-origins service security group — TO VERIFY LIVE, INF-006-S07)
+    port: 443
+    protocol: tcp
+    why: /api/* from CloudFront only (D-28)
+  - from: sg-ops-bastion
+    port: 8443
+    protocol: tcp
+    why: private listener for the ops console/API (CTL-102)
+  - from: sg-runners
+    port: 443
+    protocol: tcp
+    why: post-deploy smoke tests from in-VPC runners
+  egress:
+  - to: sg-api
+    port: 8000
+    protocol: tcp
+    why: API target group
+  - to: sg-ops-api
+    port: 8000
+    protocol: tcp
+    why: ops API target group
+- name: sg-api
+  attached_to:
+  - api
+  ingress:
+  - from: sg-alb-internal
+    port: 8000
+    protocol: tcp
+    why: ALB target
+  egress:
+  - &id001
+    to: 0.0.0.0/0
+    port: 443
+    protocol: tcp
+    why: AWS APIs via NAT/endpoints, Snowflake, Cognito, VPC Lattice (443)
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - &id002
+    to: sg-valkey
+    port: 6379
+    protocol: tcp
+    why: cache (TLS)
+- name: sg-ops-api
+  attached_to:
+  - ops-api
+  ingress:
+  - from: sg-alb-internal
+    port: 8000
+    protocol: tcp
+    why: ALB private listener target
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+- name: sg-broker
+  attached_to:
+  - query-broker
+  ingress:
+  - from: VPC Lattice managed prefix list (com.amazonaws.eu-west-1.vpc-lattice)
+    port: 8443
+    protocol: tcp
+    why: Lattice service; IAM auth policy admits only api, analysis-worker, render-worker, monitor-worker, intelligence-worker, run-worker-python roles (D-22, D-33, C-09)
+  - from: sg-api, sg-workers, sg-run-workers (only when features.broker_transport = SERVICE_CONNECT_SG)
+    port: 8443
+    protocol: tcp
+    why: fallback transport
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - *id002
+- name: sg-sync-api
+  attached_to:
+  - sync-api
+  ingress:
+  - from: VPC Lattice managed prefix list (com.amazonaws.eu-west-1.vpc-lattice)
+    port: 8080
+    protocol: tcp
+    why: extractor tasks sign with their bridge-{env}-conn-* session (IAM auth policy)
+  - from: sg-extractor (only when features.broker_transport = SERVICE_CONNECT_SG)
+    port: 8080
+    protocol: tcp
+    why: fallback transport
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+- name: sg-launcher
+  attached_to:
+  - extraction-launcher
+  ingress: []
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+- name: sg-extractor
+  attached_to:
+  - extractor
+  ingress: []
+  egress:
+  - to: 0.0.0.0/0
+    port: 443
+    protocol: tcp
+    why: customer Snowflake hosts (validated in code; private/link-local IPs blocked), S3 landing via gateway endpoint, sync-api via Lattice
+- name: sg-workers
+  attached_to:
+  - receipt-consumer
+  - analysis-worker
+  - render-worker
+  - monitor-worker
+  - notification-worker
+  - intelligence-worker
+  - control-worker
+  - outbox-dispatcher
+  - authz-provisioner
+  - tenant-onboarder
+  - config-publisher
+  - audit-exporter
+  - migrate
+  - platform-cost
+  - canary
+  ingress: []
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - *id002
+- name: sg-identity-provisioner
+  attached_to:
+  - identity-provisioner
+  ingress: []
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+- name: sg-dagster-web
+  attached_to:
+  - dagster-webserver-ro
+  - dagster-webserver-admin
+  ingress:
+  - from: sg-ops-bastion
+    port: 3000
+    protocol: tcp
+    why: SSM port-forward only (G-INF-11)
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - to: sg-dagster-code
+    port: 4000
+    protocol: tcp
+    why: code-location gRPC
+- name: sg-dagster-daemon
+  attached_to:
+  - dagster-daemon
+  ingress: []
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - to: sg-dagster-code
+    port: 4000
+    protocol: tcp
+    why: code-location gRPC
+- name: sg-dagster-code
+  attached_to:
+  - dagster-code-extraction
+  - dagster-code-dbt
+  - dagster-code-intelligence
+  - dagster-code-delivery
+  - dagster-code-maintenance
+  ingress:
+  - from: sg-dagster-daemon
+    port: 4000
+    protocol: tcp
+    why: gRPC
+  - from: sg-dagster-web
+    port: 4000
+    protocol: tcp
+    why: gRPC
+  - from: sg-run-workers
+    port: 4000
+    protocol: tcp
+    why: gRPC
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+- name: sg-run-workers
+  attached_to:
+  - run-worker-dbt
+  - run-worker-python
+  ingress: []
+  egress:
+  - *id001
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL (IAM auth / rotated secret)
+  - to: sg-dagster-code
+    port: 4000
+    protocol: tcp
+    why: code-location gRPC
+- name: sg-ops-bastion
+  attached_to:
+  - ops-bastion
+  ingress: []
+  egress:
+  - to: sg-dagster-web
+    port: 3000
+    protocol: tcp
+    why: Dagster UI tunnel
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: database diagnostics tunnel (ops_readonly)
+  - to: sg-alb-internal
+    port: 8443
+    protocol: tcp
+    why: ops console
+  - to: sg-endpoints
+    port: 443
+    protocol: tcp
+    why: ssmmessages endpoint
+  - to: 0.0.0.0/0
+    port: 443
+    protocol: tcp
+    why: SSM in DEV (no endpoints)
+- name: sg-runners
+  attached_to:
+  - CodeBuild-hosted GitHub Actions runners (INF-002-S09)
+  ingress: []
+  egress:
+  - to: 0.0.0.0/0
+    port: 443
+    protocol: tcp
+    why: GitHub, AWS APIs, Snowflake (published EIPs)
+  - to: sg-aurora
+    port: 5432
+    protocol: tcp
+    why: DB bootstrap and Alembic dry-runs
+  - to: sg-alb-internal
+    port: 443
+    protocol: tcp
+    why: smoke tests
+- name: sg-aurora
+  attached_to:
+  - Aurora PostgreSQL cluster
+  ingress:
+  - from: sg-api
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-ops-api
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-broker
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-sync-api
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-launcher
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-workers
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-identity-provisioner
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-dagster-web
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-dagster-daemon
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-dagster-code
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-run-workers
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-ops-bastion
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  - from: sg-runners
+    port: 5432
+    protocol: tcp
+    why: PostgreSQL
+  egress: []
+- name: sg-valkey
+  attached_to:
+  - ElastiCache Valkey
+  ingress:
+  - from: sg-api
+    port: 6379
+    protocol: tcp
+    why: cache
+  - from: sg-broker
+    port: 6379
+    protocol: tcp
+    why: cache
+  - from: sg-workers
+    port: 6379
+    protocol: tcp
+    why: cache
+  egress: []
+- name: sg-endpoints
+  attached_to:
+  - interface endpoints (STAGING/PROD)
+  ingress:
+  - from: app subnet CIDRs (infra/network/cidr-plan.yaml tier app)
+    port: 443
+    protocol: tcp
+    why: private DNS endpoints
+  egress: []
+reachability:
+- id: R-01
+  source: internet gateway
+  destination: data-a subnet (Aurora)
+  port: 5432
+  expect: NOT_REACHABLE
+  tool: VPC Reachability Analyzer (INF-002-S10)
+- id: R-02
+  source: extractor ENI
+  destination: Aurora writer
+  port: 5432
+  expect: NOT_REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-03
+  source: api ENI
+  destination: Aurora writer
+  port: 5432
+  expect: REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-04
+  source: data-a subnet
+  destination: internet gateway
+  port: 443
+  expect: NOT_REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-05
+  source: internet
+  destination: internal ALB
+  port: 443
+  expect: NOT_REACHABLE
+  tool: external curl from GitHub-hosted runner (INF-006-S14)
+- id: R-06
+  source: api ENI
+  destination: dagster-webserver-ro
+  port: 3000
+  expect: NOT_REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-07
+  source: ops-bastion ENI
+  destination: dagster-webserver-ro
+  port: 3000
+  expect: REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-08
+  source: extractor ENI
+  destination: Valkey
+  port: 6379
+  expect: NOT_REACHABLE
+  tool: VPC Reachability Analyzer
+- id: R-09
+  source: notification-worker (sg-workers) signed request
+  destination: query-broker via Lattice
+  port: 443
+  expect: HTTP_403
+  tool: 'tests/aws/network (INF-005-S11: IAM auth policy denies a non-allowlisted worker role)'
+- id: R-10
+  source: api signed request
+  destination: query-broker via Lattice
+  port: 443
+  expect: HTTP_200
+  tool: tests/aws/network
+- id: R-11
+  source: unsigned request
+  destination: query-broker via Lattice
+  port: 443
+  expect: HTTP_403
+  tool: tests/aws/network

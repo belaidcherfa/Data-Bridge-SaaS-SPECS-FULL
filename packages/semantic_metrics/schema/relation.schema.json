@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:semantic:relation:v1",
+  "$comment": "contract=semantic-relation-schema version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28 canonical=docs/09-api/semantic-api.md backlog=API.md §3 (relations row), ADR-014 §7 (pinned reads), ADR-005 amendment §2/§7 (policies)",
+  "title": "SemanticRelation",
+  "description": "A published secure serving view the registry may read. The physical view is deployed by release migration in a versioned namespace (ADR-014 §7, REL-103) and MUST expose exactly these columns; DBT-006/API-101 check drift against INFORMATION_SCHEMA.COLUMNS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "status",
+    "release",
+    "kind",
+    "serving_view",
+    "dataset_id",
+    "grain_keys",
+    "tenant_column",
+    "time",
+    "publication",
+    "policy",
+    "tier",
+    "retention",
+    "columns",
+    "owner_task"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^v_[a-z0-9_]+$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "DEPRECATED",
+        "RETIRED"
+      ]
+    },
+    "release": {
+      "enum": [
+        "R1",
+        "R2"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "FACT",
+        "DICTIONARY",
+        "LINEAGE",
+        "RECORDS"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "serving_view": {
+      "type": "string",
+      "pattern": "^bridge\\.(serving|serving_jobs|lineage)\\.[a-z][a-z0-9_]*$",
+      "description": "Fully qualified lower-case unquoted name (CONVENTIONS §2/§11). The broker selects the namespace version from the tenant publication's serving_schema_version (RECONCILIATION C-21)."
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Dataset id in data/contracts/datasets.yaml (DBT-101-S02) used for publication-map pinning and planner statistics (ops.serving_partition_stats.dataset_id)."
+    },
+    "dbt_model": {
+      "type": "string",
+      "pattern": "^(fct|srv|serving|bridge|mart|dim|int)_[a-z0-9_]+$"
+    },
+    "upstream_owner_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+      },
+      "uniqueItems": true
+    },
+    "grain_keys": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z_][a-z0-9_]*$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Unique combination per published revision (dbt unique_combination_of_columns test in API-001-S03)."
+    },
+    "tenant_column": {
+      "const": "tenant_id"
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "column",
+        "type",
+        "grain"
+      ],
+      "properties": {
+        "column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "type": {
+          "enum": [
+            "DATE",
+            "TIMESTAMP_NTZ",
+            "NONE"
+          ]
+        },
+        "grain": {
+          "enum": [
+            "HOUR",
+            "DAY",
+            "MONTH",
+            "NONE"
+          ]
+        },
+        "period_semantics": {
+          "enum": [
+            "USAGE_DATE",
+            "START_TIME",
+            "AS_OF_DATE",
+            "PERIOD_START"
+          ],
+          "description": "Which instant places a row in a half-open [start, end) period (WRK G-WRK-11: executions belong to the period containing their start)."
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pinned",
+        "pub_from_column",
+        "pub_to_column"
+      ],
+      "properties": {
+        "pinned": {
+          "type": "boolean",
+          "description": "Rows are filtered `_pub_from <= :pin AND :pin < _pub_to` (ADR-014 §7)."
+        },
+        "pub_from_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "const": "_pub_from"
+        },
+        "pub_to_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "const": "_pub_to"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_access_policy",
+        "policy_columns"
+      ],
+      "properties": {
+        "row_access_policy": {
+          "enum": [
+            "RAP_ACCOUNT_SCOPED",
+            "RAP_GROUP_SCOPED",
+            "RAP_TENANT_ONLY",
+            "RAP_JOB_RESULT"
+          ],
+          "description": "Policy attached to the base revision table(s) (SEC Appendix A.3). RAP_JOB_RESULT: infra/snowflake/migrations/SERVING_JOBS/V0500."
+        },
+        "policy_columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "minItems": 1
+        },
+        "masking": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "column",
+              "policy"
+            ],
+            "properties": {
+              "column": {
+                "type": "string"
+              },
+              "policy": {
+                "enum": [
+                  "MP_SQL_TEXT_FULL",
+                  "MP_SQL_TEXT_SANITIZED"
+                ]
+              }
+            }
+          }
+        },
+        "readable_by": {
+          "enum": [
+            "ACCOUNT_SCOPED_PROFILES",
+            "GROUP_SCOPED_PROFILES",
+            "BOOK_WIDE_PROFILES",
+            "ALL_TENANT_PROFILES"
+          ],
+          "description": "Which profiles can read any row; drives denominator_scope evaluation."
+        }
+      }
+    },
+    "tier": {
+      "enum": [
+        "HOT",
+        "AGGREGATE",
+        "FULL"
+      ],
+      "description": "HOT: query grain within hot_days (D-11, 365 by default, plan-configurable); AGGREGATE: family × day sketches, 400 d; FULL: financial/execution facts, 400 d."
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "days",
+        "basis"
+      ],
+      "properties": {
+        "days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "basis": {
+          "enum": [
+            "HOT_DAYS_PARAMETER",
+            "FIXED",
+            "FINANCIAL_RETENTION",
+            "JOB_TTL"
+          ]
+        },
+        "reference": {
+          "type": "string"
+        }
+      }
+    },
+    "entitlement_dimensions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "organization",
+          "account",
+          "group_set",
+          "group"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "currency_column": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z_][a-z0-9_]*$"
+    },
+    "data_status_column": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z_][a-z0-9_]*$"
+    },
+    "required_sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2,4}\\.[a-z0-9_]+$"
+      },
+      "uniqueItems": true
+    },
+    "columns": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "type",
+          "nullable",
+          "role",
+          "privacy"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "type": {
+            "type": "string",
+            "pattern": "^(VARCHAR(\\([0-9]+\\))?|NUMBER\\(38,(0|12)\\)|DATE|BOOLEAN|TIMESTAMP_NTZ\\(9\\)|VARIANT|OBJECT|ARRAY|BINARY)$"
+          },
+          "nullable": {
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "KEY",
+              "TIME",
+              "DIMENSION",
+              "MEASURE",
+              "STATE",
+              "STATUS",
+              "FLAG",
+              "PROVENANCE",
+              "PUBLICATION",
+              "LABEL",
+              "TEXT"
+            ]
+          },
+          "privacy": {
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CUSTOMER_METADATA",
+              "PERSONAL",
+              "SQL_TEXT"
+            ]
+          },
+          "enum_values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "owner_task": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

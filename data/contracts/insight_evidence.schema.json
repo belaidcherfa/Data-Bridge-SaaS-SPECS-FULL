@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:insights:insight-evidence:v1",
+  "$comment": "contract=insight-evidence version=1 status=DRAFT owner_task=INS-001 decisions=D-05,D-10,D-11 last_changed=2026-09-28. Bounded evidence rows (≤ insights.evidence_max_rows = 200 per observation) ordered by sort_cost desc then stable_key (INS-001-S09). Privacy: query evidence carries query IDs and parameterized hashes only (ADR-009); sanitized SQL text is never stored in evidence and is served separately only to viewers holding sql_text.read_sanitized; user identifiers are D-10 HMAC pseudonyms, never plaintext. Landed in py_outputs.insight_evidence_r (V0701).",
+  "title": "InsightEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tenant_id", "organization_id", "account_id", "evidence_id", "observation_id", "ordinal", "evidence_type", "sort_cost", "stable_key", "payload", "revision_id"],
+  "properties": {
+    "tenant_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "organization_id": {"type": ["string", "null"], "format": "uuid", "x-privacy": "INTERNAL"},
+    "account_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "evidence_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL", "description": "UUIDv5(namespace insight_observation, observation_id␟evidence_type␟stable_key)."},
+    "observation_id": {"type": "string", "format": "uuid", "x-privacy": "INTERNAL"},
+    "ordinal": {"type": "integer", "minimum": 1, "maximum": 200, "x-privacy": "INTERNAL"},
+    "evidence_type": {"enum": ["IDLE_HOUR", "GAP_SAMPLE", "CONFIG_SNAPSHOT", "CALIBRATION_DAY", "COHORT_SUMMARY", "SIZE_MIX", "QUERY_SAMPLE", "IDENTITY_TUPLE", "CS_DAY", "CS_CONTRIBUTOR", "STORAGE_SNAPSHOT", "GENERIC_SERIES_POINT"], "x-privacy": "PUBLIC"},
+    "sort_cost": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}], "x-privacy": "INTERNAL"},
+    "stable_key": {"type": "string", "maxLength": 256, "x-privacy": "INTERNAL"},
+    "payload": {
+      "x-privacy": "CUSTOMER_METADATA",
+      "oneOf": [
+        {"$ref": "#/$defs/idle_hour"},
+        {"$ref": "#/$defs/gap_sample"},
+        {"$ref": "#/$defs/config_snapshot"},
+        {"$ref": "#/$defs/calibration_day"},
+        {"$ref": "#/$defs/cohort_summary"},
+        {"$ref": "#/$defs/size_mix"},
+        {"$ref": "#/$defs/query_sample"},
+        {"$ref": "#/$defs/identity_tuple"},
+        {"$ref": "#/$defs/cs_day"},
+        {"$ref": "#/$defs/cs_contributor"},
+        {"$ref": "#/$defs/storage_snapshot"},
+        {"$ref": "#/$defs/generic_series_point"}
+      ]
+    },
+    "revision_id": {"type": "integer", "minimum": 1, "x-privacy": "INTERNAL"}
+  },
+  "$defs": {
+    "dec": {"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"},
+    "dec_or_null": {"oneOf": [{"$ref": "urn:bridge:schema:common:money:v1#/$defs/decimal_string"}, {"type": "null"}]},
+    "ts": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "idle_hour": {"type": "object", "additionalProperties": false, "required": ["kind", "hour_start", "credits_used", "credits_attributed", "idle_credits", "idle_cost", "currency"], "properties": {"kind": {"const": "IDLE_HOUR"}, "hour_start": {"$ref": "#/$defs/ts"}, "credits_used": {"$ref": "#/$defs/dec"}, "credits_attributed": {"$ref": "#/$defs/dec_or_null"}, "idle_credits": {"$ref": "#/$defs/dec"}, "idle_cost": {"$ref": "#/$defs/dec_or_null"}, "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "residual_flag": {"type": "boolean"}}},
+    "gap_sample": {"type": "object", "additionalProperties": false, "required": ["kind", "gap_start", "gap_end", "gap_s", "next_busy_s", "saving_s", "cluster_number"], "properties": {"kind": {"const": "GAP_SAMPLE"}, "gap_start": {"$ref": "#/$defs/ts"}, "gap_end": {"$ref": "#/$defs/ts"}, "gap_s": {"type": "integer", "minimum": 0}, "next_busy_s": {"type": ["integer", "null"], "minimum": 0}, "saving_s": {"type": "integer"}, "cluster_number": {"type": ["integer", "null"]}}},
+    "config_snapshot": {"type": "object", "additionalProperties": false, "required": ["kind", "config_snapshot_id", "valid_from", "valid_from_lower_bound", "auto_suspend_s", "warehouse_size", "warehouse_type"], "properties": {"kind": {"const": "CONFIG_SNAPSHOT"}, "config_snapshot_id": {"type": "string"}, "valid_from": {"$ref": "#/$defs/ts"}, "valid_from_lower_bound": {"oneOf": [{"$ref": "#/$defs/ts"}, {"type": "null"}]}, "auto_suspend_s": {"type": ["integer", "null"], "description": "null = disabled/never"}, "warehouse_size": {"type": "string"}, "warehouse_type": {"type": "string"}, "generation": {"type": ["string", "null"]}, "min_cluster_count": {"type": ["integer", "null"]}, "max_cluster_count": {"type": ["integer", "null"]}, "scaling_policy": {"type": ["string", "null"]}}},
+    "calibration_day": {"type": "object", "additionalProperties": false, "required": ["kind", "usage_date", "modeled_credits", "metered_credits", "rel_error"], "properties": {"kind": {"const": "CALIBRATION_DAY"}, "usage_date": {"type": "string", "format": "date"}, "modeled_credits": {"$ref": "#/$defs/dec"}, "metered_credits": {"$ref": "#/$defs/dec"}, "rel_error": {"$ref": "#/$defs/dec_or_null"}}},
+    "cohort_summary": {"type": "object", "additionalProperties": false, "required": ["kind", "cohort", "start_date", "end_date", "executions", "executions_attributed", "cost", "unit_cost", "attribution_coverage", "currency"], "properties": {"kind": {"const": "COHORT_SUMMARY"}, "cohort": {"enum": ["BASELINE", "CURRENT"]}, "start_date": {"type": "string", "format": "date"}, "end_date": {"type": "string", "format": "date"}, "executions": {"type": "integer", "minimum": 0}, "executions_attributed": {"type": "integer", "minimum": 0}, "cost": {"$ref": "#/$defs/dec_or_null"}, "unit_cost": {"$ref": "#/$defs/dec_or_null"}, "attribution_coverage": {"$ref": "#/$defs/dec_or_null"}, "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "hash_version": {"type": ["integer", "null"]}}},
+    "size_mix": {"type": "object", "additionalProperties": false, "required": ["kind", "cohort", "warehouse_id", "warehouse_size", "execution_share"], "properties": {"kind": {"const": "SIZE_MIX"}, "cohort": {"enum": ["BASELINE", "CURRENT"]}, "warehouse_id": {"type": "string"}, "warehouse_size": {"type": ["string", "null"]}, "execution_share": {"$ref": "#/$defs/dec"}}},
+    "query_sample": {"type": "object", "additionalProperties": false, "required": ["kind", "query_id", "start_time", "attributed_credits"], "properties": {"kind": {"const": "QUERY_SAMPLE"}, "query_id": {"type": "string", "maxLength": 64, "x-privacy": "INTERNAL"}, "start_time": {"$ref": "#/$defs/ts"}, "attributed_credits": {"$ref": "#/$defs/dec_or_null"}, "bytes_spilled_remote": {"type": ["integer", "null"], "minimum": 0}, "bytes_spilled_local": {"type": ["integer", "null"], "minimum": 0}, "execution_time_ms": {"type": ["integer", "null"], "minimum": 0}}},
+    "identity_tuple": {"type": "object", "additionalProperties": false, "required": ["kind", "cohort", "user_pseudonym", "role_name", "warehouse_id", "execution_share"], "properties": {"kind": {"const": "IDENTITY_TUPLE"}, "cohort": {"enum": ["BASELINE", "CURRENT"]}, "user_pseudonym": {"type": ["string", "null"], "pattern": "^u1_[A-Za-z0-9_-]{8,}$", "x-privacy": "PERSONAL", "description": "D-10 HMAC pseudonym; resolved to a name only by the API for identity.resolve holders."}, "role_name": {"type": ["string", "null"], "x-privacy": "CUSTOMER_METADATA"}, "warehouse_id": {"type": "string"}, "query_tag_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}, "execution_share": {"$ref": "#/$defs/dec"}}},
+    "cs_day": {"type": "object", "additionalProperties": false, "required": ["kind", "usage_date", "gross_credits", "adjustment_credits", "billed_credits", "billed_cost", "currency"], "properties": {"kind": {"const": "CS_DAY"}, "usage_date": {"type": "string", "format": "date"}, "gross_credits": {"$ref": "#/$defs/dec"}, "adjustment_credits": {"$ref": "#/$defs/dec"}, "billed_credits": {"$ref": "#/$defs/dec"}, "billed_cost": {"$ref": "#/$defs/dec_or_null"}, "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}}},
+    "cs_contributor": {"type": "object", "additionalProperties": false, "required": ["kind", "query_parameterized_hash", "hash_version", "gross_cs_credits", "rank"], "properties": {"kind": {"const": "CS_CONTRIBUTOR"}, "query_parameterized_hash": {"type": "string"}, "hash_version": {"type": ["integer", "null"]}, "gross_cs_credits": {"$ref": "#/$defs/dec"}, "rank": {"type": "integer", "minimum": 1, "maximum": 10}}},
+    "storage_snapshot": {"type": "object", "additionalProperties": false, "required": ["kind", "snapshot_date", "complete", "active_bytes", "time_travel_bytes", "failsafe_bytes", "retained_for_clone_bytes"], "properties": {"kind": {"const": "STORAGE_SNAPSHOT"}, "snapshot_date": {"type": "string", "format": "date"}, "complete": {"type": "boolean"}, "active_bytes": {"type": ["integer", "null"], "minimum": 0}, "time_travel_bytes": {"type": ["integer", "null"], "minimum": 0}, "failsafe_bytes": {"type": ["integer", "null"], "minimum": 0}, "retained_for_clone_bytes": {"type": ["integer", "null"], "minimum": 0}, "fraction": {"$ref": "#/$defs/dec_or_null"}}},
+    "generic_series_point": {"type": "object", "additionalProperties": false, "required": ["kind", "series", "at", "value", "unit"], "properties": {"kind": {"const": "GENERIC_SERIES_POINT"}, "series": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}, "at": {"$ref": "#/$defs/ts"}, "value": {"$ref": "#/$defs/dec_or_null"}, "unit": {"type": "string"}}}
+  },
+  "examples": [
+    {"tenant_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a80", "organization_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a81", "account_id": "01923f6a-7c1e-7a10-9b2d-3c4d5e6f7a82", "evidence_id": "01923f6b-0000-7000-8000-0000000000e1", "observation_id": "5b3c1f0e-8a1d-5c2e-9f3a-1b2c3d4e5f60", "ordinal": 1, "evidence_type": "GAP_SAMPLE", "sort_cost": "1.20", "stable_key": "2026-09-14T03:10:00Z|1", "payload": {"kind": "GAP_SAMPLE", "gap_start": "2026-09-14T03:10:00.000Z", "gap_end": "2026-09-14T03:20:00.000Z", "gap_s": 600, "next_busy_s": 95, "saving_s": 540, "cluster_number": 1}, "revision_id": 7}
+  ],
+  "x-negative-examples": [
+    {"why": "plaintext user name in identity tuple", "patch": {"evidence_type": "IDENTITY_TUPLE", "payload": {"kind": "IDENTITY_TUPLE", "cohort": "CURRENT", "user_pseudonym": "jane.doe@example.com", "role_name": "ANALYST", "warehouse_id": "1234", "execution_share": "0.95"}}},
+    {"why": "ordinal above the 200-row bound", "patch": {"ordinal": 201}},
+    {"why": "non-UTC timestamp", "patch": {"payload": {"kind": "GAP_SAMPLE", "gap_start": "2026-09-14T05:10:00.000+02:00", "gap_end": "2026-09-14T03:20:00.000Z", "gap_s": 600, "next_busy_s": 95, "saving_s": 540, "cluster_number": 1}}}
+  ]
+}

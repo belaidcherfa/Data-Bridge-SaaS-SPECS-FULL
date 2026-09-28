@@ -1,0 +1,37 @@
+# contract=semantic-metric:attribution_coverage version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: attribution_coverage
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.attribution_coverage.label
+description_key: metric.attribution_coverage.description
+population_key: metric.attribution_coverage.population
+category: FINANCE
+unit: {kind: RATIO, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: PERCENT}
+relation: v_attribution_daily
+measure:
+  type: RATIO
+  numerator:
+    aggregate: SUM_ABS
+    column_ref: amount
+    population:
+    - {column: is_residual, op: EQ, value: false}
+  denominator: {aggregate: SUM_ABS, column_ref: amount}
+additivity: {across_dimensions: NONE, across_time: NONE, top_n_other: REAGGREGATE_BASE_MEASURES}
+dimensions: [day, week, month, organization, account, service_category, service_family, service_type, warehouse, currency]
+required_sources: []
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: false, close_applies: false}
+null_policy: {zero_denominator: ZERO_DENOMINATOR, empty_population: NULL_INSUFFICIENT_DATA}
+denominator_scope: {relation: v_attribution_daily, requires: INCLUDE_UNALLOCATED, on_unreadable: DENOMINATOR_OUTSIDE_SCOPE}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#attribution_coverage
+  child_resolvers: [formula_operands]
+screen_keys: [aicoverage]
+owner_task: API-001
+notes: Σ|amount attributed to a non-residual target| / Σ|all eligible attribution amount| on the absolute basis (ledger.md). Profiles without INCLUDE_UNALLOCATED get null DENOMINATOR_OUTSIDE_SCOPE
+  (SEC A.4 (4)).

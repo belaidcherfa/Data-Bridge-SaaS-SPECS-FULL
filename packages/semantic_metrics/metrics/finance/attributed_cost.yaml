@@ -1,0 +1,64 @@
+# contract=semantic-metric:attributed_cost version=1 status=DRAFT owner_task=API-001 decisions=D-05,D-10,D-11,D-12,D-20 last_changed=2026-09-28
+# v1 metric catalog (API.md §3.1). Semantic change ⇒ version+1 (G-API-15).
+id: attributed_cost
+version: 1
+status: ACTIVE
+release: R1
+support: SUPPORTED
+label_key: metric.attributed_cost.label
+description_key: metric.attributed_cost.description
+population_key: metric.attributed_cost.population
+category: FINANCE
+unit: {kind: MONEY, currency_policy: SINGLE_CURRENCY_REQUIRED, display_hint: CURRENCY}
+relation: v_attribution_daily
+measure: {type: SUM, column_ref: amount}
+additivity: {across_dimensions: ALL, across_time: SUM, top_n_other: SUM_MEMBERS}
+dimensions: [day, week, month, organization, account, region, cloud, scope_kind, service_category, service_family, service_type, sub_service, currency, data_status, price_basis, warehouse,
+  warehouse_type, warehouse_size, database, compute_pool, spcs_service, pipe, task, dynamic_table, ai_family, ai_model, storage_class, user, role, client_application, workload_type,
+  workload, environment, dbt_project, dbt_model, dbt_resource_type, pbi_mode, query_parameterized_hash, evidence_class]
+incompatible_dimensions:
+- dimension: group
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: group_ancestor
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: group_set
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: book
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: allocation_method
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: component_kind
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+- dimension: schema
+  reason: NO_ATTRIBUTION_PATH
+  alternatives: [database]
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.no_attribution_path
+- dimension: tag
+  reason: NOT_AT_GRAIN
+  alternatives: []
+  message_key: problem.QUERY_DIMENSION_INCOMPATIBLE.use_allocated_spend
+required_sources: [au.warehouse_metering_history, au.query_attribution_history]
+maturity_policy: {data_status_column: data_status, composition: true, maturity_filter: true, reconciliation_applies: true, close_applies: true}
+null_policy: {unpriced_rows: NULL_WHOLE_VALUE, empty_population: ZERO}
+privacy: {capability: analytics.read}
+exactness: {HOT: EXACT, AGGREGATE: EXACT}
+explain_template:
+  root_kind: METRIC
+  formula_ref: packages/semantic_metrics/README.md#attributed_cost
+  child_resolvers: [attribution_by_target, charge_bucket]
+screen_keys: [analyticsstorage, spcsservicecost, pipelinecost]
+owner_task: API-001
+notes: Σ bridge_charge_attribution amount INCLUDING the explicit residual row per parent charge ('__UNATTRIBUTED__'), so Σ by any resource dimension = spend of the same buckets (270
+  = Σ warehouses + unattributed). Rows where a dimension does not apply (e.g. database on compute rows) group under a null value with label reason NOT_APPLICABLE; money is never dropped.

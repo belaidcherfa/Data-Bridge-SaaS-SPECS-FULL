@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bridge:schema:infra:storage-catalog:v1",
+  "$comment": "contract=storage-messaging-catalog-schema version=1 status=DRAFT owner_task=INF-003 last_changed=2026-09-28",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kms_keys",
+    "buckets",
+    "topics",
+    "queues"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kms_keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "alias",
+          "purpose",
+          "key_users",
+          "owner_task"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string",
+            "pattern": "^(alias/bridge-[a-z{}-]+|alias/bridge-tfstate-\\{name\\})$"
+          }
+        }
+      }
+    },
+    "buckets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "account",
+          "purpose",
+          "kms",
+          "versioning",
+          "lifecycle",
+          "writers",
+          "readers",
+          "notifications",
+          "policy",
+          "owner_task"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^(bridge|aws-waf-logs-bridge)-[a-z0-9{}_-]+$"
+          },
+          "versioning": {
+            "type": "boolean"
+          },
+          "object_lock": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "mode",
+                  "default_retention_days"
+                ],
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "GOVERNANCE",
+                      "COMPLIANCE"
+                    ]
+                  },
+                  "default_retention_days": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "publishers",
+          "subscribers"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "STANDARD",
+              "FIFO"
+            ]
+          }
+        }
+      }
+    },
+    "queues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "fifo",
+          "producer",
+          "consumer",
+          "visibility_timeout_s",
+          "max_receive_count",
+          "retention_days",
+          "dlq",
+          "encryption"
+        ],
+        "properties": {
+          "visibility_timeout_s": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 43200
+          },
+          "max_receive_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "dlq": {
+            "type": "object",
+            "required": [
+              "name",
+              "retention_days"
+            ],
+            "properties": {
+              "retention_days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

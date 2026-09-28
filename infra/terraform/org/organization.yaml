@@ -1,0 +1,138 @@
+# contract=aws-organization-layout version=1 status=DRAFT owner_task=INF-001 decisions=D-23,D-25,D-02,D-07 last_changed=2026-09-28
+# AWS Organizations layout consumed by infra/terraform/org/ (INF-001-S03..S05). Plain Organizations managed by
+# Terraform from the management account; no Control Tower in R1 (rationale: docs/runbooks/aws-organization.md).
+# Account IDs are never written here: they resolve from config/environments/<env>.yaml (organization.* / aws.account_id).
+# SCP JSON files cannot carry a header (IAM policy grammar); their contract metadata lives in `scps:` below.
+schema_version: 1
+
+organization:
+  feature_set: ALL
+  enabled_policy_types: [SERVICE_CONTROL_POLICY, TAG_POLICY]
+  aws_service_access_principals:
+    - cloudtrail.amazonaws.com
+    - config.amazonaws.com
+    - config-multiaccountsetup.amazonaws.com
+    - guardduty.amazonaws.com
+    - securityhub.amazonaws.com
+    - access-analyzer.amazonaws.com
+    - sso.amazonaws.com
+    - account.amazonaws.com
+    - ram.amazonaws.com
+  delegated_administrators:
+    - {service: guardduty.amazonaws.com, account: security}
+    - {service: securityhub.amazonaws.com, account: security}
+    - {service: access-analyzer.amazonaws.com, account: security}
+    - {service: config.amazonaws.com, account: log-archive}          # organization Config aggregator
+  tag_policy: bridge-tag-policy                                     # INF-105-S02: environment, component, cost_owner, managed_by
+
+organizational_units:                                               # path → parent
+  - {path: security, parent: root, description: "Security tooling and log archive"}
+  - {path: infrastructure, parent: root, description: "Shared services (ECR, signing key, apex DNS, release evidence)"}
+  - {path: workloads, parent: root, description: "Bridge product environments"}
+  - {path: workloads/nonprod, parent: workloads, description: "DEV and STAGING"}
+  - {path: workloads/prod, parent: workloads, description: "PROD"}
+  - {path: suspended, parent: root, description: "Accounts pending closure; deny-all"}
+
+accounts:                                                           # created with prevent_destroy, close_on_deletion=false
+  - {name: management, account_name: bridge-management, ou: root, config_path: organization.management_account_id, root_email: "aws+management@${account_email_domain}", purpose: "Billing, Organizations, Identity Center, organization CloudTrail. No workloads."}
+  - {name: security, account_name: bridge-security, ou: security, config_path: organization.security_account_id, root_email: "aws+security@${account_email_domain}", purpose: "GuardDuty/Security Hub/Access Analyzer delegated admin; security alarms."}
+  - {name: log-archive, account_name: bridge-log-archive, ou: security, config_path: organization.log_archive_account_id, root_email: "aws+log-archive@${account_email_domain}", purpose: "Organization CloudTrail bucket (Object Lock), Config aggregator, flow/resolver log archive."}
+  - {name: shared-services, account_name: bridge-shared-services, ou: infrastructure, config_path: organization.shared_services_account_id, root_email: "aws+shared-services@${account_email_domain}", purpose: "ECR, cosign KMS key, apex Route 53 zone, bridge-shared-releases bucket."}
+  - {name: dev, account_name: bridge-dev, ou: workloads/nonprod, config_path: aws.account_id@dev, root_email: "aws+dev@${account_email_domain}", purpose: "DEV workload environment."}
+  - {name: staging, account_name: bridge-staging, ou: workloads/nonprod, config_path: aws.account_id@staging, root_email: "aws+staging@${account_email_domain}", purpose: "STAGING workload environment; test-estate IaC and connector roles."}
+  - {name: prod, account_name: bridge-prod, ou: workloads/prod, config_path: aws.account_id@prod, root_email: "aws+prod@${account_email_domain}", purpose: "PROD workload environment."}
+
+scps:                                                               # file → metadata (header of the JSON file)
+  - name: bridge-scp-deny-leave-org
+    file: scp/bridge-scp-deny-leave-org.json
+    owner_task: INF-001-S04
+    guards: "Member accounts cannot leave the organization."
+  - name: bridge-scp-protect-security-services
+    file: scp/bridge-scp-protect-security-services.json
+    owner_task: INF-001-S04
+    guards: "CloudTrail, GuardDuty, Security Hub, Config recorder/aggregator, Access Analyzer cannot be stopped or deleted (break-glass only); flow logs and resolver query logs removable only by tf-apply/break-glass."
+  - name: bridge-scp-region-guard
+    file: scp/bridge-scp-region-guard.json
+    owner_task: INF-001-S04
+    guards: "Regional actions only in eu-west-1; us-east-1 only for acm, wafv2, cloudwatch, sns, logs, kms, events (CloudFront certificates, CLOUDFRONT WAF, CloudFront alarms, root-login EventBridge rule; G-INF-10); global services exempt."
+  - name: bridge-scp-deny-root
+    file: scp/bridge-scp-deny-root.json
+    owner_task: INF-001-S04
+    guards: "Root user of member accounts can do nothing (root tasks via centralized root access / break-glass procedure)."
+  - name: bridge-scp-deny-iam-users
+    file: scp/bridge-scp-deny-iam-users.json
+    owner_task: INF-001-S04
+    guards: "No IAM users, access keys, login profiles or service-specific credentials (break-glass only)."
+  - name: bridge-scp-deny-kms-deletion
+    file: scp/bridge-scp-deny-kms-deletion.json
+    owner_task: INF-001-S04
+    guards: "No key deletion/disable/imported-material deletion except break-glass; key policies changed only by tf-apply."
+  - name: bridge-scp-prod-ecs-exec
+    file: scp/bridge-scp-prod-ecs-exec.json
+    owner_task: INF-001-S04
+    guards: "PROD: ECS Exec only into the ops-bastion container; exec cannot be enabled on other task definitions (condition keys TO VERIFY LIVE)."
+  - name: bridge-scp-runtime-role-guard
+    file: scp/bridge-scp-runtime-role-guard.json
+    owner_task: INF-001-S04 / INF-103-S03
+    guards: "Only the identity provisioner mutates bridge-<env>-conn-*/srv-* roles, always with the matching boundary; no boundary removal; only own split S3 policies attach; boundary policies created or changed only by a BridgeAdmin human session or break-glass (INF-102-S02, human-only gate); nobody assumes conn roles; only the query broker assumes srv roles; only the extraction launcher passes conn roles (D-02, D-07, RECONCILIATION C-11)."
+  - name: bridge-scp-deny-all-suspended
+    file: scp/bridge-scp-deny-all-suspended.json
+    owner_task: INF-001-S04
+    guards: "Accounts moved to the suspended OU can do nothing except via break-glass."
+
+scp_attachments:                                                    # ≤ 5 SCPs per target including FullAWSAccess (AWS quota)
+  root:              [FullAWSAccess, bridge-scp-deny-leave-org, bridge-scp-protect-security-services, bridge-scp-region-guard, bridge-scp-deny-root]
+  security:          [FullAWSAccess, bridge-scp-deny-iam-users, bridge-scp-deny-kms-deletion]
+  infrastructure:    [FullAWSAccess, bridge-scp-deny-iam-users, bridge-scp-deny-kms-deletion]
+  workloads:         [FullAWSAccess, bridge-scp-deny-iam-users, bridge-scp-deny-kms-deletion, bridge-scp-runtime-role-guard]
+  workloads/nonprod: [FullAWSAccess]
+  workloads/prod:    [FullAWSAccess, bridge-scp-prod-ecs-exec]
+  suspended:         [FullAWSAccess, bridge-scp-deny-all-suspended]
+# SCPs never apply to the management account or to service-linked roles; the management account therefore
+# hosts no workload and is reached only by BridgeAdmin/BridgeBilling.
+
+break_glass:
+  role_name: bridge-break-glass                                     # exists in every member account; trust = management-account break-glass principal with MFA
+  assume_alarm: "EventBridge rule on AssumeRole of bridge-break-glass → SNS security topic (INF-001-S13)"
+  holders: "Two named humans recorded in docs/runbooks/aws-organization.md (owner decision); hardware MFA."
+
+identity_center:                                                    # INF-001-S05; session durations are maximums
+  permission_sets:
+    - name: BridgeAdmin
+      session_duration: PT1H
+      managed_policies: [arn:aws:iam::aws:policy/AdministratorAccess]
+      assign: {group: bridge-admins, accounts: [management, security, log-archive, shared-services, dev, staging, prod]}
+    - name: BridgeOperator
+      session_duration: PT4H
+      managed_policies: [arn:aws:iam::aws:policy/ReadOnlyAccess]
+      inline_policy: "ssm:StartSession on document AWS-StartPortForwardingSessionToRemoteHost and ecs:RunTask/StopTask/ExecuteCommand on task-definition bridge-<env>-ops-bastion:* only (INF-006-S13); no data-bucket GetObject; no secretsmanager:GetSecretValue"
+      assign: {group: bridge-operators, accounts: [staging, prod]}
+    - name: BridgeDeveloper
+      session_duration: PT8H
+      managed_policies: [arn:aws:iam::aws:policy/PowerUserAccess]
+      permissions_boundary: "no iam:* writes except iam:PassRole on bridge-dev-*; denies data-bucket reads of landing/reports/audit"
+      assign: {group: bridge-developers, accounts: [dev]}
+    - name: BridgeDeveloperReadOnly
+      session_duration: PT8H
+      managed_policies: [arn:aws:iam::aws:policy/ReadOnlyAccess]
+      inline_policy: "explicit deny s3:GetObject on landing/reports/audit/recovery/evidence buckets and secretsmanager:GetSecretValue"
+      assign: {group: bridge-developers, accounts: [staging]}
+    - name: BridgeReadOnly
+      session_duration: PT4H
+      managed_policies: [arn:aws:iam::aws:policy/job-function/ViewOnlyAccess]
+      assign: {group: bridge-auditors, accounts: [security, log-archive, shared-services, dev, staging, prod]}
+    - name: BridgeBilling
+      session_duration: PT4H
+      managed_policies: [arn:aws:iam::aws:policy/job-function/Billing]
+      assign: {group: bridge-finance, accounts: [management]}
+  mfa: "Required at the IdP (or Identity Center built-in MFA when external_idp = NONE)."
+
+baseline_per_member_account:                                        # INF-001-S07 (stack 10-baseline)
+  guardduty: {s3_protection: true, ecs_runtime_monitoring: "config features.guardduty_ecs_runtime_monitoring (prod only when approved)"}
+  security_hub: {standards: [aws-foundational-security-best-practices/v/1.0.0]}
+  config_recorder: {all_supported: true, exclusion_resource_types: ["AWS::EC2::NetworkInterface"], delivery: log-archive}
+  access_analyzer: {type: ORGANIZATION, unused_access: false}       # external-access only (G-INF-06 trap 4)
+  cloudtrail: "organization trail from management account → log-archive bucket, all regions, log file validation, KMS"
+  ebs_default_encryption: true
+  s3_account_public_access_block: true
+  iam_password_policy: "n/a (no IAM users)"

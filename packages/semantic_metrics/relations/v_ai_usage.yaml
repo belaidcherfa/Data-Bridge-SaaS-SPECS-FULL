@@ -1,0 +1,71 @@
+# contract=semantic-relation:v_ai_usage version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_ai_usage
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_ai_usage
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: 'AI usage detail for the AI execution page: a parent request''s children are components of the parent (10 = 4 + residual 6), never an additional charge.'
+serving_view: bridge.serving.serving_ai_usage
+dataset_id: ai_usage
+dbt_model: serving_ai_usage
+upstream_owner_tasks: [FIN-018, DBT-006]
+grain_keys: [tenant_id, ai_usage_row_key]
+tenant_column: tenant_id
+time: {column: usage_hour, type: TIMESTAMP_NTZ, grain: HOUR, period_semantics: START_TIME}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+tier: FULL
+retention: {days: 400, basis: FIXED, reference: 'D-11 / D-26: canonical financial and execution-level facts 400 days'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [au.cortex_ai_functions_usage_history, au.cortex_search_serving_usage_history, au.cortex_analyst_usage_history]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: DIMENSION, privacy: INTERNAL}
+- {name: usage_hour, type: TIMESTAMP_NTZ(9), nullable: false, role: TIME, privacy: INTERNAL}
+- {name: ai_usage_row_key, type: VARCHAR(64), nullable: false, role: KEY, privacy: INTERNAL}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- name: ai_family
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [AI_FUNCTIONS, CORTEX_SEARCH, CORTEX_ANALYST, CORTEX_AGENTS, DOCUMENT_AI, FINE_TUNING, OTHER_AI]
+- {name: ai_model, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: ai_function, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: request_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA, description: 'Present only where the family''s source is request-level (agents/analyst:
+    TO VERIFY LIVE in FIN-018).'}
+- {name: parent_request_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- name: component_role
+  type: VARCHAR(16)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PARENT, CHILD_COMPONENT, RESIDUAL, STANDALONE]
+- {name: query_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: user_pseudonym, type: VARCHAR, nullable: true, role: DIMENSION, privacy: PERSONAL}
+- {name: tokens, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: requests, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: credits, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: amount, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: currency, type: VARCHAR(3), nullable: true, role: DIMENSION, privacy: INTERNAL, description: ISO 4217; NULL when the row carries no money (price unknown).}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: source_view, type: VARCHAR, nullable: false, role: PROVENANCE, privacy: INTERNAL, description: 'Effective-dated source (CORTEX_AISQL_USAGE_HISTORY ≤ 2026-01-04, CORTEX_AI_FUNCTIONS_USAGE_HISTORY
+    ≥ 2026-01-05, …).'}
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

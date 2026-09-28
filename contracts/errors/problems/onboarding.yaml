@@ -1,0 +1,187 @@
+# contract=problems-onboarding version=1 status=DRAFT owner_task=ONB-001 decisions=D-08,D-17,D-35,D-38 last_changed=2026-09-28
+# Problem codes of the ONB domain (prefix ONB_). Schema: contracts/errors/problems.schema.json. Shared codes used by onboarding endpoints
+# but owned elsewhere: NOT_FOUND (non-enumerating 404), PRECONDITION_FAILED (412 stale If-Match), IDEMPOTENCY_KEY_REUSED (409),
+# AUTHZ_* (K2), COMM_ENTITLEMENT_LIMIT / COMM_TRIAL_ACCOUNT_DEMO_ONLY (K9 commercial), AUTH_STEP_UP_REQUIRED (K2).
+# Onboarding BLOCKER codes (docs/onboarding/blockers.yaml) are step status codes, not HTTP problems.
+version: 1
+problems:
+  - code: ONB_RUN_ALREADY_OPEN
+    http_status: 409
+    title: An onboarding run is already open for this tenant
+    detail_template: "Run {active_run_id} is {status}; resume it instead of starting a new one."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Open the existing onboarding checklist and continue from where you stopped.
+    log_level: INFO
+  - code: ONB_NO_OPEN_RUN
+    http_status: 409
+    title: No onboarding run is open
+    detail_template: "The tenant has no ACTIVE or PAUSED onboarding run."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Start onboarding from the checklist page.
+    log_level: INFO
+  - code: ONB_RUN_NOT_ACTIVE
+    http_status: 409
+    title: The onboarding run is not active
+    detail_template: "Run {run_id} is {status}; this action needs an ACTIVE run."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Resume the onboarding run first.
+    log_level: INFO
+  - code: ONB_RUN_NOT_PAUSED
+    http_status: 409
+    title: The onboarding run is not paused
+    detail_template: "Run {run_id} is {status}; only a PAUSED run can be resumed."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Reload the checklist; the run is already running.
+    log_level: INFO
+  - code: ONB_RESUME_BLOCKED_BY_SUBSCRIPTION
+    http_status: 409
+    title: Onboarding cannot resume while the subscription is suspended
+    detail_template: "Subscription state is {subscription_state}."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Contact your Bridge account owner to settle the subscription, then resume.
+    log_level: INFO
+  - code: ONB_STEP_KEY_UNKNOWN
+    http_status: 422
+    title: Unknown onboarding step
+    detail_template: "Step key {step_key} is not one of the 15 onboarding steps."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Reload the checklist.
+    log_level: INFO
+  - code: ONB_ACK_TYPE_NOT_ALLOWED
+    http_status: 422
+    title: This acknowledgement is not allowed for this step
+    detail_template: "Acknowledgement {ack_type} is not accepted by step {step_key} (bound reference type {bound_ref_type})."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Use the action offered on the step card.
+    log_level: INFO
+  - code: ONB_STEP_NOT_AWAITING_ACK
+    http_status: 409
+    title: The step is not waiting for this acknowledgement
+    detail_template: "Step {step_key} is {status}; acknowledgement {ack_type} is only accepted while the step is WAITING_ON_CUSTOMER (or FAILED/BLOCKED for a limitation)."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Reload the checklist to see the current state of the step.
+    log_level: INFO
+  - code: ONB_ACK_BINDING_STALE
+    http_status: 409
+    title: What you are acknowledging has changed
+    detail_template: "{bound_ref_type} {bound_ref} is now at revision {current_revision}, not {bound_revision}."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Review the updated plan, estimate or result and acknowledge it again.
+    log_level: INFO
+  - code: ONB_ACK_BINDING_MISMATCH
+    http_status: 422
+    title: The acknowledged object does not belong to this step
+    detail_template: "{bound_ref_type} {bound_ref} does not match step {step_key}{account_suffix}."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Reload the checklist and acknowledge from the step card.
+    log_level: WARNING
+  - code: ONB_ACK_REASON_REQUIRED
+    http_status: 422
+    title: A reason is required to skip an optional step
+    detail_template: "OPTIONAL_SKIP on {step_key} needs reason_code."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Choose why you are skipping this step.
+    log_level: INFO
+  - code: ONB_STEP_NOT_OPTIONAL
+    http_status: 422
+    title: This step cannot be skipped
+    detail_template: "Step {step_key} is required."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Complete the step or record a limitation where offered.
+    log_level: INFO
+  - code: ONB_TRIAL_ACCOUNT_DEMO_ONLY
+    http_status: 409
+    title: A Snowflake trial account is for demonstration only
+    detail_template: "Account {account_id} is a Snowflake trial account (trial_account={trial_account}); it cannot be reconciled or count toward first value."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Connect a paid Snowflake account, or, if this account is paid, attest it as an Organization Owner on the capability step.
+    log_level: INFO
+  - code: ONB_FIRST_VALUE_PREREQUISITES_INCOMPLETE
+    http_status: 409
+    title: First value cannot be accepted yet
+    detail_template: "{incomplete_count} step(s) are not complete: {incomplete_steps}."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Finish or record limitations for the listed steps, then accept first value.
+    log_level: INFO
+  - code: ONB_DEMONSTRATION_ONLY_TENANT
+    http_status: 409
+    title: This tenant only has demonstration accounts
+    detail_template: "Every connected account is a Snowflake trial account; first value and the paid path are unavailable."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-001
+    customer_action: Connect a paid Snowflake account to continue beyond demonstration.
+    log_level: INFO
+  - code: ONB_ESTIMATE_INPUT_INVALID
+    http_status: 422
+    title: The estimate request is invalid
+    detail_template: "{field}: {reason}"
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-101
+    customer_action: Adjust the selected accounts, sources or history range.
+    log_level: INFO
+  - code: ONB_ESTIMATE_PROBE_UNAVAILABLE
+    http_status: 503
+    title: The volume probe could not run
+    detail_template: "Volume probe for account {account_id} failed with {error_class}."
+    retryable: true
+    domain: onboarding
+    owner_task: ONB-101
+    customer_action: Check the account connection on the capability step, then retry.
+    log_level: WARNING
+  - code: ONB_OFFBOARDING_ALREADY_REQUESTED
+    http_status: 409
+    title: Offboarding has already been requested
+    detail_template: "Tenant deletion request {deletion_request_id} is {status}."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-102
+    customer_action: Follow the existing offboarding request in Settings.
+    log_level: INFO
+  - code: ONB_OFFBOARDING_CONFIRMATION_MISMATCH
+    http_status: 422
+    title: The confirmation text does not match the organization
+    detail_template: "Type the organization slug exactly to confirm offboarding."
+    retryable: false
+    domain: onboarding
+    owner_task: ONB-102
+    customer_action: Type the organization slug shown on the page.
+    log_level: INFO
+  - code: ONB_OFFBOARDING_EXPORT_INCOMPLETE
+    http_status: 409
+    title: The export has not finished
+    detail_template: "Export job {export_job_id} is {export_status}; waive the export or wait for it to finish."
+    retryable: true
+    domain: onboarding
+    owner_task: ONB-102
+    customer_action: Wait for the export or explicitly waive it.
+    log_level: INFO

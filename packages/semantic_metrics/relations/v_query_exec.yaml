@@ -1,0 +1,143 @@
+# contract=semantic-relation:v_query_exec version=1 status=DRAFT owner_task=API-001 decisions=D-02,D-05,D-11,D-12 last_changed=2026-09-28
+# Serving relation bound by the v1 registry (API-001-S03). Physical view: bridge.serving.serving_query_exec
+# The deployed secure view must expose exactly these columns (API-101-S01 drift check).
+id: v_query_exec
+version: 1
+status: ACTIVE
+release: R1
+kind: FACT
+description: Individual queries within the hot tier (hour partitions, ADR-014). Source of exact percentiles, distinct counts, records mode and query detail. Rows older than hot_days
+  are purged by ORC-105 GC (WRK-104-S05).
+serving_view: bridge.serving.serving_query_exec
+dataset_id: query_exec
+dbt_model: serving_query_exec
+upstream_owner_tasks: [DBT-003, FIN-003, WRK-001, DBT-006]
+grain_keys: [tenant_id, account_id, query_id]
+tenant_column: tenant_id
+time: {column: start_time, type: TIMESTAMP_NTZ, grain: HOUR, period_semantics: START_TIME}
+publication: {pinned: true, pub_from_column: _pub_from, pub_to_column: _pub_to}
+policy:
+  row_access_policy: RAP_ACCOUNT_SCOPED
+  policy_columns: [tenant_id, organization_id, account_id]
+  readable_by: ACCOUNT_SCOPED_PROFILES
+  masking:
+  - {column: sql_text_full, policy: MP_SQL_TEXT_FULL}
+  - {column: sql_text_sanitized, policy: MP_SQL_TEXT_SANITIZED}
+tier: HOT
+retention: {days: 365, basis: HOT_DAYS_PARAMETER, reference: 'D-11 owner decision 2026-09-28: hot_days default 365, plan-configurable (entitlement query_retention_days), max = Account
+    Usage retention'}
+entitlement_dimensions: [organization, account]
+currency_column: currency
+data_status_column: data_status
+required_sources: [au.query_history, au.query_attribution_history, au.sessions]
+columns:
+- {name: tenant_id, type: VARCHAR(36), nullable: false, role: KEY, privacy: INTERNAL, description: 'Tenant (UUIDv7, lowercase). First predicate of every compiled query (pruning); isolation
+    is enforced by the row access policy.'}
+- {name: usage_date, type: DATE, nullable: false, role: TIME, privacy: INTERNAL, description: UTC date of start_time (period placement by start).}
+- {name: query_id, type: VARCHAR, nullable: false, role: KEY, privacy: CUSTOMER_METADATA, description: Snowflake QUERY_ID (unique per account).}
+- {name: organization_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal organization id (DBT-003 durable id).}
+- {name: account_id, type: VARCHAR(36), nullable: false, role: DIMENSION, privacy: INTERNAL, description: Internal account id (DBT-003 durable id).}
+- {name: currency, type: VARCHAR(3), nullable: true, role: DIMENSION, privacy: INTERNAL, description: ISO 4217; NULL when the row carries no money (price unknown).}
+- {name: start_time, type: TIMESTAMP_NTZ(9), nullable: false, role: TIME, privacy: INTERNAL}
+- {name: end_time, type: TIMESTAMP_NTZ(9), nullable: true, role: TIME, privacy: INTERNAL}
+- {name: warehouse_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: warehouse_type
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [CLASSIC, ADAPTIVE]
+- {name: warehouse_size, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: database_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL, description: Session database of the query (performance/records only; never a cost dimension).}
+- {name: schema_id, type: VARCHAR(36), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: user_pseudonym, type: VARCHAR, nullable: true, role: DIMENSION, privacy: PERSONAL}
+- {name: role_name, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: client_application, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: query_type, type: VARCHAR, nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: execution_status_raw, type: VARCHAR, nullable: true, role: STATUS, privacy: INTERNAL}
+- name: status_class
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [SUCCEEDED, FAILED, CANCELLED, RUNNING, QUEUED, BLOCKED, UNKNOWN]
+  description: taxonomies/query_status_v1.yaml mapping of EXECUTION_STATUS/ERROR_CODE.
+- {name: status_taxonomy_version, type: 'NUMBER(38,0)', nullable: false, role: PROVENANCE, privacy: INTERNAL}
+- {name: error_code, type: VARCHAR, nullable: true, role: STATUS, privacy: INTERNAL}
+- {name: query_parameterized_hash, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: query_hash_version, type: 'NUMBER(38,0)', nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: workload_type
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT, POWER_BI, TASK, PROCEDURE, DYNAMIC_TABLE, SNOWPIPE, NATIVE_APP, SPCS, CORTEX, CUSTOM_APP, BI_OTHER, AD_HOC, BRIDGE_OVERHEAD, UNKNOWN]
+- {name: workload_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: environment
+  type: VARCHAR(12)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [PRODUCTION, STAGING, DEV, OTHER, UNKNOWN]
+- {name: dbt_project_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- {name: dbt_model_key, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: dbt_resource_type
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [MODEL, TEST, SEED, SNAPSHOT, OPERATION, ANALYSIS, SQL_OPERATION, UNIT_TEST, SOURCE, OVERHEAD]
+- name: pbi_mode
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [IMPORT, DIRECT_QUERY, UNKNOWN]
+- {name: execution_id, type: VARCHAR(64), nullable: true, role: DIMENSION, privacy: INTERNAL}
+- name: execution_kind
+  type: VARCHAR(16)
+  nullable: true
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [DBT_INVOCATION, DBT_MODEL_EXEC, PBI_ACTIVITY, TASK_GRAPH_RUN, TASK_RUN, PROCEDURE_CALL, DT_REFRESH]
+- name: evidence_class
+  type: VARCHAR(24)
+  nullable: false
+  role: DIMENSION
+  privacy: INTERNAL
+  enum_values: [VERIFIED, DECLARED_CORROBORATED, DECLARED, OBSERVED, INFERRED, UNKNOWN]
+- {name: parent_query_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA, description: 'QAH PARENT_QUERY_ID (ING-101 projection, C-10).'}
+- {name: root_query_id, type: VARCHAR, nullable: true, role: DIMENSION, privacy: CUSTOMER_METADATA}
+- {name: total_elapsed_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: compilation_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: queued_overload_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: queued_provisioning_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL}
+- {name: queued_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: queued_overload_ms + queued_provisioning_ms.}
+- {name: execution_ms, type: 'NUMBER(38,0)', nullable: false, role: MEASURE, privacy: INTERNAL, description: EXECUTION_TIME (label 'execution').}
+- {name: bytes_scanned, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: bytes_spilled_local, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: bytes_spilled_remote, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL, description: NULL when the spill columns are not in the account's projection (capability
+    source.query_history.spill).}
+- {name: rows_produced, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: partitions_scanned, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: partitions_total, type: 'NUMBER(38,0)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: compute_cost, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL, description: Query-attributed compute money (QAH/QMH × charge rate; excludes cloud services
+    and idle). NULL with reason when unattributed or unpriced.}
+- {name: compute_cost_null_reason, type: VARCHAR, nullable: true, role: STATUS, privacy: INTERNAL}
+- {name: credits_attributed_compute, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: credits_used_query_acceleration, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: credits_used_cloud_services, type: 'NUMBER(38,12)', nullable: true, role: MEASURE, privacy: INTERNAL}
+- {name: sql_text_sanitized, type: VARCHAR, nullable: true, role: TEXT, privacy: SQL_TEXT, description: Literal-free sanitized text (ADR-009); NULL in METADATA_ONLY mode.}
+- {name: sql_text_full, type: VARCHAR, nullable: true, role: TEXT, privacy: SQL_TEXT, description: Present only for tenants in FULL privacy mode; masked by MP_SQL_TEXT_FULL.}
+- {name: query_tag_sanitized, type: VARCHAR, nullable: true, role: TEXT, privacy: CUSTOMER_METADATA}
+- name: data_status
+  type: VARCHAR(12)
+  nullable: false
+  role: STATUS
+  privacy: INTERNAL
+  enum_values: [PROVISIONAL, FINAL, RECONCILED]
+- {name: is_trial_account, type: BOOLEAN, nullable: false, role: FLAG, privacy: INTERNAL, description: 'D-35: TRUE for Snowflake trial accounts (demonstration only); excluded from reconciliation
+    claims.'}
+- {name: _pub_from, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: First pub_seq at which the row's revision is published (ADR-014 §7).}
+- {name: _pub_to, type: 'NUMBER(38,0)', nullable: false, role: PUBLICATION, privacy: INTERNAL, description: pub_seq at which the revision was superseded; 9223372036854775807 while current.}
+owner_task: API-001

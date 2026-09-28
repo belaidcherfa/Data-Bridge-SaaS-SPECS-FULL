@@ -1,0 +1,351 @@
+# contract=source-contract:OU_ACCOUNTS version=1.0.0 status=DRAFT owner_task=CON-004 decisions=D-20,D-35,D-26 last_changed=2026-09-28
+# Validates against data/contracts/sources/_schema.v1.json; transport rules in _transport.v1.yaml; key grammar in ../landing-keys.v1.yaml.
+# Vendor facts marked TO_VERIFY_LIVE must be confirmed on the INF-101 estate before activation (verification_record); activation is per environment.
+contract: source-contract
+schema_version: 1
+source_id: OU_ACCOUNTS
+contract_version: 1.0.0
+schema_major: 1
+status: DRAFT
+owner_task: CON-004
+decisions:
+- D-20
+- D-35
+- D-26
+last_changed: '2026-09-28'
+release: R1
+title: Organization Usage ACCOUNTS (organization inventory snapshot)
+description: 'Organization account inventory feeding discovery (CON-004): accounts keyed by (region, locator), names, edition, lifecycle timestamps and org-admin
+  flag. Authored by CON-004-S03, activated for the org cycle by ING-103 (RECONCILIATION U-23).'
+family: INVENTORY
+module: ORG_INVENTORY
+module_requirement: REQUIRED
+source_kind: VIEW
+fq_view: SNOWFLAKE.ORGANIZATION_USAGE.ACCOUNTS
+show_command: null
+doc_url: https://docs.snowflake.com/en/sql-reference/organization-usage/accounts
+scope: ORGANIZATION
+db_role:
+  roles:
+  - SNOWFLAKE.ORGANIZATION_ACCOUNTS_VIEWER
+  alternatives:
+  - SNOWFLAKE.ORGANIZATION_USAGE_VIEWER
+  account_privileges: []
+  verification: TO_VERIFY_LIVE
+edition_gate:
+  minimum_edition: STANDARD
+  verification: TO_VERIFY_LIVE
+feature_gate: null
+projection:
+- name: ORGANIZATION_NAME
+  transport_name: organization_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: ACCOUNT_NAME
+  transport_name: account_name
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: ACCOUNT_LOCATOR
+  transport_name: account_locator
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Immutable locator; unique only within a region.
+- name: REGION
+  transport_name: region
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: false
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Snowflake region id (with cloud prefix), part of the stable identity (G-CON-06).
+- name: REGION_GROUP
+  transport_name: region_group
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: EDITION
+  transport_name: edition
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Feeds capability NOT_SUPPORTED decisions and the D-35 trial signals.
+- name: ACCOUNT_URL
+  transport_name: account_url
+  expression: null
+  snowflake_type: VARCHAR
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: CUSTOMER_METADATA
+  privacy_action: KEEP
+  arrow_type: large_string
+  raw_type: VARCHAR
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Current <org>-<account> URL; drives automatic endpoint revision on rename (CON-004-S07).
+- name: CREATED_ON
+  transport_name: created_on
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: true
+  required: true
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: DELETED_ON
+  transport_name: deleted_on
+  expression: null
+  snowflake_type: TIMESTAMP_LTZ
+  precision: null
+  scale: 6
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: timestamp[us, tz=UTC]
+  raw_type: TIMESTAMP_NTZ(9)
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: Explicit deletion -> account status DELETED (CON-004-S04).
+- name: IS_ORG_ADMIN
+  transport_name: is_org_admin
+  expression: null
+  snowflake_type: BOOLEAN
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: bool
+  raw_type: BOOLEAN
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+- name: IS_ORGANIZATION_ACCOUNT
+  transport_name: is_organization_account
+  expression: null
+  snowflake_type: BOOLEAN
+  precision: null
+  scale: null
+  nullable: true
+  required: false
+  tier: ALL
+  privacy_class: INTERNAL
+  privacy_action: KEEP
+  arrow_type: bool
+  raw_type: BOOLEAN
+  exact_decimal_parse: false
+  float_exception: false
+  vendor_fact: TO_VERIFY_LIVE
+  requested_by: []
+  description: ''
+extractor_columns: []
+extension_schemas: []
+watermark_mode: SNAPSHOT
+watermark_column: null
+pruning_column: null
+pruning_horizon_days: null
+predicate_template: null
+pending_refresh: null
+horizon_alarm_days: null
+cycle: ORG_SNAPSHOT_4X_DAILY
+window_steady_seconds: 21600
+first_delay_seconds: 0
+settle_seconds: 0
+extraction_order_rank: 5
+semantics: SNAPSHOT
+key: []
+partition_key: null
+snapshot_key:
+- region
+- account_locator
+aggregation_rule: null
+primary_measure: null
+suspect_guard:
+  enabled: true
+  zero_rows: true
+  measure_drop_ratio: null
+  confirm_min_delay_seconds: 21600
+  confirm_tolerance_ratio: '0.001'
+  alarm_after_seconds: 86400
+anti_entropy: []
+backfill_supported: false
+backfill_chunk_seconds: null
+min_chunk_seconds: null
+max_chunk_seconds: null
+backfill_split_rows_threshold: null
+sizing_query: null
+retention_days: null
+retention_basis: SNAPSHOT_FROM_ENROLLMENT
+availability_start: null
+retention_safety_days: 2
+retention_edge_guard_days: 7
+retention_class: FINANCIAL
+journal_retention_days: 400
+raw_retention_days: 400
+query_detail_tiering: null
+documented_latency_seconds: 7200
+latency_verification: TO_VERIFY_LIVE
+maturity:
+  data_final_horizon_seconds: null
+  attribution_final_horizon_seconds: null
+  attribution_horizon_rule: null
+  month_stability_days: null
+  horizon_basis: CAPTURE_TIME
+  fin_policy_ref: ref_source_maturity_policy.csv source_id=OU_ACCOUNTS version=0
+health:
+  expected_lag_seconds: 21600
+  grace_seconds: 5400
+  delayed_after_seconds: 27000
+  stale_after_seconds: 54000
+authority:
+  measure_roles:
+  - INVENTORY
+  service_families: []
+  authority_rank: 2
+  effective_from: null
+  effective_to: null
+  rule: Membership history, never charges; a transient failure or a 0-row snapshot never deletes accounts (CON-004-S04).
+limits:
+  max_rows_per_window: 5000000
+  max_result_bytes: 2147483648
+  oversized_row_bytes: 16777216
+  oversized_text_bytes: null
+  statement_timeout_steady_seconds: 900
+  statement_timeout_backfill_seconds: 3600
+probe:
+  mode: SNAPSHOT_COUNT
+  may_be_empty: false
+  canary: false
+  timeout_seconds: 30
+  predicate_template: null
+transport_schema:
+  version: '1.0'
+  fingerprint: 1143ec007dab7413410587906fc0abbed194578c07c653545b42208fd021ed6f
+  fingerprint_algorithm: bridge-transport-fingerprint-v1
+accepted_fingerprints: []
+activation:
+  DEV: DRAFT
+  STAGING: DRAFT
+  PROD: DRAFT
+verification_record: null
+vendor_facts:
+- fact: Exact column list (ACCOUNT_URL, IS_ORGANIZATION_ACCOUNT, DELETED_ON) and the database role in organization-account vs ORGADMIN-enabled mode.
+  status: TO_VERIFY_LIVE
+  verify_in: CON-004-S03
+test_matrix:
+- EMPTY_AUTHORIZED_WINDOW
+- MISSING_GRANT
+- MISSING_OPTIONAL_COLUMN
+- MISSING_KEY
+- DECIMAL_TYPE_EDGE
+- DUPLICATE_PHYSICAL_ATTEMPT
+- ACCOUNT_RENAME
+- TENANT_ID_COLLISION
+- REPLAY_PRIOR_SCHEMA_VERSION
+- NO_FLOAT_FOR_NUMBER
+- TIMESTAMP_LTZ_LOGICAL_TYPE
+- PER_ACCOUNT_FINGERPRINT_BCR
+- KEY_UNIQUENESS_7D
+- PRE_ENROLLMENT_UNAVAILABLE
+- SILENT_EMPTY_SUSPECT
+adapter_override: null
+notes:
+- 'Snapshot source: each capture is one batch (capture id = source_batch_id); history exists only after the first capture (pre-enrollment intervals are UNAVAILABLE
+  with reason PRE_ENROLLMENT, never inferred). A 0-row capture while the previous capture had rows is SUSPECT (suspect guard, zero_rows).'

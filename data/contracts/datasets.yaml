@@ -1,0 +1,1689 @@
+# contract=datasets version=1 status=DRAFT owner_task=DBT-101 decisions=D-05,D-06,D-11,D-12,D-26 last_changed=2026-09-28
+# Analytical dataset catalog (ADR-014 decision 1; DBT-101-S02; G-DBT-02).
+# Every R1 dataset that is written as insert-only revisioned partitions and published through the SCD2
+# PUBLICATION_MAP is listed under `datasets`. Validated by data/contracts/datasets.schema.json.
+# The release pipeline syncs this file into BRIDGE.OPS_META.DATASET and OPS_META.DATASET_PARTITION_RULE
+# (infra/snowflake/migrations/ops_meta/V0301__processing_ledger.sql); dbt model meta (config.meta.bridge,
+# data/contracts/dbt_meta.schema.json) must agree with the entry of the same dataset_id (lint L01/L02).
+#
+# Physical conventions (all datasets):
+#   * table bridge.<physical.schema>.<physical.table> with leading columns
+#     tenant_id VARCHAR(36), scope_id VARCHAR(36), partition_start TIMESTAMP_NTZ(9), revision_id NUMBER(38,0), build_id VARCHAR(36)
+#     (template data/contracts/templates/revision_table.sql);
+#   * partition key = (tenant_id, scope_id, partition_start); partition_start = DATE_TRUNC(granularity, time_column) in UTC,
+#     or the constant 1970-01-01T00:00:00 for granularity ALL;
+#   * the row access policy named under `rap` is attached at CREATE time (never after); `args` are table columns;
+#   * content columns (business columns) are owned by the dataset's owner_task contract, not by this catalog.
+# Money columns are NUMBER(38,12); no FLOAT anywhere (no_float_columns).
+contract: datasets
+version: 1
+registry_version: 1
+status: DRAFT
+owner_task: DBT-101
+decisions: [D-05, D-06, D-11, D-12, D-26]
+last_changed: "2026-09-28"
+
+defaults:
+  database: bridge
+  partition_columns: [tenant_id, scope_id, partition_start]
+  revision_columns: [revision_id, build_id]
+  clustering: [tenant_id, partition_start]
+  time_travel_days: 1                  # ORC-105-S07; rollback uses superseded revisions, recovery uses OPS-007 snapshots (C-02)
+  superseded_retention_days: 7         # RB-07 rollback window; GC grace = max(cursor_ttl_seconds + 15 min, 7 d)
+  orphan_retention_hours: 24           # CANDIDATE revisions of terminal builds
+  automatic_clustering: SUSPENDED_INITIALLY   # enabled per table after the DBT-101-S09 benchmark
+  all_partition_start: "1970-01-01T00:00:00"
+
+partition_rules:
+  identity: "Downstream partition (tenant, scope, p) depends on the upstream partition with the same tenant, scope and partition_start. Both datasets must share scope and granularity."
+  hour_to_day: "Downstream day partition (tenant, scope, d) depends on the 24 upstream hour partitions [d, d + 1 day) of the same scope; an upstream hour h marks downstream day DATE_TRUNC(day, h)."
+  day_to_month: "Downstream month partition (tenant, scope, m) depends on the upstream day partitions [m, m + 1 month) of the same scope."
+  account_to_org: "Downstream ORGANIZATION (or TENANT) scope partition depends on every upstream ACCOUNT scope partition of the same partition_start whose account belongs to the organization (dim_account_membership valid at partition_start)."
+  org_to_accounts: "Upstream ORGANIZATION scope partition (tenant, org, p) marks every downstream ACCOUNT_OR_ORGANIZATION scope partition of that organization at the same partition_start: the organization itself and each member account (dim_account_membership valid at p)."
+  tenant_all_open: "Any change of the upstream (tenant-level configuration or dimension) marks every downstream partition of the tenant whose accounting period is open (not CLOSED in ledger.fct_period_close for the partition's scope). Closed periods are rebuilt only by a REPAIR build with reason RESTATEMENT (FIN-107)."
+  scope_all_open: "A change of the upstream ALL-granularity partition (tenant, scope) marks every downstream partition of the same scope from the earliest changed validity date (valid_from of the changed dimension rows) forward, restricted to open periods."
+
+source_rules:
+  window_hours: "Accepted batch window [ws, we) marks the hour partitions of the batch's account intersecting [ws - overlap_hours, we + overlap_hours)."
+  window_hours_to_day: "Accepted hourly batch window [ws, we) marks the day partitions (UTC) containing any hour of [ws - overlap_hours, we + overlap_hours) for the batch's account."
+  window_days: "Accepted daily batch window [ds, de) marks the day partitions of the batch's scope (account, or organization for ORG sources) in [ds, de)."
+  org_day_fanout: "An ORG-scope daily batch (organization, day) marks the day partition of the organization and of every member account of that organization (dim_account_membership valid at the day)."
+  snapshot_scope_all: "A SNAPSHOT batch marks the ALL partition of the batch's scope (account, or organization for ORG sources)."
+  config_version_tenant_open: "A newly ACCEPTED config version of the kind (CONFIG.CONFIG_VERSION header complete, D-04) marks every partition of the tenant in open periods whose effective dates intersect the version's effective range (ORC-101-S05)."
+
+retention_classes:
+  FINANCIAL:        {retention_days: 400, rebuild_horizon_days: 400, beyond_horizon: REFUSE, policy_owner: OPS-005, basis: "D-26: billing/metering/storage journal and RAW kept 400 d; canonical facts 400 d; closed-statement evidence is pinned (FIN-010)."}
+  QUERY_GRAIN:      {retention_days: hot_days, rebuild_horizon_days: 90, beyond_horizon: RE_EXTRACT, policy_owner: WRK-104, basis: "D-11: query-level detail hot_days (default 365, plan-configurable); D-26: query-grain RAW 90 d, older days rebuilt only by re-extraction within Account Usage retention (365 d)."}
+  EXECUTION:        {retention_days: 400, rebuild_horizon_days: 90, beyond_horizon: CARRY_FORWARD, policy_owner: WRK-104, basis: "RECONCILIATION C-01(3): execution-level facts 400 d; inputs are query-grain, so partitions older than 90 d are carried forward."}
+  AGGREGATE:        {retention_days: 400, rebuild_horizon_days: 90, beyond_horizon: CARRY_FORWARD, policy_owner: WRK-104, basis: "D-11: family x day aggregates with sketches 400 d; beyond the query-grain RAW horizon they are canonical and carried forward."}
+  DIMENSION:        {retention_days: 400, rebuild_horizon_days: 400, beyond_horizon: REFUSE, policy_owner: DBT-003, basis: "SCD2 from observation logs; small; rebuilt whole-scope (ALL partitions)."}
+  PY_OUTPUT:        {retention_days: 400, rebuild_horizon_days: 7, beyond_horizon: CARRY_FORWARD, policy_owner: ORC-103, basis: "Reproducible only while the pinned input publication's revisions are retained (7-day rollback window); older outputs are kept as published."}
+  QUALITY_INTERNAL: {retention_days: 400, rebuild_horizon_days: 400, beyond_horizon: REFUSE, policy_owner: FIN-009, basis: "Reconciliation and quality datasets follow the financial horizon of their inputs."}
+
+# ---------------------------------------------------------------------------------------------
+# Revisioned datasets
+# ---------------------------------------------------------------------------------------------
+datasets:
+
+  # ---------------- Ledger: charges (FIN) ----------------
+  - dataset_id: fct_charge
+    owner_task: FIN-001
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: fct_charge_r}
+    grain: "One active charge bucket per fine bucket_key (D-12, FIN §3.1) per usage_date; ACCOUNT scope rows carry account_id, ORGANIZATION scope rows (org fees, unresolved accounts) carry account_id NULL."
+    unique_key: [tenant_id, bucket_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: CHARGE
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    companions: [{table: lineage.charge_source, owner_task: DBT-006}]
+    upstream:
+      - {dataset_id: fct_rate, rule: org_to_accounts}
+      - {dataset_id: dim_account_membership, rule: scope_all_open, note: "membership changes move charges between organizations/accounts"}
+    sources:
+      - {source_id: OU_USAGE_IN_CURRENCY_DAILY, rule: org_day_fanout}
+      - {source_id: AU_METERING_DAILY_HISTORY, rule: window_days}
+      - {source_id: AU_METERING_HISTORY, rule: window_hours_to_day, overlap_hours: 24}
+      - {source_id: OU_STORAGE_DAILY_HISTORY, rule: org_day_fanout}
+      - {source_id: AU_DATA_TRANSFER_HISTORY, rule: window_days}
+    config:
+      - {config_kind: RATE_CARD, rule: config_version_tenant_open}
+      - {config_kind: BILLING_REFERENCE, rule: config_version_tenant_open}
+    consumers: [srv_charge_daily, int_alloc_unit, fct_reconciliation, bridge_warehouse_hour, "FIN-009", "FIN-010", "API-005 explain", "LCH-105 spend bands"]
+    release: R1
+    notes: "Active rows only (FIN-102-S07); supersession audit in fct_charge_supersession. ledger_<family> models are thin views over this dataset (views section)."
+
+  - dataset_id: fct_charge_supersession
+    owner_task: FIN-102
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: fct_charge_supersession_r}
+    grain: "One row per superseded estimate charge_row_id and the family bucket / UICD snapshot revision that superseded it."
+    unique_key: [tenant_id, estimate_charge_row_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: CHARGE
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+    consumers: ["FIN-009 C8 estimate accuracy", "API-005 explain"]
+    release: R1
+
+  - dataset_id: fct_rate
+    owner_task: FIN-002
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: fct_rate_r}
+    grain: "One effective rate per (rate_source, full rate key G-FIN-20, effective_date) for an organization."
+    unique_key: [tenant_id, organization_id, rate_source, rate_key, effective_date]
+    tenant_key: tenant_id
+    partition: {scope: ORGANIZATION, granularity: DAY, time_column: effective_date}
+    measure_role: MEASUREMENT
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: OU_RATE_SHEET_DAILY, rule: window_days}
+    config:
+      - {config_kind: RATE_CARD, rule: config_version_tenant_open}
+    consumers: [fct_charge, "FIN-105 pricing UI (via broker)"]
+    release: R1
+    notes: "account_id is always NULL in this dataset (organization-level rows); RAP_ACCOUNT_SCOPED then admits only organization-level entitlements."
+
+  - dataset_id: fct_ledger_freshness
+    owner_task: FIN-102
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: fct_ledger_freshness_r}
+    grain: "One row per (scope, usage_date, source_family) with money_complete_through and billing_complete_through (D-24)."
+    unique_key: [tenant_id, scope_id, usage_date, source_family]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: MEASUREMENT
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+    consumers: ["API-003 meta.source_as_of", "PUBLICATION_TENANT.source_as_of"]
+    release: R1
+
+  # ---------------- Ledger: attribution bridges (FIN) ----------------
+  - dataset_id: bridge_warehouse_hour
+    owner_task: FIN-003
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_warehouse_hour_r}
+    grain: "WAREHOUSE_COMPUTE family-bucket money allocated to warehouse x hour by WMH compute credits (allocate_exact) plus UNATTRIBUTED/OVER_ATTRIBUTED residual rows."
+    unique_key: [tenant_id, charge_row_id, target_id, hour_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+    sources:
+      - {source_id: AU_WAREHOUSE_METERING_HISTORY, rule: window_hours_to_day, overlap_hours: 24}
+    consumers: [bridge_warehouse_query_idle, bridge_adaptive_query_hour, srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_warehouse_query_idle
+    owner_task: FIN-003
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_warehouse_query_idle_r}
+    grain: "Per warehouse-hour decomposition of hour money into QUERY rows (one per query, D-14 prorated), one IDLE row and one signed PRORATION_RESIDUAL row (classic warehouses)."
+    unique_key: [tenant_id, account_id, warehouse_id, hour_start, component_kind, query_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: hour_start}
+    measure_role: ATTRIBUTION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_query_compute, rule: identity}
+    sources:
+      - {source_id: AU_WAREHOUSE_METERING_HISTORY, rule: window_hours, overlap_hours: 24}
+    consumers: [srv_attribution_daily, int_alloc_unit, fct_query_family_daily, "WRK-002 dbt cost", "WRK-003 Power BI cost"]
+    release: R1
+    notes: "Hour money comes from bridge_warehouse_hour (day partition of the same account): the materialization reads it through upstream_for_workset with the day containing hour_start. After hot_days the query rows are removed by a RETENTION publication; the IDLE and residual totals survive in fct_query_family_daily and srv_attribution_daily (FIN-003-S12)."
+
+  - dataset_id: bridge_adaptive_query_hour
+    owner_task: FIN-004
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_adaptive_query_hour_r}
+    grain: "Adaptive warehouse hour money allocated to queries by QUERY_METERING_HISTORY compute credits; signed UNATTRIBUTED/OVER_ATTRIBUTED residual; no IDLE row."
+    unique_key: [tenant_id, account_id, warehouse_id, hour_start, component_kind, query_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: hour_start}
+    measure_role: ATTRIBUTION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: AU_QUERY_METERING_HISTORY, rule: window_hours, overlap_hours: 24}
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: fct_query_compute
+    owner_task: FIN-003
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: fct_query_compute_r}
+    grain: "One row per (query_id, hour_start): D-14 prorated attributed compute credits and execution measures of a query (operational measure, never money)."
+    unique_key: [tenant_id, account_id, query_id, hour_start]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: hour_start}
+    measure_role: MEASUREMENT
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: AU_QUERY_ATTRIBUTION_HISTORY, rule: window_hours, overlap_hours: 72}
+      - {source_id: AU_QUERY_HISTORY, rule: window_hours, overlap_hours: 2}
+    consumers: [bridge_warehouse_query_idle, fct_query_workload, srv_query_exec, int_query_classification_key]
+    release: R1
+    notes: "overlap_hours 72 on QAH = D-13 attribution horizon (statement timeout cap 48 h + 24 h) so late long-running queries re-open earlier hours (FIN-003-S10)."
+
+  - dataset_id: bridge_cloud_services
+    owner_task: FIN-005
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_cloud_services_r}
+    grain: "Billed cloud-services money of an account-day attributed (D-15) to warehouse-hours, serverless service types and queries by gross CS credits, plus residual."
+    unique_key: [tenant_id, charge_row_id, attribution_set, target_kind, target_id, hour_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+      - {dataset_id: fct_query_compute, rule: hour_to_day}
+    sources:
+      - {source_id: AU_WAREHOUSE_METERING_HISTORY, rule: window_hours_to_day, overlap_hours: 24}
+      - {source_id: AU_METERING_DAILY_HISTORY, rule: window_days}
+    consumers: [srv_attribution_daily, int_alloc_unit, fct_ins_cloud_services_daily]
+    release: R1
+
+  - dataset_id: bridge_storage_database
+    owner_task: FIN-006
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_storage_database_r}
+    grain: "Storage family money of an account-day attributed to databases and stages by DSUH / stage bytes, plus UNATTRIBUTED residual."
+    unique_key: [tenant_id, charge_row_id, target_kind, target_id, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+    sources:
+      - {source_id: AU_DATABASE_STORAGE_USAGE_HISTORY, rule: window_days}
+      - {source_id: AU_STAGE_STORAGE_USAGE_HISTORY, rule: window_days}
+    consumers: [srv_attribution_daily, srv_storage_daily, int_alloc_unit, bridge_storage_table]
+    release: R1
+
+  - dataset_id: bridge_storage_table
+    owner_task: FIN-006
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_storage_table_r}
+    grain: "Database storage money of an account-day explained per table from TABLE_STORAGE_METRICS snapshots (from enrollment); pre-enrollment UNKNOWN."
+    unique_key: [tenant_id, charge_row_id, database_id, table_id, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: bridge_storage_database, rule: identity}
+    sources:
+      - {source_id: AU_TABLE_STORAGE_METRICS, rule: snapshot_scope_all}
+    consumers: [srv_storage_daily, fct_ins_table_storage_daily, "API-005 explain"]
+    release: R1
+
+  - dataset_id: bridge_pipe
+    owner_task: FIN-011
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_pipe_r}
+    grain: "PIPE family money attributed to pipe x interval by CREDITS_USED; NULL PIPE_ID -> HIDDEN_PIPE target."
+    unique_key: [tenant_id, charge_row_id, target_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_PIPE_USAGE_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_streaming
+    owner_task: FIN-012
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_streaming_r}
+    grain: "SNOWPIPE_STREAMING family money attributed to client and channel components (classic) or per-GB throughput (high-performance)."
+    unique_key: [tenant_id, charge_row_id, target_kind, target_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources:
+      - {source_id: AU_SNOWPIPE_STREAMING_CLIENT_HISTORY, rule: window_hours_to_day, overlap_hours: 24}
+      - {source_id: AU_SNOWPIPE_STREAMING_CHANNEL_HISTORY, rule: window_hours_to_day, overlap_hours: 24}
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_serverless_task
+    owner_task: FIN-013
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_serverless_task_r}
+    grain: "SERVERLESS_TASK family money attributed to task x instance x interval."
+    unique_key: [tenant_id, charge_row_id, task_id, instance_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_SERVERLESS_TASK_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit, srv_workload_exec]
+    release: R1
+
+  - dataset_id: bridge_serverless_alert
+    owner_task: FIN-013
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_serverless_alert_r}
+    grain: "SERVERLESS_ALERT family money attributed to alert x interval."
+    unique_key: [tenant_id, charge_row_id, alert_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_SERVERLESS_ALERT_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_auto_clustering
+    owner_task: FIN-014
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_auto_clustering_r}
+    grain: "AUTO_CLUSTERING money attributed to table x interval."
+    unique_key: [tenant_id, charge_row_id, table_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_AUTOMATIC_CLUSTERING_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_search_optimization
+    owner_task: FIN-015
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_search_optimization_r}
+    grain: "SEARCH_OPTIMIZATION money attributed to table x interval; unknown table -> UNATTRIBUTED."
+    unique_key: [tenant_id, charge_row_id, table_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_SEARCH_OPTIMIZATION_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_materialized_view
+    owner_task: FIN-016
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_materialized_view_r}
+    grain: "MATERIALIZED_VIEW money attributed to view x interval."
+    unique_key: [tenant_id, charge_row_id, view_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_MATERIALIZED_VIEW_REFRESH_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_qas_warehouse
+    owner_task: FIN-017
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_qas_warehouse_r}
+    grain: "QUERY_ACCELERATION money attributed to warehouse x interval (level 1)."
+    unique_key: [tenant_id, charge_row_id, warehouse_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_QUERY_ACCELERATION_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [bridge_qas_query, srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_qas_query
+    owner_task: FIN-017
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_qas_query_r}
+    grain: "Level-2 QAS attribution: warehouse-interval QAS money to queries by QAH.CREDITS_USED_QUERY_ACCELERATION (D-14 prorated); remainder UNATTRIBUTED."
+    unique_key: [tenant_id, account_id, warehouse_id, hour_start, query_id, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: hour_start}
+    measure_role: ATTRIBUTION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_query_compute, rule: identity}]
+    sources: [{source_id: AU_QUERY_ATTRIBUTION_HISTORY, rule: window_hours, overlap_hours: 72}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_ai_services
+    owner_task: FIN-018
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_ai_services_r}
+    grain: "AI_SERVICES family money attributed to (feature, function/model, hour) by credits, effective-dated source views; residual UNATTRIBUTED."
+    unique_key: [tenant_id, charge_row_id, ai_feature, ai_model, hour_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources:
+      - {source_id: AU_CORTEX_AI_FUNCTIONS_USAGE_HISTORY, rule: window_hours_to_day, overlap_hours: 48}
+      - {source_id: AU_CORTEX_AISQL_USAGE_HISTORY, rule: window_hours_to_day, overlap_hours: 48}
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_spcs_pool
+    owner_task: FIN-019
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_spcs_pool_r}
+    grain: "SPCS money attributed to compute pool x hour (level 1)."
+    unique_key: [tenant_id, charge_row_id, compute_pool_id, hour_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_SNOWPARK_CONTAINER_SERVICES_HISTORY, rule: window_hours_to_day, overlap_hours: 24}]
+    consumers: [bridge_spcs_service, srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_spcs_service
+    owner_task: FIN-019
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_spcs_service_r}
+    grain: "Level 2: pool-hour money to services/applications when service telemetry exists; otherwise the pool is the leaf."
+    unique_key: [tenant_id, charge_row_id, compute_pool_id, service_id, hour_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: bridge_spcs_pool, rule: identity}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_native_app_consumption
+    owner_task: FIN-020
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_native_app_consumption_r}
+    grain: "Non-additive links from native applications to the warehouse / serverless / SPCS charge rows they consumed (APPLICATION_DAILY_USAGE_HISTORY)."
+    unique_key: [tenant_id, application_id, linked_charge_row_id, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_APPLICATION_DAILY_USAGE_HISTORY, rule: window_days}]
+    consumers: [srv_attribution_daily]
+    release: R1
+    notes: "Links only (additive=false); never summed into attributed_cost."
+
+  - dataset_id: bridge_data_transfer
+    owner_task: FIN-008
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_data_transfer_r}
+    grain: "DATA_TRANSFER bucket money attributed to (transfer_type, direction) by bytes; replication-caused transfer tagged caused_by=REPLICATION."
+    unique_key: [tenant_id, charge_row_id, transfer_type, source_region, target_region, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources: [{source_id: AU_DATA_TRANSFER_HISTORY, rule: window_days}]
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_replication
+    owner_task: FIN-008
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_replication_r}
+    grain: "REPLICATION compute money attributed to replication group / database x interval (effective-dated current vs legacy views)."
+    unique_key: [tenant_id, charge_row_id, target_kind, target_id, interval_start, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: ATTRIBUTION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    sources:
+      - {source_id: AU_REPLICATION_GROUP_USAGE_HISTORY, rule: window_hours_to_day, overlap_hours: 48}
+      - {source_id: AU_DATABASE_REPLICATION_USAGE_HISTORY, rule: window_hours_to_day, overlap_hours: 48}
+    consumers: [srv_attribution_daily, int_alloc_unit]
+    release: R1
+
+  - dataset_id: bridge_query_family_daily
+    owner_task: FIN-003
+    domain: FIN
+    layer: ledger
+    materialization: revisioned
+    physical: {schema: ledger, table: bridge_query_family_daily_r}
+    grain: "Query money aggregated per (warehouse, query_parameterized_hash, hash_version, usage_date); survives the query-grain purge (400 d)."
+    unique_key: [tenant_id, account_id, warehouse_id, query_parameterized_hash, hash_version, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: AGGREGATE
+    retention_class: AGGREGATE
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: bridge_warehouse_query_idle, rule: hour_to_day}]
+    consumers: [fct_query_family_daily, srv_attribution_daily]
+    release: R1
+    notes: "RECONCILIATION U-17 names WRK-104's fct_query_family_daily as the single D-11 aggregate. FIN and WRK owners decide whether this dataset becomes a projection of it (hand-off K4 H-19)."
+
+  # ---------------- Intermediate: identity, dimensions, workloads (DBT, WRK) ----------------
+  - dataset_id: int_resource_identity
+    owner_task: DBT-003
+    domain: DBT
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: int_resource_identity_r}
+    grain: "One durable resource id (UUIDv5 of tenant, account, resource_type, source_object_id) per Snowflake object of an account."
+    unique_key: [tenant_id, resource_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: AU_WAREHOUSE_METERING_HISTORY, rule: snapshot_scope_all}
+      - {source_id: AU_DATABASES, rule: snapshot_scope_all}
+      - {source_id: AU_TABLE_STORAGE_METRICS, rule: snapshot_scope_all}
+    consumers: [dim_warehouse_history, dim_database_history, srv_dim_warehouse]
+    release: R1
+
+  - dataset_id: dim_warehouse_history
+    owner_task: DBT-003
+    domain: DBT
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: dim_warehouse_history_r}
+    grain: "SCD2 warehouse attributes (name, size, type, owner, tags) with half-open [valid_from, valid_to) and a pre-enrollment row."
+    unique_key: [tenant_id, resource_id, valid_from]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: int_resource_identity, rule: identity}]
+    consumers: [bridge_warehouse_hour, int_query_classification_key, srv_dim_warehouse, fct_ins_wh_hourly]
+    release: R1
+
+  - dataset_id: dim_database_history
+    owner_task: DBT-003
+    domain: DBT
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: dim_database_history_r}
+    grain: "SCD2 database attributes (name, owner role, deleted flag) with half-open validity and pre-enrollment row."
+    unique_key: [tenant_id, resource_id, valid_from]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: int_resource_identity, rule: identity}]
+    consumers: [bridge_storage_database, int_alloc_unit]
+    release: R1
+
+  - dataset_id: dim_warehouse_config
+    owner_task: INS-102
+    domain: INS
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: dim_warehouse_config_r}
+    grain: "SCD2 warehouse configuration snapshots (auto_suspend, min/max clusters, scaling policy, QAS) per warehouse."
+    unique_key: [tenant_id, resource_id, valid_from]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources: [{source_id: AU_WAREHOUSES_SNAPSHOT, rule: snapshot_scope_all}]
+    consumers: [fct_ins_wh_hourly, "INS-002 detectors"]
+    release: R1
+
+  - dataset_id: dim_account_membership
+    owner_task: DBT-003
+    domain: DBT
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: dim_account_membership_r}
+    grain: "Effective-dated account -> organization membership from pinned CONFIG ACCOUNT_MEMBERSHIP plus ORGANIZATION_USAGE evidence."
+    unique_key: [tenant_id, account_id, valid_from]
+    tenant_key: tenant_id
+    partition: {scope: ORGANIZATION, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources: [{source_id: OU_ACCOUNTS, rule: snapshot_scope_all}]
+    config: [{config_kind: ACCOUNT_MEMBERSHIP, rule: config_version_tenant_open}]
+    consumers: [fct_charge, srv_dim_account, "org_to_accounts / account_to_org rule evaluation"]
+    release: R1
+    notes: "account_id is populated (ACCOUNT rows) although the partition scope is the organization; RAP args use the row's own account_id."
+
+  - dataset_id: fct_query_workload
+    owner_task: WRK-001
+    domain: WRK
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: fct_query_workload_r}
+    grain: "One workload classification per query (D-34 set-based SQL classifier), keyed by query end hour."
+    unique_key: [tenant_id, account_id, query_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: end_hour}
+    measure_role: DIMENSION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: int_query_workload_evidence, rule: identity}]
+    config: [{config_kind: WORKLOAD_RULE, rule: config_version_tenant_open}]
+    consumers: [srv_query_exec, fct_query_family_daily, int_query_classification_key, fct_execution]
+    release: R1
+
+  - dataset_id: int_query_workload_evidence
+    owner_task: WRK-001
+    domain: WRK
+    layer: intermediate
+    materialization: revisioned
+    physical: {schema: intermediate, table: int_query_workload_evidence_r}
+    grain: "Workload evidence rows per (query, evidence_source) from native tasks/DT/procedures, Bridge tag, dbt comment/tag, Power BI tag, customer rules, session application and query type."
+    unique_key: [tenant_id, account_id, query_id, evidence_source]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: end_hour}
+    measure_role: DIMENSION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: AU_QUERY_HISTORY, rule: window_hours, overlap_hours: 2}
+      - {source_id: AU_SESSIONS, rule: window_hours, overlap_hours: 24}
+      - {source_id: AU_TASK_HISTORY, rule: window_hours, overlap_hours: 2}
+      - {source_id: AU_DYNAMIC_TABLE_REFRESH_HISTORY, rule: window_hours, overlap_hours: 2}
+    consumers: [fct_query_workload]
+    release: R1
+
+  - dataset_id: fct_query_family_daily
+    owner_task: WRK-104
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_query_family_daily_r}
+    grain: "(tenant, account, warehouse_id, workload_key, query_parameterized_hash, hash_version, usage_date) with counts, sums, t-digest/HLL states, INS savings measures and credits_used_cloud_services (RECONCILIATION C-01, U-17)."
+    unique_key: [tenant_id, account_id, warehouse_id, workload_key, query_parameterized_hash, hash_version, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: AGGREGATE
+    retention_class: AGGREGATE
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_query_compute, rule: hour_to_day}
+      - {dataset_id: fct_query_workload, rule: hour_to_day}
+      - {dataset_id: bridge_warehouse_query_idle, rule: hour_to_day}
+    consumers: [srv_query_family_daily, "INS-003 (view fct_ins_query_family_day)", "ALC-005 cloud-services driver"]
+    release: R1
+
+  - dataset_id: fct_execution
+    owner_task: WRK-004
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_execution_r}
+    grain: "One execution (DBT_INVOCATION, DBT_MODEL_EXEC, PBI_ACTIVITY, TASK_GRAPH_RUN, TASK_RUN, PROCEDURE_CALL, DT_REFRESH) keyed by execution_id, partitioned by execution start day."
+    unique_key: [tenant_id, account_id, execution_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_query_workload, rule: hour_to_day}
+      - {dataset_id: bridge_warehouse_query_idle, rule: hour_to_day}
+    consumers: [srv_workload_exec, fct_dbt_invocation, fct_pbi_activity]
+    release: R1
+
+  - dataset_id: fct_execution_edge
+    owner_task: WRK-004
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_execution_edge_r}
+    grain: "Parent execution -> child execution or child query edge with edge_source and evidence_class."
+    unique_key: [tenant_id, account_id, parent_execution_id, child_ref]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_execution, rule: identity}]
+    consumers: [srv_workload_exec]
+    release: R1
+
+  - dataset_id: fct_execution_query_link
+    owner_task: WRK-004
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_execution_query_link_r}
+    grain: "One row per (execution_id, query_id); a query's cost is counted once per execution."
+    unique_key: [tenant_id, account_id, execution_id, query_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_execution, rule: identity}]
+    consumers: [srv_workload_exec, "API-104 entity drilldown"]
+    release: R1
+
+  - dataset_id: fct_dbt_invocation
+    owner_task: WRK-002
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_dbt_invocation_r}
+    grain: "One dbt invocation (VERIFIED by invocation_id, else APPROXIMATE grouping) with cost = sum of distinct query links."
+    unique_key: [tenant_id, account_id, invocation_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_execution, rule: identity}]
+    consumers: [srv_workload_exec]
+    release: R1
+
+  - dataset_id: fct_dbt_model_execution
+    owner_task: WRK-002
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_dbt_model_execution_r}
+    grain: "One dbt model execution (session_id + node_id + contiguity) with cost, wall time, execution sum and status."
+    unique_key: [tenant_id, account_id, model_execution_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_execution, rule: identity}]
+    consumers: [srv_workload_exec]
+    release: R1
+
+  - dataset_id: fct_pbi_activity
+    owner_task: WRK-003
+    domain: WRK
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_pbi_activity_r}
+    grain: "One Power BI activity (tenant, account, activity_id, mode, start, end, query_count, compute_cost, wall_s, status)."
+    unique_key: [tenant_id, account_id, activity_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: MEASUREMENT
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_execution, rule: identity}]
+    consumers: [srv_workload_exec]
+    release: R1
+
+  # ---------------- Allocation (ALC) ----------------
+  - dataset_id: int_query_classification_key
+    owner_task: ALC-002
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: int_query_classification_key_r}
+    grain: "Distinct classification keys (sha2 of the fixed attribute tuple G-ALC-16) per account-day with their attribute values."
+    unique_key: [tenant_id, account_id, usage_date, classification_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: DIMENSION
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_query_compute, rule: hour_to_day}
+      - {dataset_id: fct_query_workload, rule: hour_to_day}
+      - {dataset_id: dim_warehouse_history, rule: scope_all_open}
+    consumers: [fct_tag_assignment, int_alloc_unit]
+    release: R1
+
+  - dataset_id: fct_tag_assignment
+    owner_task: ALC-001
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: fct_tag_assignment_r}
+    grain: "Resolved tag (dimension key = value) per allocation subject and day with source RULE/OVERRIDE/NATIVE_EVIDENCE/UNCLASSIFIED/CONFLICT and confidence."
+    unique_key: [tenant_id, account_id, usage_date, subject_kind, subject_id, dimension_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: DIMENSION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: int_query_classification_key, rule: identity}]
+    sources: [{source_id: AU_TAG_REFERENCES, rule: snapshot_scope_all}]
+    config: [{config_kind: TAG_RULES, rule: config_version_tenant_open}]
+    consumers: [int_alloc_unit, mart_allocation_quality]
+    release: R1
+
+  - dataset_id: dim_group_closure
+    owner_task: ALC-004
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: dim_group_closure_r}
+    grain: "Effective-dated ancestor/descendant closure of usage groups per published group-set version."
+    unique_key: [tenant_id, group_set_id, ancestor_group_id, descendant_group_id, valid_from]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_tenant_only, args: [tenant_id]}
+    publication_phase: CORE
+    config: [{config_kind: GROUPS, rule: config_version_tenant_open}]
+    consumers: [int_alloc_unit, srv_showback_group_period, srv_dim_group]
+    release: R1
+
+  - dataset_id: int_alloc_unit
+    owner_task: ALC-005
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: int_alloc_unit_r}
+    grain: "Each charge split into QUERY / IDLE / RESIDUAL / RESOURCE units that sum exactly to the charge (G-ALC-01, D-12)."
+    unique_key: [tenant_id, charge_row_id, unit_kind, unit_ref]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: ALLOCATION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: identity}
+      - {dataset_id: bridge_warehouse_hour, rule: identity}
+      - {dataset_id: bridge_warehouse_query_idle, rule: hour_to_day}
+      - {dataset_id: bridge_cloud_services, rule: identity}
+      - {dataset_id: bridge_storage_database, rule: identity}
+      - {dataset_id: fct_tag_assignment, rule: identity}
+    consumers: [fct_allocation_line]
+    release: R1
+
+  - dataset_id: fct_allocation_line
+    owner_task: ALC-005
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: fct_allocation_line_r}
+    grain: "Allocation line per (charge unit, book, target group, method, rule_version) with source amount, weight numerator/denominator and allocated amount (exact, signed LR)."
+    unique_key: [tenant_id, book_id, charge_row_id, unit_kind, unit_ref, target_group_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: ALLOCATION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: int_alloc_unit, rule: identity}
+      - {dataset_id: dim_group_closure, rule: tenant_all_open}
+    config: [{config_kind: ALLOCATION_POLICY, rule: config_version_tenant_open}]
+    consumers: [srv_allocation_restricted, mart_allocation_quality, "ALC-008 statements"]
+    release: R1
+    notes: "Internal: RAP_ACCOUNT_SCOPED admits only profiles with an unrestricted group dimension (book-wide), as ALC G-ALC-02 requires."
+
+  - dataset_id: mart_allocation_quality
+    owner_task: ALC-006
+    domain: ALC
+    layer: allocation
+    materialization: revisioned
+    physical: {schema: allocation, table: mart_allocation_quality_r}
+    grain: "Per (scope, day, book): coverage on the absolute net-bucket basis (G-ALC-14), conflicts, unowned resources with spend > 0."
+    unique_key: [tenant_id, scope_id, usage_date, book_id, metric_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: ALLOCATION
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_allocation_line, rule: identity}
+      - {dataset_id: fct_tag_assignment, rule: identity}
+    consumers: ["ALC-006 quality API", "API-001 allocation_coverage"]
+    release: R1
+
+  - dataset_id: srv_allocation_restricted
+    owner_task: ALC-101
+    domain: ALC
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_allocation_restricted_r}
+    grain: "Restricted allocation projection (tenant, book, target_group_id, usage_date, service_category, component_kind, method, allocated_amount, data_status, explain_ref): no source amount, weight, driver or pool total."
+    unique_key: [tenant_id, book_id, target_group_id, usage_date, service_category, component_kind, method, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_group_scoped, args: [tenant_id, organization_id, account_id, book_id, target_group_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_allocation_line, rule: account_to_org}]
+    serving: {api_relation: v_allocation_daily, namespace: serving_v1}
+    consumers: ["API-001 allocated_cost/unallocated_cost/allocation_share", "ALC-102 allocated_spend", srv_showback_group_period]
+    release: R1
+    notes: "organization_id and account_id are NULL in this projection (group-grain rows, SEC Appendix A.4 rule 2); book_id plays the group_set_id role in RAP_GROUP_SCOPED (hand-off K4 H-09)."
+
+  - dataset_id: srv_showback_group_period
+    owner_task: ALC-007
+    domain: ALC
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_showback_group_period_r}
+    grain: "Per (book, group incl. materialized ancestors, month, service_category, currency) showback totals; parent = sum of effective-dated descendants."
+    unique_key: [tenant_id, book_id, group_id, month_start, service_category, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: MONTH, time_column: month_start}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_group_scoped, args: [tenant_id, organization_id, account_id, book_id, group_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: srv_allocation_restricted, rule: day_to_month}
+      - {dataset_id: dim_group_closure, rule: tenant_all_open}
+    serving: {api_relation: v_showback_group_period, namespace: serving_v1}
+    consumers: ["ALC-007 showback portal", "ALC-008 statements", "RPT-002 snapshots"]
+    release: R1
+
+  - dataset_id: srv_pool_disclosure
+    owner_task: ALC-101
+    domain: ALC
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_pool_disclosure_r}
+    grain: "Per (book, pool, consumer group, month): pool total only when the pool is DISCLOSED (Org Admin acknowledgement)."
+    unique_key: [tenant_id, book_id, pool_id, group_id, month_start, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: MONTH, time_column: month_start}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_group_scoped, args: [tenant_id, organization_id, account_id, book_id, group_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_allocation_line, rule: day_to_month}]
+    config: [{config_kind: ALLOCATION_POLICY, rule: config_version_tenant_open}]
+    serving: {api_relation: v_pool_disclosure, namespace: serving_v1}
+    consumers: ["ALC-101 pool disclosure API"]
+    release: R1
+
+  # ---------------- Reconciliation and quality datasets (FIN) ----------------
+  - dataset_id: fct_reconciliation
+    owner_task: FIN-009
+    domain: FIN
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_reconciliation_r}
+    grain: "Control result per (run, scope, period, currency, control_id, grain key) with ledger value, reference value, delta, tolerance, status, classification."
+    unique_key: [tenant_id, run_id, control_id, grain_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: MONTH, time_column: period_start}
+    measure_role: RECONCILIATION
+    retention_class: QUALITY_INTERNAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_charge, rule: day_to_month}
+      - {dataset_id: fct_reconciliation_input, rule: identity}
+    config: [{config_kind: BILLING_REFERENCE, rule: config_version_tenant_open}]
+    consumers: ["FIN-009 reconciliation API", "FIN-010 close gate"]
+    release: R1
+
+  - dataset_id: fct_reconciliation_run
+    owner_task: FIN-009
+    domain: FIN
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_reconciliation_run_r}
+    grain: "One reconciliation run per (scope, period) with ledger revision set, reference version and overall status."
+    unique_key: [tenant_id, run_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: MONTH, time_column: period_start}
+    measure_role: RECONCILIATION
+    retention_class: QUALITY_INTERNAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_reconciliation, rule: identity}]
+    consumers: ["FIN-009 reconciliation API"]
+    release: R1
+
+  - dataset_id: fct_reconciliation_input
+    owner_task: FIN-009
+    domain: FIN
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_reconciliation_input_r}
+    grain: "Reconciliation input events (e.g. C9 closed_period_drift candidates) per scope and period."
+    unique_key: [tenant_id, input_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: MONTH, time_column: period_start}
+    measure_role: RECONCILIATION
+    retention_class: QUALITY_INTERNAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: day_to_month}]
+    consumers: [fct_reconciliation]
+    release: R1
+
+  - dataset_id: fct_source_lateness
+    owner_task: FIN-104
+    domain: FIN
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_source_lateness_r}
+    grain: "Per (account, source, month): observed arrival lateness p50/p95/max and last-revision lag."
+    unique_key: [tenant_id, account_id, source_id, month_start]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: MONTH, time_column: month_start}
+    measure_role: MEASUREMENT
+    retention_class: QUALITY_INTERNAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources:
+      - {source_id: OU_USAGE_IN_CURRENCY_DAILY, rule: org_day_fanout}
+      - {source_id: AU_METERING_DAILY_HISTORY, rule: window_days}
+    consumers: ["FIN-104-S07 maturity policy v1", "FIN-108"]
+    release: R1
+
+  # ---------------- Insight feature marts (INS) ----------------
+  - dataset_id: fct_ins_wh_hourly
+    owner_task: INS-002
+    domain: INS
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_ins_wh_hourly_r}
+    grain: "Per (warehouse, hour): compute, attributed, idle credits, residual flag, is_adaptive, rate/currency, hour completeness."
+    unique_key: [tenant_id, account_id, warehouse_id, hour_start]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: MEASUREMENT
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: bridge_warehouse_hour, rule: identity}
+      - {dataset_id: dim_warehouse_config, rule: scope_all_open}
+    consumers: ["INS-002 WH01/WH02 detectors (py_insight_observation)"]
+    release: R1
+
+  - dataset_id: fct_ins_wh_busy_intervals
+    owner_task: INS-002
+    domain: INS
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_ins_wh_busy_intervals_r}
+    grain: "Busy intervals and gaps per (warehouse, cluster) from queries with EXECUTION_TIME > 0."
+    unique_key: [tenant_id, account_id, warehouse_id, cluster_number, interval_start]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: MEASUREMENT
+    retention_class: QUERY_GRAIN
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_query_compute, rule: hour_to_day}]
+    consumers: ["INS-002 WH04 tier"]
+    release: R1
+
+  - dataset_id: fct_ins_cloud_services_daily
+    owner_task: INS-003
+    domain: INS
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_ins_cloud_services_daily_r}
+    grain: "Per account-day: gross cloud-services credits, adjustment and billed credits."
+    unique_key: [tenant_id, account_id, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: MEASUREMENT
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: bridge_cloud_services, rule: identity}]
+    consumers: ["INS-003 Q07 detector", "GOV-005 anomaly call"]
+    release: R1
+
+  - dataset_id: fct_ins_table_storage_daily
+    owner_task: INS-004
+    domain: INS
+    layer: marts
+    materialization: revisioned
+    physical: {schema: marts, table: fct_ins_table_storage_daily_r}
+    grain: "Per (table, snapshot day): bytes per class, dropped flag, clone group, storage rate per TiB-month."
+    unique_key: [tenant_id, account_id, table_id, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: MEASUREMENT
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: bridge_storage_table, rule: identity}]
+    consumers: ["INS-004 ST03/ST04 detectors"]
+    release: R1
+
+  # ---------------- Serving (DBT-006 / API-001 relations) ----------------
+  - dataset_id: srv_charge_daily
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_charge_daily_r}
+    grain: "fct_charge at D-12 grain projected for the semantic API (v_charge_daily): scope, service dimensions, currency, data_status, price_basis."
+    unique_key: [tenant_id, bucket_key]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_charge, rule: identity}]
+    serving: {api_relation: v_charge_daily, namespace: serving_v1}
+    consumers: ["API-001 spend, billed_credits, warehouse_compute_cost", "GOV budgets actuals (broker JOB)", "RPT-002"]
+    release: R1
+
+  - dataset_id: srv_attribution_daily
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_attribution_daily_r}
+    grain: "Charge -> resource/workload attribution per day with explicit residual rows (__UNATTRIBUTED__), union of all attribution bridges aggregated to day."
+    unique_key: [tenant_id, charge_row_id, attribution_set, target_kind, target_id, workload_key, residual_kind]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT_OR_ORGANIZATION, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: bridge_warehouse_hour, rule: identity}
+      - {dataset_id: bridge_warehouse_query_idle, rule: hour_to_day}
+      - {dataset_id: bridge_adaptive_query_hour, rule: hour_to_day}
+      - {dataset_id: bridge_cloud_services, rule: identity}
+      - {dataset_id: bridge_storage_database, rule: identity}
+      - {dataset_id: bridge_pipe, rule: identity}
+      - {dataset_id: bridge_streaming, rule: identity}
+      - {dataset_id: bridge_serverless_task, rule: identity}
+      - {dataset_id: bridge_serverless_alert, rule: identity}
+      - {dataset_id: bridge_auto_clustering, rule: identity}
+      - {dataset_id: bridge_search_optimization, rule: identity}
+      - {dataset_id: bridge_materialized_view, rule: identity}
+      - {dataset_id: bridge_qas_warehouse, rule: identity}
+      - {dataset_id: bridge_qas_query, rule: hour_to_day}
+      - {dataset_id: bridge_ai_services, rule: identity}
+      - {dataset_id: bridge_spcs_pool, rule: identity}
+      - {dataset_id: bridge_spcs_service, rule: identity}
+      - {dataset_id: bridge_data_transfer, rule: identity}
+      - {dataset_id: bridge_replication, rule: identity}
+      - {dataset_id: fct_query_workload, rule: hour_to_day}
+    serving: {api_relation: v_attribution_daily, namespace: serving_v1}
+    consumers: ["API-001 query_compute_cost, idle_cost, attributed_cost, unattributed_cost, attribution_coverage, ai_tokens, files_loaded"]
+    release: R1
+
+  - dataset_id: srv_query_exec
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_query_exec_r}
+    grain: "One row per executed query (hot tier) with workload identity, status taxonomy, times, bytes, spill, sanitized SQL text (masked unless FULL privacy mode)."
+    unique_key: [tenant_id, account_id, query_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: HOUR, time_column: end_hour}
+    measure_role: SERVING
+    retention_class: QUERY_GRAIN
+    rap:
+      policy: security.rap_account_scoped
+      args: [tenant_id, organization_id, account_id]
+      masking: [{column: query_text_sanitized, policy: security.mp_sql_text_full}]
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_query_compute, rule: identity}
+      - {dataset_id: fct_query_workload, rule: identity}
+    serving: {api_relation: v_query_exec, namespace: serving_v1}
+    consumers: ["API-001 query_count, failed_query_count, query_*_p95 (HOT tier)", "API-104 entities"]
+    release: R1
+    notes: "Masking attaches to the sanitized-text column per SEC Appendix A.3 (FULL mode only); query_text is SQL_TEXT privacy class."
+
+  - dataset_id: srv_query_family_daily
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_query_family_daily_r}
+    grain: "fct_query_family_daily projected for the AGGREGATE tier (t-digest/HLL states, 400 d)."
+    unique_key: [tenant_id, account_id, warehouse_id, workload_key, query_parameterized_hash, hash_version, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: AGGREGATE
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: fct_query_family_daily, rule: identity}]
+    serving: {api_relation: v_query_family_daily, namespace: serving_v1}
+    consumers: ["API-001 AGGREGATE tier query metrics"]
+    release: R1
+
+  - dataset_id: srv_storage_daily
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_storage_daily_r}
+    grain: "Bytes by storage class per (account, database, day); latest and time-weighted averages."
+    unique_key: [tenant_id, account_id, database_id, storage_class, usage_date]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: bridge_storage_database, rule: identity}
+      - {dataset_id: bridge_storage_table, rule: identity}
+    serving: {api_relation: v_storage_daily, namespace: serving_v1}
+    consumers: ["API-001 storage_bytes"]
+    release: R1
+
+  - dataset_id: srv_budget_daily_account
+    owner_task: GOV-001
+    domain: GOV
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_budget_daily_account_r}
+    grain: "Per (budget, day) for budgets scoped to organizations/accounts: prorated plan amount, actual to date, run rate (group columns absent)."
+    unique_key: [tenant_id, budget_id, usage_date, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: srv_charge_daily, rule: account_to_org}]
+    config: [{config_kind: BUDGET, rule: config_version_tenant_open}]
+    serving: {api_relation: v_budget_daily, namespace: serving_v1, union_group: budget_daily}
+    consumers: ["API-001 budget_amount, budget_actual_to_date, run_rate_daily", "GOV-003 monitors"]
+    release: R1
+    notes: "Split from the group-scoped budget rows so that account-grain rows never carry group columns (SEC Appendix A.4 rule 1). Hand-off K4 H-10."
+
+  - dataset_id: srv_budget_daily_group
+    owner_task: GOV-001
+    domain: GOV
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_budget_daily_group_r}
+    grain: "Per (budget, day) for budgets scoped to usage groups (book/group): prorated plan amount, actual to date, run rate."
+    unique_key: [tenant_id, budget_id, usage_date, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: usage_date}
+    measure_role: SERVING
+    retention_class: FINANCIAL
+    rap: {policy: security.rap_group_scoped, args: [tenant_id, organization_id, account_id, group_set_id, group_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: srv_allocation_restricted, rule: identity}]
+    config: [{config_kind: BUDGET, rule: config_version_tenant_open}]
+    serving: {api_relation: v_budget_daily, namespace: serving_v1, union_group: budget_daily}
+    consumers: ["API-001 budget metrics", "GOV-003 monitors"]
+    release: R1
+
+  - dataset_id: srv_workload_exec
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_workload_exec_r}
+    grain: "One execution (dbt invocation/model, Power BI activity, task graph run, DT refresh) with cost, wall time, execution sum and status for workload metrics."
+    unique_key: [tenant_id, account_id, execution_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: DAY, time_column: start_date}
+    measure_role: SERVING
+    retention_class: EXECUTION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream:
+      - {dataset_id: fct_execution, rule: identity}
+      - {dataset_id: fct_dbt_invocation, rule: identity}
+      - {dataset_id: fct_dbt_model_execution, rule: identity}
+      - {dataset_id: fct_pbi_activity, rule: identity}
+      - {dataset_id: bridge_serverless_task, rule: identity}
+    serving: {api_relation: v_workload_exec, namespace: serving_v1}
+    consumers: ["API-001 execution_* metrics, dynamic_table_lag_p95"]
+    release: R1
+
+  - dataset_id: srv_insight_summary
+    owner_task: INS-101
+    domain: INS
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_insight_summary_r}
+    grain: "Per (account, opportunity group, as_of day): deduplicated potential savings range and realized savings summary."
+    unique_key: [tenant_id, account_id, opportunity_group_key, as_of_date, currency]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: SERVING
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: INTELLIGENCE
+    upstream:
+      - {dataset_id: py_insight_observation, rule: identity}
+      - {dataset_id: py_insight_opportunity_group, rule: identity}
+    serving: {api_relation: v_insight_summary, namespace: serving_v1}
+    consumers: ["API-001 potential_savings, realized_savings", "INS-101 inbox"]
+    release: R1
+
+  - dataset_id: srv_dim_account
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_dim_account_r}
+    grain: "Dimension dictionary of organizations and accounts (names, region, cloud, edition, connected flag) under the account policy (SEC A.4 rule 5)."
+    unique_key: [tenant_id, scope_id]
+    tenant_key: tenant_id
+    partition: {scope: ORGANIZATION, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: dim_account_membership, rule: identity}]
+    serving: {api_relation: v_dim_account, namespace: serving_v1}
+    consumers: ["API-001 GET /v1/dimensions/{id}/values (organization, account, region, cloud)"]
+    release: R1
+
+  - dataset_id: srv_dim_warehouse
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_dim_warehouse_r}
+    grain: "Dimension dictionary of warehouses (current and historical names, type, size) per account."
+    unique_key: [tenant_id, account_id, resource_id]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: dim_warehouse_history, rule: identity}]
+    serving: {api_relation: v_dim_warehouse, namespace: serving_v1}
+    consumers: ["API-001 dimension values (warehouse, warehouse_type, warehouse_size)"]
+    release: R1
+
+  - dataset_id: srv_dim_user
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_dim_user_r}
+    grain: "Dictionary of user pseudonyms (D-10 HMAC) and roles seen per account; names are resolved by the API only with people.read."
+    unique_key: [tenant_id, account_id, user_pseudonym]
+    tenant_key: tenant_id
+    partition: {scope: ACCOUNT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: CORE
+    sources: [{source_id: AU_SESSIONS, rule: snapshot_scope_all}]
+    serving: {api_relation: v_dim_user, namespace: serving_v1}
+    consumers: ["API-001 dimension values (user, role, client_application)"]
+    release: R1
+    notes: "Holds pseudonyms only (PERSONAL data stays in the PostgreSQL identity dictionary, D-10)."
+
+  - dataset_id: srv_dim_group
+    owner_task: DBT-006
+    domain: DBT
+    layer: serving
+    materialization: revisioned
+    physical: {schema: serving, table: srv_dim_group_r}
+    grain: "Dictionary of books and usage groups (incl. __SHARED__/__UNALLOCATED__ sentinels) per published group-set version."
+    unique_key: [tenant_id, group_set_id, group_id]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: ALL, time_column: null}
+    measure_role: DIMENSION
+    retention_class: DIMENSION
+    rap: {policy: security.rap_group_scoped, args: [tenant_id, organization_id, account_id, group_set_id, group_id]}
+    publication_phase: CORE
+    upstream: [{dataset_id: dim_group_closure, rule: identity}]
+    serving: {api_relation: v_dim_group, namespace: serving_v1}
+    consumers: ["API-001 dimension values (group_set, group, book)"]
+    release: R1
+
+  # ---------------- Python outputs (ORC-103 writer; publication phase INTELLIGENCE) ----------------
+  - dataset_id: py_forecast
+    owner_task: GOV-002
+    domain: GOV
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_forecast_r}
+    grain: "One forecast per (scope_ref, period, model_version, input_pub_seq) with point total, remaining estimate and interval (data/contracts/forecast.json)."
+    unique_key: [tenant_id, scope_ref, period_start, model_version, input_pub_seq]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: FORECAST
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_scoped_object, args: [tenant_id, organization_id, account_id, group_set_id, group_id]}
+    publication_phase: INTELLIGENCE
+    serving: {api_relation: v_forecast, namespace: serving_v1}
+    consumers: ["API-001 forecast_total, forecast_variance", "GOV-004 forecast_breach"]
+    release: R1
+
+  - dataset_id: py_anomaly_candidate
+    owner_task: GOV-005
+    domain: GOV
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_anomaly_candidate_r}
+    grain: "One anomaly evaluation per (series, stream GROSS_POSITIVE/REFUND, day, model_version, input_pub_seq): baseline median, MAD, score, method, signed and absolute impact."
+    unique_key: [tenant_id, series_key, stream, usage_date, model_version, input_pub_seq]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: OBSERVATION
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_scoped_object, args: [tenant_id, organization_id, account_id, group_set_id, group_id]}
+    publication_phase: INTELLIGENCE
+    consumers: ["GOV-004 anomaly monitors", "INS-003 Q07"]
+    release: R1
+
+  - dataset_id: py_insight_observation
+    owner_task: INS-001
+    domain: INS
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_insight_observation_r}
+    grain: "One detector observation per (fingerprint, window, detector_version, input_pub_seq) (data/contracts/insight_observation.schema.json)."
+    unique_key: [tenant_id, observation_id]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: OBSERVATION
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: INTELLIGENCE
+    consumers: [srv_insight_summary, "INS-006 actions", "INS-101 API"]
+    release: R1
+
+  - dataset_id: py_insight_evidence
+    owner_task: INS-001
+    domain: INS
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_insight_evidence_r}
+    grain: "Evidence rows (<= 200 per observation) supporting an observation."
+    unique_key: [tenant_id, observation_id, evidence_id]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: OBSERVATION
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: INTELLIGENCE
+    consumers: ["INS-101 deep dive"]
+    release: R1
+
+  - dataset_id: py_insight_detector_evaluation
+    owner_task: INS-001
+    domain: INS
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_insight_detector_evaluation_r}
+    grain: "Per (detector, version, window): evaluated, qualified, suppressed_by_reason counts and eligible_on."
+    unique_key: [tenant_id, detector_id, detector_version, window_start, window_end]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: OBSERVATION
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_tenant_only, args: [tenant_id]}
+    publication_phase: INTELLIGENCE
+    consumers: ["INS-105 qualification", "INS-101 coverage"]
+    release: R1
+
+  - dataset_id: py_insight_opportunity_group
+    owner_task: INS-001
+    domain: INS
+    layer: py_outputs
+    materialization: python_output
+    physical: {schema: py_outputs, table: py_insight_opportunity_group_r}
+    grain: "Opportunity group per (account, currency, cost pool) with deduplicated potential (G-INS-11)."
+    unique_key: [tenant_id, account_id, currency, opportunity_group_key]
+    tenant_key: tenant_id
+    partition: {scope: TENANT, granularity: DAY, time_column: as_of_date}
+    measure_role: OBSERVATION
+    retention_class: PY_OUTPUT
+    rap: {policy: security.rap_account_scoped, args: [tenant_id, organization_id, account_id]}
+    publication_phase: INTELLIGENCE
+    consumers: [srv_insight_summary]
+    release: R1
+
+# ---------------------------------------------------------------------------------------------
+# Views: not revisioned, no map rows. Pinned reads go through the member datasets' map rows.
+# ---------------------------------------------------------------------------------------------
+views:
+  - name: ledger.bridge_charge_attribution
+    owner_task: FIN-103
+    kind: UNION_REGISTRY
+    members: [bridge_warehouse_hour, bridge_warehouse_query_idle, bridge_adaptive_query_hour, bridge_cloud_services, bridge_storage_database, bridge_storage_table, bridge_pipe, bridge_streaming, bridge_serverless_task, bridge_serverless_alert, bridge_auto_clustering, bridge_search_optimization, bridge_materialized_view, bridge_qas_warehouse, bridge_qas_query, bridge_ai_services, bridge_spcs_pool, bridge_spcs_service, bridge_native_app_consumption, bridge_data_transfer, bridge_replication]
+    notes: "Explicit include registry (transformation.md). Row contract data/contracts/ledger/bridge_charge_attribution.schema.json (FIN-001-S04). Inside builds it is read through upstream_for_workset per member; readers never query it directly."
+  - name: ledger.ledger_family_views
+    owner_task: FIN-102
+    kind: PROJECTION
+    members: [fct_charge]
+    notes: "ledger_<family> thin filters over fct_charge for PRD traceability (FIN-102-S07); one view per service_family."
+  - name: marts.fct_ins_query_family_day
+    owner_task: INS-003
+    kind: PROJECTION
+    members: [fct_query_family_daily]
+    notes: "RECONCILIATION U-17: INS measures are columns of fct_query_family_daily."
+  - name: staging.stg_*
+    owner_task: DBT-002
+    kind: STAGING_DEDUP
+    members: []
+    notes: "Staging models are views over accepted RAW through accepted_source() (accepted_seq <= BUILD.snapshot_seq), dedup_mode NATURAL_KEY or WINDOW_SNAPSHOT; never tables."
+
+# ---------------------------------------------------------------------------------------------
+# Insert-only tables written outside dbt builds that analytical builds or gates consume.
+# ---------------------------------------------------------------------------------------------
+external_tables:
+  - name: control.accepted_batches
+    owner_task: ING-007
+    write_path: INGEST_ACCEPTOR
+    versioning: INSERT_ONLY_EVENTS
+    consumed_by: ["accepted_source()", "ORC-101 planner (accepted_seq)"]
+    notes: "Requires accepted_seq NUMBER(38,0) assigned by the single-writer acceptor in the same INSERT (ORC-101-S01; hand-off K4 H-01)."
+  - name: config.config_version
+    owner_task: CTL-005
+    write_path: CONFIG_PUBLISHER
+    versioning: INSERT_ONLY_VERSIONED
+    consumed_by: ["pinned_config()", "BUILD_CONFIG_PIN planner"]
+    notes: "Header/commit marker of every config version (D-04). Kind tables per data/dbt/models/staging/config/_sources.yml."
+  - name: ledger.fct_billing_reference
+    owner_task: FIN-101
+    write_path: CONFIG_PUBLISHER
+    versioning: INSERT_ONLY_VERSIONED
+    consumed_by: [fct_reconciliation]
+    notes: "Approved billing reference versions (reference_id, version) published by the D-04 publisher."
+  - name: ledger.fct_period_close
+    owner_task: FIN-010
+    write_path: CONFIG_PUBLISHER
+    versioning: INSERT_ONLY_VERSIONED
+    consumed_by: ["tenant_all_open / scope_all_open open-period evaluation", "PIN (STATEMENT holders)"]
+    notes: "Close records; a CLOSED period is excluded from config-change expansion."
+  - name: allocation.fct_chargeback_statement_line
+    owner_task: ALC-008
+    write_path: STATEMENT_ISSUER
+    versioning: INSERT_ONLY_EVENTS
+    consumed_by: ["ALC-008 statements", "RPT-002"]
+    notes: "Immutable statement lines pinned to a pub_seq; not a revisioned dataset."
+  - name: marts.fct_monitor_observation
+    owner_task: GOV-004
+    write_path: MONITOR_EVALUATOR
+    versioning: INSERT_ONLY_EVENTS
+    consumed_by: ["GOV-004 tracker"]
+    notes: "Insert-only observations keyed per G-GOV-01 with input publication; not in the publication map."
+  - name: quality.check_result
+    owner_task: DBT-005
+    write_path: QUALITY_WRITER
+    versioning: INSERT_ONLY_EVENTS
+    consumed_by: ["PUBLICATION.PREPARE_CANDIDATES gate (ORC-005-S03)"]
+    notes: "Single check-result store keyed by candidate revision (RECONCILIATION U-19). Row contract in data/contracts/checks.yaml; DDL in the QUALITY block (hand-off K4 H-05)."

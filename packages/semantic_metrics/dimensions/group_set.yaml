@@ -1,0 +1,24 @@
+# contract=semantic-dimension:group_set version=1 status=DRAFT owner_task=ALC-102 decisions=D-10,D-11,D-12,D-18 last_changed=2026-09-28
+# v1 dimension catalog (API-001-S07; API.md §3.2).
+id: group_set
+version: 1
+status: ACTIVE
+release: R1
+label_key: dimension.group_set.label
+description_key: dimension.group_set.description
+group: OWNERSHIP
+kind: ENTITY
+value_type: UUID
+cardinality_class: LOW
+entitlement: {is_entitlement_dimension: true, scope_grammar_dimension: group_set}
+privacy: {class: CUSTOMER_METADATA}
+filter_ops: [EQ, IN]
+max_filter_values: 500
+autocomplete: {enabled: true, min_prefix: 0, max_results: 20, source_relation: v_dim_group, match_column: book_name}
+label: {source: DICTIONARY_RELATION, relation: v_dim_group, key_column: book_id, label_column: book_name}
+bindings:
+- {relation: v_dim_group, column_ref: book_id}
+- {relation: v_allocation_daily, column_ref: book_id}
+sortable: true
+owner_task: ALC-102
+notes: Group set as an entitlement dimension (SEC-101 grammar). In allocation relations book_id = group_set_id.

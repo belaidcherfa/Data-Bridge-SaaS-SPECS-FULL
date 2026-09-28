@@ -11,7 +11,7 @@ Bridge Data FinOps is a production multi-tenant Snowflake FinOps SaaS built by c
 
 ## 2. Sources of truth (in precedence order)
 
-1. Decision record: `docs/22-implementation-readiness/DECISIONS_REQUIRED.md` (D-01…D-38).
+1. Decision record: `docs/22-implementation-readiness/DECISIONS_REQUIRED.md` (D-01…D-43; `REC·DEFAULT` entries apply until the owner overrides them).
 2. ADRs: `docs/architecture/adr/` (ADR-001…ADR-018, with amendments; ADR-018 governs this delivery system).
 3. Contracts: `contracts/` (start with `contracts/CONVENTIONS.md`), `data/contracts/`, `infra/snowflake/migrations/`, package schemas. Only `ACCEPTED` contracts may be depended on outside their owning task.
 4. Reconciliation rulings: `docs/22-implementation-readiness/RECONCILIATION.md`.

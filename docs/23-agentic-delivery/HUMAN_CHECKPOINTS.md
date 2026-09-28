@@ -15,6 +15,24 @@ Ce document liste **tout ce que seul un humain peut faire**. Les agents prépare
 | **H4** | Fixer le **budget** : `control.daily_budget_usd` (défaut 400 USD/jour) et `usd_per_estimated_hour` (défaut 6) dans l'état ; plafond mensuel côté console Anthropic. | Borne la dépense ; l'orchestrateur s'arrête au plafond. | 5 min |
 | **H5** | Choisir le **mode** : A (session interactive supervisée) pour la vague 0, puis B (boucle autonome sur le serveur) après le pilote de 48 h (AGT-003). Mettre `control.paused=false` avec une raison. | Démarrage. | 2 min |
 
+### Jour 1 — lancer l'orchestrateur (mode A)
+
+Sur le serveur, en tant qu'utilisateur `bridge-agent` :
+
+```bash
+cd /srv/bridge/repo && git pull --ff-only
+make delivery-check                       # contrats, paquets, état : tout doit être vert
+# première fois : créer la branche d'état à partir de main
+git worktree add -b delivery-ledger /srv/bridge/ledger origin/main && (cd /srv/bridge/ledger && git push -u origin delivery-ledger)
+claude --model claude-opus-5-5            # ou claude-fable-5-1
+```
+
+Puis, dans la session Claude Code, écrire :
+
+> Tu es l'orchestrateur Bridge. Lis AGENTS.md et docs/23-agentic-delivery/README.md. Mode A, vague 0 : utilise le skill orchestrator-tick avec l'état du ledger /srv/bridge/ledger. Lance AGT-001, AGT-002, AGT-004 et FND-001 en parallèle (sous-agents en worktrees isolés), fais relire chaque PR, puis écris le rapport du jour en français. Escalade au lieu de deviner.
+
+Après le pilote de 48 h (AGT-003) : `sudo systemctl enable --now bridge-orchestrator.timer` (mode B). Pour tout arrêter : label `delivery-pause` sur l'issue de contrôle.
+
 ## B. Dès que possible (débloque les couloirs infra et données)
 
 | # | Action | Débloque | Temps |

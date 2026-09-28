@@ -40,7 +40,7 @@ Option N because …
 (to be filled by the owner; one line is enough, e.g. "Option 2")
 ```
 
-The orchestrator mirrors each escalation as a GitHub issue labelled `escalation` and lists open ones at the top of every report. An answered decision is appended to the decision record as `D-39+`.
+The orchestrator mirrors each escalation as a GitHub issue labelled `escalation` and lists open ones at the top of every report. An answered decision is appended to the decision record as the next free `D-NN` (D-44 onward).
 
 ## 3. Daily report (for the owner)
 

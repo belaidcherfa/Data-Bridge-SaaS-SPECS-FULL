@@ -46,6 +46,11 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 | D-36 | Invoicing entity | BUSINESS | **French entity**: French VAT and e-invoicing rules apply to whichever tool issues invoices | OWNER | LCH-102 |
 | D-37 | Support model at launch | BUSINESS | EU business hours (Mon–Fri 09:00–18:00 CET), SEV1 best effort outside hours; no contractual 24×7 | OWNER·REC | OPS-010, LCH-104 |
 | D-38 | Onboarding mode | PRODUCT | Complete self-service wizard + a Bridge-led first-value workshop for the first customer | OWNER·REC | ONB-001, ONB-005 |
+| D-39 | SaaS tooling subprocessors | BUSINESS | EU-hosted vendors: Better Stack (status), Crisp (helpdesk), Sentry EU region (errors, transfer assessment); self-host GlitchTip only if no US-parented subprocessor is acceptable | REC·DEFAULT | SAS-005, SAS-010, SAS-011, LCH-102 |
+| D-40 | Public price disclosure | BUSINESS | Pricing page shows the model and a "from USD X/month" platform fee; spend bands on request | REC·DEFAULT | SAS-001 |
+| D-41 | Write access to customer Snowflake (action plane) | PRODUCT | Go for R2, opt-in per warehouse, after three months of R1 operation and PRO-005 guardrail evidence; Bridge is described as read-only until then | REC·DEFAULT | PRO-009, SAS-001, SAS-004 |
+| D-42 | Snowflake Marketplace distribution | BUSINESS | Run the PRO-013 decision spike in R2 only if pipeline evidence shows capacity-drawdown buyers; otherwise defer | REC·DEFAULT | PRO-013 |
+| D-43 | Delivery orchestration state and parallelism | ARCH | Orchestrator state on the `delivery-ledger` branch; dependency edges classified runtime/contract/decision; contract-gated starts with integration slices (ADR-018) | REC·DEFAULT | AGT-002, AGT-003 |
 
 ## Consequences of the owner's choices
 
@@ -272,4 +277,13 @@ Legend — **Type**: ARCH (architecture), FIN (financial semantics), PRODUCT, BU
 ### D-38 · Onboarding mode
 
 - **Decision.** The onboarding wizard is fully usable without Bridge staff (PRD §158), and the first customer additionally receives a Bridge-led first-value workshop (ONB-005).
+
+### D-39 … D-43 · Defaults applied after the SaaS completeness review and the delivery design (2026-09-28)
+
+- **Basis `REC·DEFAULT`.** The owner delegated compliance and production-grade choices ("je te fais confiance pour prendre les meilleures décisions"). These five recommendations are applied so that agents are not blocked; each can be overridden by the owner at any time with a one-line answer, and the orchestrator then opens the follow-up tasks.
+- **D-39.** Hosted EU vendors cost less to operate than self-hosting (2–4 operating hours per tool per month saved) and a status page must stay up when Bridge's AWS account is down. Sentry is US-parented: record a transfer impact assessment in LCH-102; if refused, switch to self-hosted GlitchTip (same SDK). Sources: [SAAS_COMPLETENESS](SAAS_COMPLETENESS.md) §4.3, §5 Q1.
+- **D-40.** Publishing a starting price qualifies leads without exposing negotiated band pricing to competitors; the full band table stays in the contract (D-17). Source: §5 Q2.
+- **D-41.** Automated warehouse changes are the main competitive axis after visibility, but they end the read-only promise and change the DPA, threat model and pentest scope; hence opt-in, per warehouse, after evidence. Source: §5 Q3.
+- **D-42.** Capacity-drawdown payment through the Marketplace is currently limited to US-based providers; the French entity (D-36) is not eligible, so the spike only runs on demand evidence. Source: §5 Q4.
+- **D-43.** See [ADR-018](../architecture/adr/ADR-018-agentic-delivery.md) §5 and [PARALLELISM](../23-agentic-delivery/PARALLELISM.md).
 

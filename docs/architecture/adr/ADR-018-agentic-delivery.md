@@ -17,7 +17,7 @@ The product (≈ 250 tasks, 7,100–10,500 estimated hours for R1) is implemente
 7. **Evidence-based done.** A task is `DONE` only when its PR is merged, every micro-step oracle passed, the evidence manifest (`docs/evidence/schema/evidence.schema.json`) is present and human gates are approved. Live gates are prepared by agents (`live-gate-handoff`) and executed by the CI live job on DEV/test estate or by a human.
 8. **Bounded autonomy.** Per-task budget (estimate_high × USD per estimated hour), daily budget, turn limits, lease TTL, attempt limits (2 → rescuer, 3 → human), automatic pause on red `main`, budget exhaustion, error rate > 30 % or a `blocking-all` escalation. The owner's kill switch is `control.paused` in the ledger state (or the `delivery-pause` GitHub label on the control issue, read at SYNC).
 9. **Runtime modes.** A (interactive orchestrator session), B (headless loop `tools/orchestrator` with `claude -p` / `claude-agent-sdk` workers under systemd — steady state), C (GitHub Actions with `anthropics/claude-code-action@v1`), D (scheduled Claude Code routines). All share packets, state, skills, hooks and reports.
-10. **Reporting in the owner's language.** Daily and weekly reports in French (`daily-report` skill), escalations with options and a recommendation, answered in the file or its GitHub issue; answered decisions extend the decision record (D-39+).
+10. **Reporting in the owner's language.** Daily and weekly reports in French (`daily-report` skill), escalations with options and a recommendation, answered in the file or its GitHub issue; answered decisions extend the decision record (next free D-NN, D-44 onward).
 
 ## Alternatives considered
 

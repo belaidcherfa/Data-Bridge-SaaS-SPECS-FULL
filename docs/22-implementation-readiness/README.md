@@ -35,8 +35,8 @@ Effort (senior-engineer hours including tests, review fixes and evidence; from [
 | Release | Tasks | Hours |
 |---|---:|---:|
 | R1 — first paying customer, production grade | 218 | 6,779–9,974 |
-| R1\* — only if the first customer needs it (D-20) | 9 | 239–354 |
-| R2 — breadth | 21 | 647–1,010 |
+| R1\* — only if the first customer needs it (D-20) | 9 (+ 1 conditional part) | 247–366 |
+| R2 — breadth | 21 (+ R2 parts of R1 tasks) | 663–1,036 |
 
 Calendar arithmetic (not a commitment; assumptions in [REVISED_CRITICAL_PATH.md](REVISED_CRITICAL_PATH.md)): about 19–28 months with 3 engineers, 12–18 months with 5, 11–17 months with 8 (beyond ~5 engineers the dependency chain, not headcount, binds). Owner decisions, vendor lead times and customer elapsed time (installation, backfill, month close, payment) come on top.
 

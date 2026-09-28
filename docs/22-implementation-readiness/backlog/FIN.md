@@ -671,7 +671,7 @@ Task acceptance:
 
 ### FIN-002 — Normalize billing, rate sheets and approved pricing
 Release: R1 · Estimate: 45–65 h · Risk: H · Decisions: D-05, D-12, D-13 · Closes: G-FIN-04, G-FIN-13 (engine side), G-FIN-20
-Dependency changes: `+ING-001` (UICD/RATE_SHEET source contracts), `+FIN-108` (crosswalk v1 before DONE; the SQL can start on v0), `+DBT-003` (account membership at usage_date). The approved-rate UI/API moves to new FIN-105.
+Dependency changes: `+ING-001` (UICD/RATE_SHEET source contracts), `+FIN-108` (crosswalk v1 before DONE; the SQL can start on v0), `+DBT-003` (account membership at usage_date), `+FIN-104` (maturity evaluator "before FIN-002"; RECONCILIATION C-26). The approved-rate UI/API moves to new FIN-105.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-002-S01 | Finalize the UICD projection (add USAGE_TYPE) and the RATE_SHEET_DAILY projection. Staging models cast explicitly to NUMBER(38,12) and upper-case enums | `data/dbt/models/staging/ou/stg_ou__usage_in_currency_daily.sql`, `stg_ou__rate_sheet_daily.sql` | Contract test: column types match; a float input fixture is quarantined | 3 |
@@ -727,7 +727,7 @@ Task acceptance:
 
 ### FIN-004 — Implement Adaptive query-hour compute and maturity
 Release: R1\* (D-20; Adaptive GA since 2026-06-16) · Estimate: 24–36 h · Risk: M · Decisions: D-12, D-13, D-20 · Closes: G-FIN-07
-Dependency changes: `−FIN-003` (independent attribution model; shares only WMH staging), `+FIN-103`, `+FIN-104`. FIN-009 no longer depends on FIN-004; it plugs in via capability.
+Dependency changes: `−FIN-003` (independent attribution model; shares only WMH staging), `+FIN-103`, `+FIN-104`, `+FIN-002` (keeps the billing-normalizer ordering previously implied via FIN-003; RECONCILIATION C-22). FIN-009 no longer depends on FIN-004; it plugs in via capability; INS-002 reads the Adaptive capability flag from CON-005 instead of depending on FIN-004 (C-22).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-004-S01 | Detect Adaptive capability per warehouse (warehouse type from the inventory source, TO VERIFY field; fallback: WMH attributed NULL and QMH rows present) with an effective-dated `warehouse_capability` | `int_warehouse__capability_history.sql` | Fixture warehouse converted at 12:00 shows CLASSIC before and ADAPTIVE after | 3 |
@@ -1082,7 +1082,7 @@ Task acceptance:
 ### FIN-101 — Billing reference intake: usage statements, invoices and manual totals
 Release: R1 · Estimate: 45–65 h · Risk: H · Decisions: D-04, D-10, D-25 · Closes: G-FIN-09, G-FIN-21 (reference screen)
 Why: control C5 (LEDGER_TO_INVOICE) is required to close and is impossible without an approved, versioned, independent reference (AUDIT X-47).
-Plugs in: after FIN-001 (reference schema) and CTL/SEC foundations; before FIN-009-S07 and FIN-010. Dependencies: `FIN-001`, `CTL-005`, `SEC-005`, `SEC-006`, INF evidence bucket (KMS + Object Lock), `RPT` download broker.
+Plugs in: after FIN-001 (reference schema) and CTL/SEC foundations; before FIN-009-S07 and FIN-010. Dependencies: `FIN-001`, `CTL-005`, `SEC-005`, `SEC-006` (its S08 is the single artifact download broker, available at M1 — no RPT dependency; RECONCILIATION U-10), `INF-003` (evidence bucket, KMS + Object Lock).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-101-S01 | Define the reference model: `finance.billing_reference` (id, tenant, org, contract_number, reference_type SNOWFLAKE_USAGE_STATEMENT, SNOWFLAKE_INVOICE, RESELLER_INVOICE, MARKETPLACE_INVOICE or MANUAL_TOTALS, document_number, period YYYY-MM, currency, status, version, supersedes_id, file sha256) and `finance.billing_reference_line` (line_class CONSUMPTION, TAX, CAPACITY_PURCHASE, SUPPORT, CREDIT_NOTE, ADJUSTMENT, MARKETPLACE or OTHER; service_family NULLable; account_locator NULLable; amount as decimal string → NUMERIC(38,12)) | migration + `data/contracts/finance/billing_reference.schema.json` | Schema rejects float amounts, unknown line_class and currency not in ISO 4217 | 3 |
@@ -1092,7 +1092,7 @@ Plugs in: after FIN-001 (reference schema) and CTL/SEC foundations; before FIN-0
 | FIN-101-S05 | Manual line entry (for PDFs, reseller invoices and totals-only): per-line classification, decimal-string validation, sign rules (CREDIT_NOTE negative), document total check (Σ lines = declared total, exact) | API + validators | Σ mismatch 0.01 → 422 `REFERENCE_TOTAL_MISMATCH` | 3 |
 | FIN-101-S06 | Lifecycle: DRAFT → SUBMITTED → APPROVED (approver ≠ submitter, capability `finance.reference.approve`) → ACTIVE; REJECTED; SUPERSEDED by version n+1. Duplicate guard on (tenant, org, reference_type, document_number, period) and on file sha256 | `apps/api/finance/references/lifecycle.py` | Same document twice → 409 `REFERENCE_DUPLICATE`; self-approval → 409 | 4 |
 | FIN-101-S07 | Publish approved versions immutably to Snowflake `fct_billing_reference` / `fct_billing_reference_line` via the D-04 config publisher (insert-only keyed by reference_id+version) | publisher job + dbt source | Re-publish is idempotent; a superseded version stays queryable | 3 |
-| FIN-101-S08 | API: POST `/v1/billing-references` (init), PUT `…/{id}/lines`, POST `…/{id}/submit`, POST `…/{id}/approve`, POST `…/{id}/reject`, GET list/detail, GET `…/{id}/file` (download broker, short-lived URL); Idempotency-Key + If-Match | routes + OpenAPI | Contract tests; stale If-Match → 412 | 4 |
+| FIN-101-S08 | API: POST `/v1/billing-references` (init), PUT `…/{id}/lines`, POST `…/{id}/submit`, POST `…/{id}/approve`, POST `…/{id}/reject`, GET list/detail, GET `…/{id}/file` (SEC-006-S08 download broker, 30 s presigned URL; RECONCILIATION U-10, C-12); Idempotency-Key + If-Match | routes + OpenAPI | Contract tests; stale If-Match → 412 | 4 |
 | FIN-101-S09 | UX `/reconciliation-references` (new screen spec): list by period/org/currency, upload and preview, line editor, submit/approve with actors, version history, link to C5 | `apps/web/src/features/finance/references/` | Playwright happy path, all states, 390 px, keyboard-only | 7 |
 | FIN-101-S10 | Security tests: foreign reference_id → 404; A1-reader cannot list org references (org-scope capability required); presigned URL for tenant B file from tenant A session → 403; CSV formula neutralization on export (`=HYPERLINK(` becomes a text cell) | `tests/spec/FIN-101/security/` | All pass | 3 |
 | FIN-101-S11 | Retention and privacy: references are kept for the financial retention period (owner Q7); personal data (names in PDFs) is covered by the D-10 erasure exception register; deletion requires the legal-hold check | policy doc + retention job config | Deletion attempt under hold → refused and audited | 2 |
@@ -1152,7 +1152,7 @@ Task acceptance:
 ### FIN-104 — Maturity policy registry and status evaluator (D-13)
 Release: R1 · Estimate: 24–36 h · Risk: M · Decisions: D-13 · Closes: G-FIN-08
 Why: FINAL/STABLE need numbers and a single evaluator used by ledger, monitors (GOV-004) and close.
-Plugs in: after FIN-001 and ING-001; before FIN-002/102/003/009/010 and GOV-004. Dependencies: `FIN-001`, `ING-001`, `ING-009` (contiguous coverage).
+Plugs in: after FIN-001 and ING-001; before FIN-002/102/003/009/010 and GOV-004. Dependencies: `FIN-001`, `ING-001`, `ING-008` (contiguous coverage; ING-009 is schema drift and becomes release evidence via OPS-011 — RECONCILIATION C-26).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-104-S01 | Seed `ref_source_maturity_policy` v0 from §3.3 (source, data_horizon, attribution_horizon, stability_days N, anti-entropy window, evidence link) | `data/dbt/seeds/ref_source_maturity_policy.csv` | Seed loads; each enabled source has a row (test) | 2 |
@@ -1193,16 +1193,16 @@ Task acceptance:
 - [ ] Overlapping or ambiguous rate lines are rejected before approval.
 
 ### FIN-106 — Money library, JSON money contract and statement rounding
-Release: R1 · Estimate: 16–24 h · Risk: M · Decisions: D-18 (formatting) · Closes: G-FIN-19
-Why: one shared definition of exact arithmetic across Python, SQL, API and UI.
-Plugs in: phase P0 (no dependency except FND-002 monorepo); consumed by FIN-103, FIN-010, API-001, RPT, ALC-008.
+Release: R1 · Estimate: 15–23 h · Risk: M · Decisions: D-18 (formatting) · Closes: G-FIN-19
+Why: one shared definition of exact arithmetic across Python, SQL, API and UI. FIN-106 owns the money context, rounding, `allocate_exact` contract and JSON money grammar (NUMBER(38,12)); FND-103 owns codegen and the single lint rule and imports `money.schema.json` (RECONCILIATION U-20, C-14).
+Plugs in: phase P0 (no dependency except FND-002 monorepo); consumed by FIN-103, FIN-010, FND-103, API-001, RPT, ALC-008.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-106-S01 | `bridge_money` context: prec 76, ROUND_HALF_UP, traps; `Money(amount: Decimal, currency: str)` value type rejecting float | `packages/bridge_money/core.py` | `Money(0.1, 'USD')` raises TypeError; prec test uses the 20-integer-digit example | 2 |
 | FIN-106-S02 | ISO 4217 minor-unit seed (versioned) and `minor_unit(currency)` | `data/dbt/seeds/ref_currency_minor_unit.csv`, Python loader | USD 2, JPY 0, KWD 3 | 1 |
-| FIN-106-S03 | `round_statement_lines` (signed largest remainder, §3.6) in Python and as a dbt macro, with a property test | `rounding.py`, `macros/round_statement_lines.sql` | Thirds; {+0.006, +0.006, −0.004} → 0.01/0/0; {+0.004, −0.006, −0.006} → 0/−0.01/0; Σ lines = rounded total on 10,000 random sets | 4 |
-| FIN-106-S04 | JSON money grammar (§3.6) in the OpenAPI component `Money`, with a serializer that normalizes −0 and removes exponent notation | `data/contracts/money.schema.json`, API serializer | `Decimal('1E+2')` → "100", `Decimal('-0.00')` → "0.00" | 2 |
-| FIN-106-S05 | Web: `@bridge/money` wrapper over decimal.js (parse, add, format with Intl per locale, never JS number); ESLint rule banning `parseFloat`/`Number()` on money fields | `packages/web-money/` | Unit tests; lint fails on a crafted misuse | 3 |
+| FIN-106-S03 | `round_statement_lines` (signed largest remainder, §3.6) in Python and as a dbt macro, with a property test that includes ALC-008's mixed-sign fixtures (single shared rounding library; RECONCILIATION U-20) | `rounding.py`, `macros/round_statement_lines.sql` | Thirds; {+0.006, +0.006, −0.004} → 0.01/0/0; {+0.004, −0.006, −0.006} → 0/−0.01/0; Σ lines = rounded total on 10,000 random sets | 4 |
+| FIN-106-S04 | JSON money grammar (§3.6; imported by FND-103-S02's Spectral rule and used by OPS-002's gates — RECONCILIATION C-14, U-20) in the OpenAPI component `Money`, with a serializer that normalizes −0 and removes exponent notation | `data/contracts/money.schema.json`, API serializer | `Decimal('1E+2')` → "100", `Decimal('-0.00')` → "0.00" | 2 |
+| FIN-106-S05 | Web: `@bridge/money` wrapper over decimal.js (parse, add, format with Intl per locale, never JS number); the ESLint money rule is FND-103-S03's single rule (RECONCILIATION U-20) | `packages/web-money/` | Unit tests; FND-103-S03's lint fails on a crafted misuse | 2 |
 | FIN-106-S06 | SQL cast policy doc and dbt lint: multiply/divide in ledger models must wrap operands in explicit `::NUMBER(38,12)` | `docs` + sqlfluff custom rule | Crafted uncast division fails lint | 2 |
 | FIN-106-S07 | Cross-language parity test (Python vs SQL vs TS) on 1,000 formatting and rounding cases | `tests/parity/money/` | 0 mismatches | 2 |
 | FIN-106-S08 | Evidence | `docs/evidence/FIN-106/` | Recorded | 1 |
@@ -1235,9 +1235,9 @@ Task acceptance:
 - [ ] Statements across periods always sum to current truth once corrections are resolved.
 
 ### FIN-108 — Tenant-zero live verification of Snowflake billing semantics
-Release: R1 (phase P2, before FIN-002 DONE) · Estimate: 28–44 h · Risk: H · Decisions: D-12, D-13, D-20 · Closes: G-FIN-24 (and the TO VERIFY LIVE items of G-FIN-04/05/06/16/17)
+Release: R1 (phase P2, before FIN-002 DONE) · Estimate: 25–39 h · Risk: H · Decisions: D-12, D-13, D-20 · Closes: G-FIN-24 (and the TO VERIFY LIVE items of G-FIN-04/05/06/16/17)
 Why: crosswalk v1, maturity v1 and several authority rules depend on vendor behavior that is only partially documented.
-Plugs in: after CON-005 and ING-007 connect Bridge's own Snowflake organization (RELEASE_PLAN §4 "tenant zero"); feeds FIN-001 (crosswalk v1), FIN-002, FIN-104, FIN-006, FIN-012, FIN-018, FIN-020. Dependencies: `CON-005`, `ING-007`, `FIN-002-S01…S03`.
+Plugs in: after CON-005, ING-007 and ING-102 connect the tenant-zero organization — the organization account of the INF-101 test estate, which has ORGANIZATION_USAGE and a real statement (RECONCILIATION U-03, U-25); feeds FIN-001 (crosswalk v1), FIN-002, FIN-104, FIN-006, FIN-012, FIN-018, FIN-020. Dependencies: `CON-005`, `ING-007`, `ING-102` (per-source DESCRIBE/latency/retention facts are ING-101…104's and are not repeated here; U-03), `FIN-002-S01…S03` (step-level). FIN-108 keeps billing-semantics verification only.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FIN-108-S01 | Capture the distinct UICD tuples (service_type, usage_type, rating_type, billing_type, balance_source, is_adjustment, currency) with first/last date and row counts over all retained history | `docs/evidence/FIN-108/uicd_tuples.csv` (redacted) | File committed; crosswalk v1 PR opened | 3 |
@@ -1245,16 +1245,16 @@ Plugs in: after CON-005 and ING-007 connect Bridge's own Snowflake organization 
 | FIN-108-S03 | Record the cloud-services representation in UICD (net vs gross + adjustment rows) and which MDH service types carry CREDITS_ADJUSTMENT_CLOUD_SERVICES | evidence note | FIN-005-S04 representation chosen from evidence | 2 |
 | FIN-108-S04 | Storage: daily accrual vs month-end, tb_unit, storage-class values; compare one month of STORAGE_DAILY_HISTORY bytes × rate to UICD storage | evidence note | FIN-006-S01 inputs frozen | 3 |
 | FIN-108-S05 | Obtain one real monthly usage statement (Snowsight) for a closed month; reconcile Σ UICD to it per service and currency; record rounding behavior (line vs total) | evidence + FIN-101 parser sample | Statement total vs Σ UICD Δ recorded (target ≤ one minor unit per line) | 4 |
-| FIN-108-S06 | Measure latency per enabled source and month-close revision lag (last change date of each closed month, ≥ 3 months where history allows) | `fct_source_lateness` extract | Maturity policy v1 proposal (FIN-104-S07) | 3 |
+| FIN-108-S06 | Measure month-close revision lag (last change date of each closed month, ≥ 3 months where history allows); per-source latency comes from ING-102-S06 (RECONCILIATION U-03) | `fct_source_lateness` extract | Maturity policy v1 proposal (FIN-104-S07) | 1.5 |
 | FIN-108-S07 | Verify availability and the schema of MARKETPLACE_PAID_USAGE_DAILY (DATA_SHARING_USAGE), Cortex views (AI_FUNCTIONS vs AISQL overlap), SERVERLESS_ALERT_HISTORY, streaming architecture fields, SPCS rating types | capability report | Each marked AVAILABLE, EMPTY or DENIED with evidence | 3 |
-| FIN-108-S08 | Verify connector decimal handling end-to-end: `arrow_number_to_decimal=True` → Parquet decimal128 → RAW NUMBER; negative test without the flag shows float64 | evidence | No float column in RAW (G-FIN-02 closed) | 2 |
+| FIN-108-S08 | Moved to ING-003-S01/S04 acceptance per RECONCILIATION U-03 (connector decimal handling end-to-end) — consume its evidence here to close G-FIN-02 | — | — | 0 |
 | FIN-108-S09 | Publish crosswalk v1 and maturity v1 with evidence links; mark all resolved TO VERIFY LIVE items in this backlog's contracts | seeds + PR | Reviewed by FinOps owner | 2 |
 | FIN-108-S10 | Repeatability: script the capture queries (read-only, bounded predicates) for reuse on the design partner and each new tenant during onboarding (feeds ONB) | `services/extractor/probes/billing_semantics.py` | Runs on a second account without edits | 3 |
 Task acceptance:
 - [ ] Crosswalk v1 covers 100 % of observed tuples on tenant zero, and unknown tuples route to UNMAPPED.
 - [ ] One closed month reconciles Σ UICD to the official usage statement with every difference classified.
 - [ ] Maturity policy v1 numbers are derived from measured lateness and revision lag.
-- [ ] No float column exists anywhere in the RAW financial sources.
+- [ ] No float column exists anywhere in the RAW financial sources (evidence from ING-003's acceptance; RECONCILIATION U-03).
 
 ### FIN-109 — Customer-approved FX dataset and display conversion
 Release: R2 (R1 only if owner Q5 says chargeback must be in a currency other than billing) · Estimate: 24–36 h · Risk: M · Decisions: D-18 · Closes: FX part of ledger.md
@@ -1318,11 +1318,11 @@ Task acceptance:
 | FIN-103 Exact attribution framework (new) | R1 | 26 | 40 |
 | FIN-104 Maturity policy + evaluator (new) | R1 | 24 | 36 |
 | FIN-105 Customer-approved rate tables (new) | R1 | 30 | 44 |
-| FIN-106 Money library + rounding (new) | R1 | 16 | 24 |
+| FIN-106 Money library + rounding (new) | R1 | 15 | 23 |
 | FIN-107 Corrections, restatement (new) | R1 | 36 | 52 |
-| FIN-108 Tenant-zero billing verification (new) | R1 | 28 | 44 |
+| FIN-108 Tenant-zero billing verification (new) | R1 | 25 | 39 |
 | FIN-109 FX display conversion (new) | R2 | 24 | 36 |
-| **Total R1** | | **669** | **981** |
+| **Total R1** | | **665** | **975** |
 | **Total R1\* (in R1 only if D-20 requires; otherwise R2)** | | **139** | **208** |
 | **Total R2** | | **24** | **36** |
 

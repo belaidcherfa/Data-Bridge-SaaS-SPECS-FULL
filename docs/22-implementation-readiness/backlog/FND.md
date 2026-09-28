@@ -260,17 +260,17 @@ Task acceptance:
 ## 5. New tasks required
 
 ### FND-101 — Developer Snowflake inner loop (DEV SSO, personal schemas, CI ephemeral schemas)
-Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-21, D-19, D-25 · Closes: G-FND-02
-Why: The engineering contract forbids RSA shortcuts but gives no working path; without one, all SQL work routes through staging. Plugs in: deps FND-002, FND-004, INF-008 (DEV account + SAML integration + IaC identity); blocks DBT-001 (developer use), FIN-* SQL work.
+Release: R1 · Estimate: 15–22 h · Risk: M · Decisions: D-21, D-19, D-25 · Closes: G-FND-02
+Why: The engineering contract forbids RSA shortcuts but gives no working path; without one, all SQL work routes through staging. Plugs in: deps FND-002, FND-004, INF-008 (DEV account + SAML integration + IaC identity); blocks DBT-001 (developer use), FIN-* SQL work. dbt CI (schema naming, fixture load, baseline, deferral, janitor) is DBT-102's and `profiles.yml` is DBT-001's; this task keeps the human inner loop only (RECONCILIATION U-15, C-18).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FND-101-S01 | Write decision record: humans TYPE=PERSON + SAML SSO in BRIDGE_DEV only; STAGING none; PROD named break-glass; coding agents get no Snowflake identity; rejected alternatives (key pair, PAT, laptop WIF as SERVICE user) with reasons | `docs/development/snowflake-dev-access.md` | Approved by security owner | 2 |
 | FND-101-S02 | Terraform developer users from `infra/snowflake/dev-users.yaml` (`snowflake_user` TYPE=PERSON, login_name=IdP email, no password, DEFAULT_ROLE `DEV_U_<user>`, DEFAULT_SECONDARY_ROLES empty) | `infra/terraform/stacks/70-snowflake/dev_users.tf` | Plan shows no password attribute; apply creates users | 3 |
 | FND-101-S03 | Per-developer role owning `BRIDGE_DEV_SANDBOX.DEV_<USER>` schema and warehouse `DEV_WH_<USER>` (XSMALL, AUTO_SUSPEND=60, STATEMENT_TIMEOUT_IN_SECONDS=900) with 20-credit monthly resource monitor (notify 80%, suspend 100%) | same stack | Role can create in own schema; cannot in another developer's schema | 2 |
-| FND-101-S04 | CI job loads FND-004 RAW-shaped fixtures into `BRIDGE_FIXTURES` (read-only for developers) on fixture change and nightly using a WIF CI service user | `.github/workflows/fixtures-sync.yml` | Row counts equal manifest counts; developer role `INSERT` into fixtures → denied | 2 |
-| FND-101-S05 | dbt profiles: target `dev` (`authenticator: externalbrowser`, personal schema via `generate_schema_name`), `ci` (`authenticator: workload_identity`, `workload_identity_provider: AWS`, schema `CI_PR_<n>_<sha7>`), `staging`/`prod` (WIF only, refuse unless `BRIDGE_RUNTIME=aws`) | `data/dbt/profiles.yml`, `data/dbt/macros/generate_schema_name.sql` | `dbt debug --target dev` opens browser SSO; `--target prod` on laptop exits with refusal | 3 |
+| FND-101-S04 | Moved to DBT-102-S03/S04 per RECONCILIATION U-15 (fixture load and baseline under the WIF CI user) — consume its output here | — | — | 0 |
+| FND-101-S05 | Contribute the `dev` target to DBT-001-S03's `profiles.yml` (`authenticator: externalbrowser`, personal schema via the dev branch of DBT-102-S01's `generate_schema_name`) and the laptop refusal of `staging`/`prod` unless `BRIDGE_RUNTIME=aws`; the `ci` target and CI schema naming are DBT-001-S03/DBT-102-S01 (RECONCILIATION U-15, C-18) | `data/dbt/profiles.yml` (dev target), `data/dbt/macros/generate_schema_name.sql` (dev branch) | `dbt debug --target dev` opens browser SSO; `--target prod` on laptop exits with refusal | 2 |
 | FND-101-S06 | Python dev connection factory `connect_dev()` (externalbrowser) that refuses account identifiers not equal to the DEV locator in the env manifest | `packages/snowflake_client/dev.py` | Passing STAGING identifier raises `NonDevTargetRefused` | 2 |
-| FND-101-S07 | PR workflow on in-VPC DEV runner: `dbt build --target ci --select state:modified+ --defer --state <dev-baseline-manifest>`; drop schema after run; janitor drops `CI_PR_%` older than 48 h | `.github/workflows/dbt-ci.yml`, `tools/snowflake/janitor.py` | PR run creates and drops its schema; seeded 3-day-old schema removed by janitor | 4 |
+| FND-101-S07 | Moved to DBT-102-S01/S05/S06 per RECONCILIATION U-15, C-18 (schema `CI_PR<nr>_<sha7>_<layer>` in `BRIDGE_CI`, 24 h janitor, INF-002-S09 in-VPC runner) — consume its output here | — | — | 0 |
 | FND-101-S08 | Guardrails: account authentication policies (PERSON → SAML only; SERVICE → WORKLOAD_IDENTITY only); DEV account has no network policy for humans; per-user monitors | `infra/terraform/stacks/70-snowflake/auth_policies.tf` | Password login attempt for a PERSON user fails; service user SAML attempt fails | 2 |
 | FND-101-S09 | Session-cache hygiene: `.gitignore` for local Snowflake config; gitleaks rule for `token`/`password` in `connections.toml`; `client_store_temporary_credential` only with OS keyring | `.gitignore`, `.gitleaks.toml` | Planted `connections.toml` with token fails pre-commit | 1 |
 | FND-101-S10 | Negative tests: dev user login to STAGING fails (no user); dev role cannot read `BRIDGE_CI` other PR schemas; cannot write fixtures; `make dbt-dev` with STAGING locator refused | `tests/live/dev_access/*.py` | All four denials recorded | 2 |
@@ -278,7 +278,7 @@ Why: The engineering contract forbids RSA shortcuts but gives no working path; w
 | FND-101-S12 | Record evidence | index entry | Complete | 1 |
 Task acceptance:
 - [ ] A developer runs one dbt model in a personal DEV schema via SSO without any key file, password or PAT.
-- [ ] A PR builds modified models in an ephemeral CI schema via WIF, and the schema is dropped.
+- [ ] PR builds in ephemeral CI schemas are delivered by DBT-102 (RECONCILIATION U-15); developer roles cannot read or write them.
 - [ ] No human identity exists in STAGING; PROD human access is named break-glass only.
 - [ ] Per-developer spend is capped by a resource monitor.
 
@@ -304,11 +304,11 @@ Task acceptance:
 
 ### FND-103 — Contract codegen and Decimal/UUID/date enforcement
 Release: R1 · Estimate: 14–22 h · Risk: L · Decisions: D-12, D-18 · Closes: G-FND-06
-Why: Generated types across boundaries are a contract requirement with no owning task. Plugs in: deps FND-001, FND-002; blocks API-001 and UX-002.
+Why: Generated types across boundaries are a contract requirement with no owning task. Plugs in: deps FND-001, FND-002, FIN-106 (money JSON grammar `money.schema.json` from FIN-106-S04; RECONCILIATION U-20); blocks API-001 and UX-002.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | FND-103-S01 | Define contract sources: FastAPI OpenAPI 3.1 export `make openapi` → committed `apps/api/openapi.json`; event/config JSON Schemas under `data/contracts/` | Makefile target, directory README | Export deterministic (two runs identical bytes) | 2 |
-| FND-103-S02 | Conventions + Spectral ruleset: money `type: string`, `format: decimal`, pattern `^-?\d{1,20}(\.\d{1,9})?$`; UUID `format: uuid`; dates `format: date` (UTC), timestamps `date-time` with `Z`; enums as string enums; ban `type: number` on money-like names | `contracts/.spectral.yaml`, `docs/development/api-conventions.md` | Planted `amount: {type: number}` fails lint | 3 |
+| FND-103-S02 | Conventions + Spectral ruleset: money `type: string`, `format: decimal`, pattern imported from FIN-106-S04 `money.schema.json` (`^-?(0\|[1-9][0-9]{0,25})(\.[0-9]{1,12})?$`, internal NUMBER(38,12); RECONCILIATION C-14, U-20); UUID `format: uuid`; dates `format: date` (UTC), timestamps `date-time` with `Z`; enums as string enums; ban `type: number` on money-like names | `contracts/.spectral.yaml`, `docs/development/api-conventions.md` | Planted `amount: {type: number}` fails lint | 3 |
 | FND-103-S03 | TS generation (`openapi-typescript`) into `packages/api-types`, typed client (`openapi-fetch`), branded `DecimalString`; ESLint rule bans `Number()`, `parseFloat`, unary `+` on DecimalString | `packages/api-types/`, `eslint-rules/no-decimal-arithmetic.js` | Planted `Number(row.amount)` in apps/web fails lint | 3 |
 | FND-103-S04 | Python models from JSON Schemas for events/config (datamodel-code-generator) with `Decimal` fields | `packages/contracts_py/generated/` | Generated model parses `"-0.10"` to `Decimal("-0.10")` | 2 |
 | FND-103-S05 | Drift and breaking-change gates: regenerate + `git diff --exit-code`; oasdiff breaking check vs main requiring label `api-breaking` | CI jobs | Hand edit of generated file fails; removing a response field fails without label | 3 |
@@ -330,10 +330,10 @@ Task acceptance:
 | FND-004 | R1 | 30 | 44 |
 | FND-005 | R1 | 26 | 38 |
 | FND-006 | R1 | 22 | 34 |
-| FND-101 (new) | R1 | 20 | 30 |
+| FND-101 (new) | R1 | 15 | 22 |
 | FND-102 (new) | R1 | 20 | 30 |
 | FND-103 (new) | R1 | 14 | 22 |
-| **Total R1** | | **194** | **288** |
+| **Total R1** | | **189** | **280** |
 | **Total R2** | | **0** | **0** |
 
 The original methodology implies 6 tasks × 2–6 h = 12–36 h for FND. The realistic figure is about 6–8× higher, before the three new tasks.

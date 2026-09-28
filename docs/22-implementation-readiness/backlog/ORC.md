@@ -102,9 +102,9 @@ Affects: ORC-105, ORC-005, FIN-010, API-002, OPS-007.
 
 | Artifact | Exact content required | Produced by (task/micro-task) |
 |---|---|---|
-| `services/orchestrator/dagster.yaml` + `workspace.yaml` | Postgres storage env refs; `concurrency.runs` tag limits (lane steady 60, backfill 12, dbt 2, python 2, report 4, tenant applyLimitPerUniqueValue 6); `run_monitoring`; tick retention; S3 compute logs; `BridgeEcsRunLauncher` | ORC-001-S01, ORC-003-S06 |
-| Launcher contract | Rejected tags list; role resolution query; audit event `LAUNCH_REJECTED_FORGED_TAG`; STS self-check error `IDENTITY_MISMATCH` | ORC-001-S05/S07 |
-| PostgreSQL `sync.account_cycles`, `sync.lane_budget`, `sync.tenant_weight` | Columns/unique keys per ORC-003-S01; status enum PLANNED/SUBMITTED/RUNNING/SUCCEEDED/PARTIAL/FAILED/CANCELLED/SKIPPED_DUPLICATE | ORC-003-S01 |
+| `services/orchestrator/dagster.yaml` + `workspace.yaml` | Postgres storage env refs; `concurrency.runs` tag limits (dbt 2, python 2, tenant applyLimitPerUniqueValue 6; no steady/backfill Dagster runs and no `report` lane — RECONCILIATION C-04, C-05); `run_monitoring`; tick retention; S3 compute logs; stock `EcsRunLauncher` without connection roles | ORC-001-S01, ORC-003-S06 |
+| Launcher contract | Retired here per RECONCILIATION C-04/U-12: the extraction launcher (role resolution from PostgreSQL, `role_arn` rejection, `RunTask`) is ING-106-S03's | ING-106-S03 |
+| PostgreSQL `sync.account_cycles`, `sync.lane_budget`, `sync.tenant_weight` | Columns/unique keys per ORC-003-S01 (incl. ING-106's `kind`, `due_windows`, `connection_epoch`, `fencing_token`, `deadline_at`; RECONCILIATION U-12); status enum PLANNED/ADMITTED/RUNNING/SUCCEEDED/PARTIAL/FAILED/CANCELLED/SKIPPED_DUPLICATE | ORC-003-S01 |
 | Error-class catalog | TRANSIENT/AUTH/CUSTOMER_QUOTA/SCHEMA/CANCELLED/INTERNAL with retry policy and Snowflake/AWS error-code mapping (codes TO VERIFY LIVE) | ORC-003-S07 |
 | `data/contracts/dagster_metadata.json` | JSON Schema of observation/materialization metadata (tenant_id, account_id, source, window, batch_id, accepted_seq, build_id, snapshot_seq) | ORC-002-S10 |
 | Processing-ledger DDL | `ACCEPTED_BATCH.accepted_seq`, `BATCH_PROCESSING`, `BUILD_WORKSET`, `BUILD_CONFIG_PIN`, `DATASET_PARTITION_RULE`, `TENANT_QUARANTINE` | ORC-101-S02 |
@@ -112,22 +112,23 @@ Affects: ORC-105, ORC-005, FIN-010, API-002, OPS-007.
 | `data/contracts/publication.json` | Pin resolution order, pin predicate, ack payload `{tenant_id, pub_seq, publication_id, changed_datasets[], accepted_seq_range, source_as_of, coverage}`, outbox event `publication.advanced` | ORC-005-S06/S09 |
 | `data/contracts/py_outputs.json` | Per Python output: keys, tenant_id, algorithm_run_id/version, input_pub_seq, config_version, seed, decimal types | ORC-103-S01 |
 | `data/contracts/recovery_plan.json` | tenants, datasets/selector, range, reason, expected checksums, approvals | ORC-006-S01 |
-| Query-tag schema | `{app, env, lane, build_id, model, layer}` / broker `{app, env, tenant_id, request_id}` | ORC-104-S01 |
+| Query-tag schema | `{app, env, lane, build_id, model, layer}` / broker `{app, env, tenant_id, request_id}` | OPS-109-S03 (QUERY_TAG JSON format v1 absorbs these fields; RECONCILIATION U-06) |
 
 ## 4. Revised production backlog
 
 ### ORC-001 — Deploy private OSS control services and metadata database
-Release: R1 · Estimate: 38–52 h · Risk: M · Decisions: D-07, D-21, D-25 · Closes: G-ORC-03, G-ORC-05
+Release: R1 · Estimate: 31–43 h · Risk: M · Decisions: D-07, D-21, D-25 · Closes: G-ORC-03, G-ORC-05
+Scope after RECONCILIATION C-04/U-12 (D-07): no Dagster run per account-cycle; Dagster never passes connection roles. The dedicated extraction launcher is ING-106's and its IAM INF-005-S08's.
 Dependency changes: `−CTL-002 (dagster_meta is a separate cluster; only the pool-budget pattern is reused)`, `+INF-004 (Aurora provisioning module)`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ORC-001-S01 | Write instance config: postgres run/event/schedule storage from env, QueuedRunCoordinator with `concurrency.runs` placeholders, `run_monitoring` (enabled, start_timeout 300 s, poll 120 s), tick retention (skipped 1 d, success 7 d, failure 30 d), S3ComputeLogManager with SSE-KMS prefix `dagster-compute-logs/<env>/`, telemetry off | `services/orchestrator/dagster.yaml`, `workspace.yaml` | `dagster instance info` in local compose prints the configured storages/launcher; config schema test passes | 3 |
+| ORC-001-S01 | Write instance config: postgres run/event/schedule storage from env, QueuedRunCoordinator with `concurrency.runs` placeholders, `run_monitoring` (enabled, start_timeout 300 s, poll 120 s), tick retention (skipped 1 d, success 7 d, failure 30 d), S3ComputeLogManager with SSE-KMS prefix `dagster-compute-logs/<env>/`, telemetry off; no `report` run lane (reports run in the D-33 render worker; RECONCILIATION C-05) | `services/orchestrator/dagster.yaml`, `workspace.yaml` | `dagster instance info` in local compose prints the configured storages/launcher; config schema test passes | 3 |
 | ORC-001-S02 | Provision separate Aurora PostgreSQL Serverless v2 cluster `dagster-meta-<env>` (0.5–4 ACU), DB `dagster_meta`, users `dagster_app`/`dagster_migrator`, PITR 14 d, deletion protection, SG ingress only from Dagster task SG | `infra/terraform/modules/dagster/aurora.tf` | Plan reviewed; psql from API task SG times out (negative test recorded) | 3 |
 | ORC-001-S03 | Create ECS services: `dagster-webserver-ro` ×2 with `--read-only` behind internal ALB + OIDC to engineering IdP group; `dagster-webserver-admin` desired 0; `dagster-daemon` desired 1, minHealthy 0/max 100, circuit breaker; code servers `cl-extraction`, `cl-dbt`, `cl-intelligence`, `cl-delivery`, `cl-maintenance` | `infra/terraform/modules/dagster/services.tf` | ALB scheme internal, no public IPs; deployment config shows 0/100 for daemon | 4 |
-| ORC-001-S04 | Write IAM: daemon role `ecs:RunTask` conditioned on Dagster run task-definition families, `ecs:StopTask/DescribeTasks` on cluster, `iam:PassRole` on `bridge-ext-*`,`bridge-run-*` with `iam:PassedToService=ecs-tasks.amazonaws.com`; webserver-ro role has none of these | `infra/terraform/modules/dagster/iam.tf` | IAM policy simulator: ro-webserver RunTask = Deny; daemon PassRole on `bridge-api-*` = Deny; recorded | 3 |
-| ORC-001-S05 | Implement `BridgeEcsRunLauncher(EcsRunLauncher)`: fail launch if run tags contain `ecs/task_overrides`, `ecs/run_task_kwargs`, `ecs/container_overrides`; for `account_cycle_job`/`backfill_chunk_job` resolve `taskRoleArn` from PostgreSQL `connection.connections` (status ACTIVE, env match) by run-config `connection_id` and inject into overrides; emit audit event | `services/orchestrator/launcher/bridge_ecs_launcher.py` | Unit tests: forged-tag run → `LAUNCH_REJECTED_FORGED_TAG`, no RunTask call; resolved ARN equals binding; unknown connection → launch failure | 4 |
-| ORC-001-S06 | Add contract test pinning signatures/behaviour of overridden upstream private methods (`_get_task_overrides`, `_run_task_kwargs`) for the locked dagster-aws version | `tests/spec/ORC-001/test_launcher_contract.py` | Test fails when a method signature is changed in a mutated copy | 1 |
-| ORC-001-S07 | Implement in-task identity guard: STS GetCallerIdentity assumed-role name must equal registered role for `connection_id`; mismatch aborts before any Snowflake connection and emits security audit | `services/extractor/snowflake/identity_guard.py` | Staging: launching connection A with role B aborts `IDENTITY_MISMATCH`; synthetic account LOGIN_HISTORY shows 0 logins for B's user in window | 2 |
+| ORC-001-S04 | Write IAM: daemon role `ecs:RunTask` conditioned on Dagster run task-definition families, `ecs:StopTask/DescribeTasks` on cluster, `iam:PassRole` on `bridge-run-*` only with `iam:PassedToService=ecs-tasks.amazonaws.com` — no PassRole on connection roles `bridge-<env>-conn-*` (only the ING-106 launcher holds it; `bridge-ext-*` is retired — RECONCILIATION C-04, C-11); webserver-ro role has none of these | `infra/terraform/modules/dagster/iam.tf` | IAM policy simulator: ro-webserver RunTask = Deny; daemon PassRole on `bridge-api-*` and on `bridge-<env>-conn-*` = Deny; recorded | 3 |
+| ORC-001-S05 | Retired per RECONCILIATION C-04/U-12 (D-07): no `BridgeEcsRunLauncher`; the dedicated ING-106 launcher resolves `connection_id → role` from PostgreSQL and calls `RunTask` | — | — | 0 |
+| ORC-001-S06 | Retired per RECONCILIATION C-04 (no overridden upstream launcher methods) | — | — | 0 |
+| ORC-001-S07 | Retired per RECONCILIATION C-04: extractor tasks carry no Dagster or database credentials; the caller-identity → connection binding is enforced by ING-106's sync-api (ING-106-S02) | — | — | 0 |
 | ORC-001-S08 | Add metadata migration as a one-off ECS task gated before code/daemon deploys, with pre-migration Aurora snapshot; rollback = restore snapshot to new cluster | `infra/.../migrate_task.tf`, release pipeline step | Staging migration N-1→N and restore rehearsal recorded with durations | 3 |
 | ORC-001-S09 | Daemon kill drill: stop daemon during a sensor tick with 20 queued runs | `docs/evidence/ORC-001/<commit>/daemon_kill.md` | Each queued run launched exactly once (run ids unique per run key); heartbeat-age alarm fired > 120 s | 3 |
 | ORC-001-S10 | Daemon redeploy overlap drill | evidence query on `daemon_heartbeats` | No two distinct daemon_ids heartbeat within the same 30 s window during deploy | 2 |
@@ -138,21 +139,20 @@ Dependency changes: `−CTL-002 (dagster_meta is a separate cluster; only the po
 | ORC-001-S15 | Write runbook sections: daemon down/duplicate, metadata DB full, code location crash, break-glass admin webserver (approver, audit, scale back to 0) | `docs/runbooks/dagster.md` | Reviewed by SRE; commands tested in staging | 2 |
 Task acceptance (task-specific, 3–8 items, NO boilerplate):
 - [ ] Read-only webserver rejects run launches; no public route exists.
-- [ ] A run with a forged `ecs/task_overrides` tag is never launched; account runs receive exactly their registered role.
-- [ ] Identity mismatch aborts before any Snowflake login.
+- [ ] Dagster roles cannot pass connection roles; extractor tasks are launched only by the ING-106 launcher (RECONCILIATION C-04).
 - [ ] Daemon kill and redeploy produce zero overlapping heartbeats and no duplicate run launches.
 - [ ] `dagster_meta` is unreachable from API task security groups; migration and restore rehearsed.
 
 ### ORC-002 — Define generic jobs/assets and the no-tenant-partition catalog
-Release: R1 · Estimate: 24–36 h · Risk: M · Decisions: D-07 · Closes: G-ORC-01
+Release: R1 · Estimate: 22–33 h · Risk: M · Decisions: D-07 · Closes: G-ORC-01
 Dependency changes: `−ING-008 (+ING-001 source contract; ORC-002-S12 evidence needs ING-005)`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ORC-002-S01 | Encode partition policy: no `DynamicPartitionsDefinition`/`MultiPartitionsDefinition` anywhere; daily partitions only for maintenance assets | `services/orchestrator/partitions.py`, `tests/spec/ORC-002/test_partition_policy.py` | Test fails when a dynamic partition def is added | 2 |
 | ORC-002-S02 | Define asset-key catalog: `journal/<family>`, `raw_accepted/<family>` (observable), `dbt/<layer>/<model>`, `py/<engine>/<output>`, `publication/core`, `publication/intelligence` | `services/orchestrator/asset_keys.py` | Snapshot test of key list | 2 |
-| ORC-002-S03 | Implement `account_cycle_job` with single op `run_account_cycle(AccountCycleConfig{connection_id: UUID, cycle_id: UUID})`; op loads plan from PostgreSQL and calls `extractor.run_cycle(plan)`; no I/O at import | `services/orchestrator/jobs/account_cycle.py` | Config with extra fields rejected; import performs no network call | 3 |
-| ORC-002-S04 | Emit one `AssetObservation(journal/<family>)` per source with tenant_id, account_id, window, batch_id, rows, status, error_class; source failure does not fail cycle except AUTH | same | Fixture cycle with 1 of 20 sources failing: run SUCCESS, 19 OK + 1 FAILED observation | 3 |
-| ORC-002-S05 | Implement `backfill_chunk_job` (connection_id, backfill_plan_id, chunk_ids ≤ N sized for 15–30 min) with lane tag | `jobs/backfill_chunk.py` | Chunk sizing unit test from ING-010 estimates | 2 |
+| ORC-002-S03 | Implement the sync-outcome sensor that replaces `account_cycle_job` (RECONCILIATION C-04, U-12): read completed cycles' outcomes (ORC-003 cycle table / ING-106 sync-api) and emit S04's `AssetObservation`s; no Dagster run per account-cycle; no I/O at import | `services/orchestrator/sensors/sync_outcomes.py` | Cursor replay emits each cycle's observations exactly once; import performs no network call | 1 |
+| ORC-002-S04 | Emit one `AssetObservation(journal/<family>)` per source with tenant_id, account_id, window, batch_id, rows, status, error_class; source failure does not fail cycle except AUTH | same | Fixture cycle with 1 of 20 sources failing: cycle PARTIAL, 19 OK + 1 FAILED observation | 3 |
+| ORC-002-S05 | Define the backfill-chunk work item for ORC-003's BACKFILL_CHUNK cycles (connection_id, backfill_plan_id, chunk_ids ≤ N sized for 15–30 min, lane) — launched by ING-106, not a Dagster job (RECONCILIATION C-04) | `services/orchestrator/admission/backfill_chunk.py` | Chunk sizing unit test from ING-010 estimates | 2 |
 | ORC-002-S06 | Stub `dbt_build_job`, `intelligence_job`, `maintenance_*` jobs (daily-partitioned global maintenance only) | `jobs/*.py` | Definitions load with all jobs | 2 |
 | ORC-002-S07 | Offline definitions test with sockets disabled and no credentials | `tests/spec/ORC-002/test_offline_load.py` (pytest-socket) | Load succeeds; any socket use fails the test | 2 |
 | ORC-002-S08 | Scale invariance test: 1, 100, 1,000 synthetic connections in PostgreSQL fixture | `tests/spec/ORC-002/test_scale_invariance.py` | Repository snapshot hash identical across the three | 2 |
@@ -167,29 +167,29 @@ Task acceptance:
 
 ### ORC-003 — Implement fair admission, schedules and idempotent sensors
 Release: R1 · Estimate: 38–54 h · Risk: H · Decisions: D-07, D-08 · Closes: G-ORC-01, G-ORC-02, G-ORC-04 (idempotency part)
-Dependency changes: `+ING-002 (planned windows are the ready-work source)`, `+CON-001 (connection→role binding)`.
+Dependency changes: `+ING-002 (planned windows are the ready-work source)`, `+CON-001 (connection→role binding)`. ORC-003 owns the single cycle table, planner, weighted-fair admission, retry classes and stuck-cycle reaper; ING-106 depends on ORC-003, not the reverse (RECONCILIATION U-12, C-25). Admission marks cycles ADMITTED; the ING-106 launcher claims them and calls `RunTask` — no Dagster run per cycle (C-04).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ORC-003-S01 | Create `sync.account_cycles` (unique account_id+lane+cycle_start; lease_token; attempt; next_attempt_at; error_class), `sync.lane_budget`, `sync.tenant_weight` with RLS per CTL pattern | `services/control/migrations/*_account_cycles.py` | Migration up/down; duplicate insert returns existing row | 3 |
-| ORC-003-S02 | Implement cycle planner: each minute plan accounts with `hash(account_id) mod 60 = minute`, attach due sources from ING-002 planned windows; idempotent insert | `services/orchestrator/admission/planner.py` | 500 synthetic accounts → ≤ 9 cycles planned per minute; rerun inserts 0 | 3 |
-| ORC-003-S03 | Implement weighted deficit round-robin admission within lane: respect lane total, per-tenant, per-account=1, steady reserved capacity; `FOR UPDATE SKIP LOCKED`; mark SUBMITTED with run_key | `admission/controller.py` | Deterministic test: A has 1,000 PLANNED, B has 5 → B admitted within first 2 slots; weights 2:1 → 2:1 admission ratio ±1 over 300 slots | 4 |
-| ORC-003-S04 | Implement `admission_sensor` (30 s, ≤ 50 RunRequests/tick), run_key = sha256(job, cycle_id, attempt); reconcile dagster_run_id by run-key tag after tick | `sensors/admission.py` | Kill sensor after submission before cursor save → next tick emits same key, one run exists | 4 |
-| ORC-003-S05 | Implement in-run claim: first op step `UPDATE … SET status=RUNNING, lease_token=… WHERE id=:cycle AND status='SUBMITTED' AND dagster_run_id=:run_id RETURNING`; no row → exit SKIPPED_DUPLICATE without extraction | `extractor/cycle_claim.py` | UI-launched run with valid config but no SUBMITTED row → 0 Snowflake queries, audit event | 2 |
-| ORC-003-S06 | Configure run-level tag limits (lane steady 60, backfill 12, dbt 2, python 2, report 4; tenant applyLimitPerUniqueValue 6) as safety net; document capacity formula | `dagster.yaml`, `admission/capacity.md` | Config loads (keys VERIFIED in Dagster `queued_run_coordinator.py`); formula doc reviewed | 2 |
+| ORC-003-S01 | Create the single cycle table `sync.account_cycles` (unique account_id+lane+cycle_start; lease_token; attempt; next_attempt_at; error_class; plus ING-106's `connection_id`, `kind` STEADY/BACKFILL_CHUNK/ANTI_ENTROPY/PROBE/ORG, `due_windows` jsonb, `connection_epoch`, `fencing_token`, `deadline_at` and the unique partial index "one active STEADY per connection" — RECONCILIATION U-12), `sync.lane_budget`, `sync.tenant_weight` with RLS per CTL pattern | `services/control/migrations/*_account_cycles.py` | Migration up/down; duplicate insert returns existing row | 3 |
+| ORC-003-S02 | Implement cycle planner: cycle minute = `5 + (hash(connection_id) mod 50)` (minutes 0–4 and 55–59 stay free), daily sources join the 03:00 UTC-hour cycle, the ORG cycle runs daily at 06:10 UTC plus anti-entropy passes (absorbs ING-106-S08; RECONCILIATION C-03, U-12); attach due sources from ING-002 planned windows; idempotent insert | `services/orchestrator/admission/planner.py` | 500 synthetic connections → no minute with > 20 cycles planned; rerun inserts 0 | 3 |
+| ORC-003-S03 | Implement weighted deficit round-robin admission within lane: respect lane total, per-tenant, per-account=1, steady reserved capacity; `FOR UPDATE SKIP LOCKED`; mark ADMITTED with an admission key (the ING-106 launcher claims ADMITTED cycles; RECONCILIATION C-04) | `admission/controller.py` | Deterministic test: A has 1,000 PLANNED, B has 5 → B admitted within first 2 slots; weights 2:1 → 2:1 admission ratio ±1 over 300 slots | 4 |
+| ORC-003-S04 | Implement the admission tick (`admission_sensor`, 30 s) that marks cycles ADMITTED idempotently, admission key = sha256(cycle_id, attempt); it emits no Dagster RunRequest per cycle (RECONCILIATION C-04) | `sensors/admission.py` | Kill the tick after marking before cursor save → next tick re-derives the same key; one ADMITTED row, one extractor task | 4 |
+| ORC-003-S05 | Define the launcher claim used by ING-106: `UPDATE … SET status=RUNNING, lease_token=… WHERE id=:cycle AND status='ADMITTED' RETURNING`; no row → no `RunTask`, SKIPPED_DUPLICATE (RECONCILIATION C-04) | `services/launcher/cycle_claim.py` (contract owned here) | A launch attempt for a cycle that is not ADMITTED → 0 RunTask calls, 0 Snowflake queries, audit event | 2 |
+| ORC-003-S06 | Configure extraction lane budgets in `sync.lane_budget` (steady 60, backfill 12; enforced by admission) and Dagster run-level tag limits for Dagster lanes only (dbt 2, python 2; tenant applyLimitPerUniqueValue 6; no `report` lane — RECONCILIATION C-04, C-05) as safety net; document capacity formula | `dagster.yaml`, `admission/capacity.md` | Config loads (keys VERIFIED in Dagster `queued_run_coordinator.py`); formula doc reviewed | 2 |
 | ORC-003-S07 | Implement error classifier: TRANSIENT (retry ≤ 5, 30 s·2^n ±20% jitter, cap 15 min), AUTH (0 retries, health AUTH_FAILED, RB-01), CUSTOMER_QUOTA (resource monitor suspended warehouse; wait next cycle; D-08), SCHEMA (quarantine source), CANCELLED, INTERNAL (≤ 2) | `admission/errors.py` + code table | Fixture per class → expected status/next_attempt_at; Snowflake codes marked TO VERIFY LIVE | 3 |
 | ORC-003-S08 | Enforce retry budgets and poison handling: same error class 3 consecutive cycles → pause account-source + health event | `admission/poison.py` | Injected 429 retried then succeeds; AUTH denied 0 retries; poison paused after 3 | 2 |
-| ORC-003-S09 | Implement stuck-lease reaper: RUNNING cycle with terminal Dagster run or age > 45 min → FAILED(WORKER_LOST); StopTask dangling task by `ecs/task_arn` tag | `admission/reaper.py` | Killed worker → cycle FAILED within 5 min; next cycle proceeds | 3 |
+| ORC-003-S09 | Implement stuck-cycle reaper: RUNNING cycle whose ECS task is STOPPED (task-state event) or age > 45 min → FAILED(WORKER_LOST); StopTask dangling task by `ecs/task_arn` tag | `admission/reaper.py` | Killed worker → cycle FAILED within 5 min; next cycle proceeds | 3 |
 | ORC-003-S10 | Implement backfill back-pressure: admit backfill only if steady p95 queue age < 5 min over last 10 min; ≤ 4 per tenant, ≤ 12 total | `admission/backfill.py` | Simulated steady congestion pauses backfill admission | 3 |
-| ORC-003-S11 | Noisy-neighbor test: A requests 365 days × 20 sources (ING-010 chunking), B 5 accounts hourly | `tests/spec/ORC-003/test_fairness.py` + staging run | B cycle queue age p95 ≤ 5 min; Dagster queued runs never exceed 2× lane limits | 4 |
-| ORC-003-S12 | Duplicate wakeup test: 100 evaluations for the same cycle | test | One SUBMITTED row, one run, one accepted batch per source window | 2 |
+| ORC-003-S11 | Noisy-neighbor test: A requests 365 days × 20 sources (ING-010 chunking), B 5 accounts hourly | `tests/spec/ORC-003/test_fairness.py` + staging run | B cycle queue age p95 ≤ 5 min; admitted cycles never exceed lane budgets | 4 |
+| ORC-003-S12 | Duplicate wakeup test: 100 evaluations for the same cycle | test | One ADMITTED row, one extractor task, one accepted batch per source window | 2 |
 | ORC-003-S13 | Emit `admission.queue_age_seconds{lane}` p50/p95, `admission.running{lane}`, `admission.denied{reason}`, `cycle.outcome{status,error_class}`; tenant only in logs; alarms steady p95 > 10 min for 15 min (page), stalled cycles > 30 min | telemetry + alarms | Alarms fire in staging drill | 2 |
 | ORC-003-S14 | Write runbook entries: noisy tenant (RB-15 weight/limit commands), poison account, sensor stuck | `docs/runbooks/dagster.md` | Commands dry-run in staging | 2 |
 Task acceptance:
-- [ ] 500 accounts produce ≤ 9 cycle starts per minute.
+- [ ] 500 connections produce no minute with > 20 cycle starts (minute = `5 + (hash(connection_id) mod 50)`).
 - [ ] Under a 365-day flood from A, B's steady p95 queue age ≤ 5 min.
-- [ ] Sensor crash after submission yields exactly one run and one cycle.
+- [ ] Admission crash after marking yields exactly one ADMITTED cycle and one extractor task.
 - [ ] AUTH failures are not retried; TRANSIENT retries are bounded with jitter.
-- [ ] A manually launched run without a sensor-issued claim performs no extraction.
+- [ ] A task started without a launcher claim of an ADMITTED cycle performs no extraction.
 
 ### ORC-004 — Integrate dbt assets and Python result dependencies
 Release: R1 · Estimate: 34–48 h · Risk: H · Decisions: D-06 · Closes: G-ORC-08, G-ORC-09
@@ -332,36 +332,36 @@ Task acceptance:
 - [ ] Outputs are consumed by dbt only through published revisions, with lineage to the engine run.
 
 ### ORC-104 — Central compute metering capture per build and tenant
-Release: R1 (capture; allocation reporting in OPS-009) · Estimate: 16–24 h · Risk: M · Decisions: D-06 · Closes: G-ORC-11
-Why/where: set-based builds make per-tenant COGS impossible to reconstruct later unless drivers are captured from launch. Plugs after DBT-101/ORC-101; feeds OPS-009.
+Release: R1 (capture; allocation reporting in OPS-009) · Estimate: 8–12 h · Risk: M · Decisions: D-06 · Closes: G-ORC-11
+Why/where: set-based builds make per-tenant COGS impossible to reconstruct later unless drivers are captured from launch. Plugs after DBT-101/ORC-101; feeds OPS-009. ORC-104 keeps per-build/per-model central compute capture and per-tenant rows from PARTITION_REVISION; the QUERY_TAG format is OPS-109's and credit allocation OPS-009's (RECONCILIATION U-06).
 Dependency changes: `+ORC-101, +DBT-101`; OPS-009 `+ORC-104`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ORC-104-S01 | Set query-tag JSON for dbt (`{app, env, lane, build_id, model, layer}`, ≤ 2000 chars), broker (`tenant_id, request_id`), Python writer (`run_id`) | `data/dbt/macros/query_tag.sql`, broker/writer config | QUERY_HISTORY shows parsed tags in staging | 2 |
+| ORC-104-S01 | Moved to OPS-109-S03 per RECONCILIATION U-06 (QUERY_TAG JSON format v1 absorbs `app, env, lane, build_id, model, layer`) — consume its tags here | — | — | 0 |
 | ORC-104-S02 | Derive `OPS_INTERNAL.BUILD_MODEL_TENANT_ROWS` from PARTITION_REVISION row counts | dbt model in internal project | Totals equal sum of revision row counts | 2 |
 | ORC-104-S03 | Collect per-query credits (central QUERY_ATTRIBUTION_HISTORY, latency TO VERIFY LIVE) joined to tags → credits per (build, model); WAREHOUSE_METERING_HISTORY for idle residual | `maintenance/cost_collect.py` | One staging day collected | 4 |
-| ORC-104-S04 | Allocate credits by rows written per tenant; zero-row models by workset share; idle → UNALLOCATED_IDLE | internal model | Fixture 10 credits, 700/300 rows → 7/3; idle 2 unallocated; total 12 | 3 |
-| ORC-104-S05 | Allocate Snowpipe credits by bytes per file using `tenant_id=` path segment | internal model | Fixture two tenants' files → byte-proportional split | 2 |
-| ORC-104-S06 | Attribute broker queries directly by tag tenant | internal model | Sum by tenant = tagged credits | 1 |
+| ORC-104-S04 | Moved to OPS-009-S05/S06 per RECONCILIATION U-06 (credit allocation by rows written per tenant, idle → UNALLOCATED_IDLE) | — | — | 0 |
+| ORC-104-S05 | Moved to OPS-009-S05/S06 per RECONCILIATION U-06 (Snowpipe credits by bytes per tenant) | — | — | 0 |
+| ORC-104-S06 | Moved to OPS-009-S05/S06 per RECONCILIATION U-06 (broker queries by tag tenant) | — | — | 0 |
 | ORC-104-S07 | Restrict `OPS_INTERNAL` to ops role | grants | Customer reader select fails | 1 |
-| ORC-104-S08 | Staging reconciliation evidence | evidence | Allocated + unallocated = metered for the day | 1 |
+| ORC-104-S08 | Staging reconciliation evidence | evidence | Credits per (build, model) + idle residual = metered for the day | 1 |
 Task acceptance:
-- [ ] Every central credit of a day is either attributed to a tenant or explicitly unallocated.
+- [ ] Every central credit of a day is captured per (build, model) or as idle residual, with per-tenant rows from PARTITION_REVISION for OPS-009's allocation.
 - [ ] No customer role can read internal cost data.
 
 ### ORC-105 — Revision retention, pins and garbage collection
-Release: R1 · Estimate: 22–32 h · Risk: M · Decisions: D-05, D-11 · Closes: G-ORC-13
+Release: R1 · Estimate: 23–33 h · Risk: M · Decisions: D-05, D-11, D-26 · Closes: G-ORC-13
 Why/where: retention of superseded revisions is referenced but unowned; plugs after ORC-005; required by ORC-006, FIN-010, OPS-007, API-002.
 Dependency changes: `+ORC-005`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ORC-105-S01 | Create `PUBLICATION.PIN` (holder_kind REPORT_JOB/ANALYSIS_JOB/STATEMENT/RECOVERY_SNAPSHOT/OPERATOR_HOLD, pub_seq, dataset_ids, period range, expires_at) | migration | Apply twice no-op | 2 |
 | ORC-105-S02 | Implement pin create/extend/release idempotent by holder id | `publication/pins.py` | Duplicate create returns same pin | 2 |
-| ORC-105-S03 | Write GC eligibility SQL: superseded older than max(cursor TTL + 15 min, 7 d rollback window), not covered by any pin (pin.pub_seq within validity and period overlaps), not current; orphans of terminal builds older than 24 h | `publication/gc_eligible.sql` | Property test over 1,000 random histories never selects a current or pinned revision | 3 |
-| ORC-105-S04 | Implement daily GC (maintenance lane) deleting eligible revisions per table in ≤ 10M-row statements; mark PURGED | `maintenance/gc_revisions.py` | Staging run deletes expected counts | 3 |
+| ORC-105-S03 | Write GC eligibility SQL: superseded older than max(cursor TTL + 15 min, 7 d rollback window) with the TTL read from API-003's config key `cursor_ttl_seconds` (cursors create no pins; RECONCILIATION C-07), not covered by any pin (pin.pub_seq within validity and period overlaps), not current; orphans of terminal builds older than 24 h | `publication/gc_eligible.sql` | Property test over 1,000 random histories never selects a current or pinned revision | 3 |
+| ORC-105-S04 | Implement daily GC (maintenance lane), the only physical deleter of revisioned rows: superseded revisions and dataset retention expiry (query-grain policy declared by WRK-104 per D-11; per-class retention per D-26; OPS-005 verifies) in ≤ 10M-row statements; mark PURGED (RECONCILIATION U-17) | `maintenance/gc_revisions.py` | Staging run deletes expected counts, incl. query-grain rows older than `hot_days` | 4 |
 | ORC-105-S05 | Implement `pin_status(tenant, pub_seq)` → OK/RESTART_REQUIRED for API | `publication/pins.py` | Purged pin answers RESTART_REQUIRED | 2 |
 | ORC-105-S06 | Tests: statement pin survives 30 newer publications; released report pin GC'd after grace; orphan revision GC'd | tests | All pass | 4 |
-| ORC-105-S07 | Set revision tables Time Travel 1 day; monitor time-travel/fail-safe bytes (cost TO VERIFY LIVE) | migration + metric | Metric visible | 2 |
+| ORC-105-S07 | Set revision tables Time Travel 1 day (OPS-005-S05 must not set 7 d on them; rollback uses retained superseded revisions ≥ 7 d, recovery uses OPS-007 snapshots — RECONCILIATION C-02); monitor time-travel/fail-safe bytes (cost TO VERIFY LIVE) | migration + metric | Metric visible | 2 |
 | ORC-105-S08 | Monitor read amplification (live revisions / published revisions per table), alarm > 3 | metric | Alarm drill | 2 |
 | ORC-105-S09 | Pin current pub_seq per tenant during daily recovery snapshot export (OPS-007 interface) | `publication/pins.py` | Export references only map revisions | 1 |
 | ORC-105-S10 | Runbook: GC pause switch, operator hold pin | `docs/runbooks/dagster.md` | Reviewed | 1 |
@@ -373,8 +373,8 @@ Task acceptance:
 
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
-| ORC-001 | R1 | 38 | 52 |
-| ORC-002 | R1 | 24 | 36 |
+| ORC-001 | R1 | 31 | 43 |
+| ORC-002 | R1 | 22 | 33 |
 | ORC-003 | R1 | 38 | 54 |
 | ORC-004 | R1 | 34 | 48 |
 | ORC-005 | R1 | 44 | 62 |
@@ -382,9 +382,9 @@ Task acceptance:
 | ORC-101 | R1 | 34 | 48 |
 | ORC-102 | R1 | 16 | 24 |
 | ORC-103 | R1 | 22 | 32 |
-| ORC-104 | R1 | 16 | 24 |
-| ORC-105 | R1 | 22 | 32 |
-| **Total R1** | | **320** | **458** |
+| ORC-104 | R1 | 8 | 12 |
+| ORC-105 | R1 | 23 | 33 |
+| **Total R1** | | **304** | **435** |
 | **Total R2** (admin recovery UI; regional sharding per D-23 — not decomposed here) | | **0** | **0** |
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)

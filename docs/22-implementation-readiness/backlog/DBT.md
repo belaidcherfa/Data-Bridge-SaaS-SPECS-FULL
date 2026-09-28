@@ -133,12 +133,12 @@ Resolution: DBT-001 −ORC-004 −ING-008 +CON-002 +INF-008 +FND-004 +ING-001 (O
 
 ### DBT-001 — Bootstrap dbt Core project, profiles and model contracts
 Release: R1 · Estimate: 28–40 h · Risk: M · Decisions: D-05, D-06, D-21 · Closes: G-DBT-07, G-DBT-11, G-DBT-16
-Dependency changes: `−ORC-004 (inverted edge)`, `−ING-008 (+ING-001 contract)`, `+CON-002 (live WIF incl. dbt debug)`, `+INF-008`, `+FND-004`; S07 macros finalized after DBT-101/DBT-103.
+Dependency changes: `−ORC-004 (inverted edge)`, `−ING-008 (+ING-001 contract)`, `+CON-002 (live WIF incl. dbt debug)`, `+INF-008`, `+FND-004`, `+FND-101` (developer inner loop / `dev` target; RECONCILIATION C-29, U-15); S07 macros finalized after DBT-101/DBT-103.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | DBT-001-S01 | Create project skeleton per PRD §151 without `snapshots/`: staging, intermediate, ledger/{warehouse,storage,serverless,cortex,transfer}, allocation, marts, serving, checks; seeds only static reference (calendar, currency minor units) | `data/dbt/dbt_project.yml`, dirs | `dbt parse` succeeds; lint L09 fails if `snapshots/` added | 2 |
 | DBT-001-S02 | Pin dbt-core and dbt-snowflake ≥ 1.12 (WIF) from FND-002 lock; minimal pinned packages | `data/dbt/packages.yml`, lockfile | Version manifest matches lock | 1 |
-| DBT-001-S03 | Write `profiles.yml` targets ci/staging/prod with WIF authenticator parameters from dbt-adapters PR #1316 (exact keys proven by CON-002), role/warehouse/database from env allowlist, default `query_tag`, statement timeout | `data/dbt/profiles.yml` | Lint rejects `password`, `private_key`, `token` keys; `dbt debug` passes under WIF in CI | 3 |
+| DBT-001-S03 | Write `profiles.yml` (single owner; FND-101 contributes the `dev` target — RECONCILIATION U-15) targets ci/staging/prod with WIF authenticator parameters from dbt-adapters PR #1316 (exact keys proven by CON-002), role/warehouse/database from env allowlist, default `query_tag`, statement timeout | `data/dbt/profiles.yml` | Lint rejects `password`, `private_key`, `token` keys; `dbt debug` passes under WIF in CI | 3 |
 | DBT-001-S04 | Write meta JSON Schema for `config.meta.bridge` and validator over `manifest.json` | `data/contracts/dbt_meta.schema.json`, `tools/dbt_lint/meta.py` | Model missing grain or tenant_key fails CI | 3 |
 | DBT-001-S05 | Set layer defaults: `contract.enforced` for ledger/allocation/marts/serving; document that only NOT NULL is enforced by Snowflake | `dbt_project.yml`, `data/dbt/README.md` | Removing a contracted column from a revisioned model fails the build | 3 |
 | DBT-001-S06 | Generate `_sources.yml` for RAW, ACCEPTED_BATCH, CONFIG, PY from the ING-001 registry; CI diff check | `tools/dbt_sources_gen.py`, `models/staging/_sources.yml` | Registry change without regenerated sources fails CI | 3 |
@@ -179,8 +179,8 @@ Task acceptance:
 - [ ] Staging reads only accepted batches ≤ snapshot and prunes to the workset.
 
 ### DBT-003 — Resolve resource history, account membership and workload joins
-Release: R1 · Estimate: 32–46 h · Risk: H · Decisions: D-04, D-10, D-12, D-16 · Closes: G-DBT-11, G-ORC-09 (classification placement)
-Dependency changes: `−CTL-001`, `+DBT-103 (CONFIG membership via CTL-005)`; coordinate contract with WRK-001 and SEC-007.
+Release: R1 · Estimate: 28–40 h · Risk: H · Decisions: D-04, D-10, D-12, D-16, D-34 · Closes: G-DBT-11 (G-ORC-09 classification placement → WRK-001 per RECONCILIATION U-16)
+Dependency changes: `−CTL-001`, `+DBT-103 (CONFIG membership via CTL-005)`; coordinate contract with WRK-001 and SEC-007. DBT-003 keeps resource history, membership and the `as_of_join`; workload classification is WRK-001's (D-34, RECONCILIATION U-16).
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | DBT-003-S01 | Build `int_resource_identity`: UUIDv5(tenant_id, account_id, resource_type, source_object_id) using Snowflake internal ids (WAREHOUSE_ID, TABLE_ID …); name is an attribute | `models/intermediate/int_resource_identity.sql` | Rename keeps id; drop+recreate same name → new id | 3 |
@@ -188,7 +188,7 @@ Dependency changes: `−CTL-001`, `+DBT-103 (CONFIG membership via CTL-005)`; co
 | DBT-003-S03 | Add non-overlap check model per dimension (tenant-scoped PASS/FAIL) | `models/checks/chk_scd_overlap.sql` | Seeded overlap → FAIL for that tenant only | 2 |
 | DBT-003-S04 | Build account/org membership from pinned CONFIG.ACCOUNT_MEMBERSHIP plus ORGANIZATION_USAGE evidence; transfers effective-dated | `models/dimensions/dim_account_membership.sql` | Cost dated before transfer stays with old org | 3 |
 | DBT-003-S05 | Implement `as_of_join(fact, dim, ts)` (`ts >= valid_from AND ts < valid_to` + tenant/account keys) with fanout assertion | `macros/as_of_join.sql` | Fixture: row count before = after join | 3 |
-| DBT-003-S06 | Implement deterministic workload classification in SQL: explicit structured tag → session client application → approved comment fields (parsed at extraction by SEC-007) → query type (weak); retain conflicts in `bridge_query_workload_evidence` | `models/intermediate/int_query_workload.sql` | Conflicting explicit evidence flagged; absent metadata → UNKNOWN; replay identical | 4 |
+| DBT-003-S06 | Moved to WRK-001 per RECONCILIATION U-16, C-06 (D-34: set-based dbt SQL classification with the Python reference oracle; `fct_query_workload` replaces `PY_WORKLOAD_CLASSIFICATION`) — consume its output through `as_of_join` here | — | — | 0 |
 | DBT-003-S07 | Build many-to-many bridges: `bridge_query_object_access` non-additive (weight NULL) or explicit weights with Σ weight = 1 per query (check \|Σ−1\| ≤ 1e-12) | `models/intermediate/bridge_*.sql` | 10-credit query on 2 tables: drilldown 10 each non-additive, additive total 10 | 3 |
 | DBT-003-S08 | Foreign-tenant session test with colliding session_id | fixture | No cross-tenant match | 2 |
 | DBT-003-S09 | Map missing dimension to explicit UNKNOWN member and count in coverage | model + check | Unmatched fact retained with UNKNOWN | 2 |
@@ -230,7 +230,7 @@ Release: R1 · Estimate: 34–50 h · Risk: H · Decisions: D-06, D-12 · Closes
 Dependency changes: `−SEC-008`, `+DBT-102, +FND-004`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| DBT-005-S01 | Create check-model framework writing `QUALITY.CHECK_RESULT(build_id, tenant_id, check_id, check_version, dataset_id, partition_start, status PASS/FAIL/WARN, failing_rows, evidence)` with a row per (tenant in workset, check); registry required/advisory | `models/checks/_framework.sql`, `data/contracts/checks.yaml` | Tenant without a row is treated FAIL by gate (test) | 4 |
+| DBT-005-S01 | Create check-model framework writing the single result store `QUALITY.CHECK_RESULT(build_id, candidate_revision_id, tenant_id, check_id, check_version, dataset_id, partition_start, status PASS/FAIL/WARN, failing_rows, evidence)` keyed by candidate revision, with a row per (tenant in workset, check); registry required/advisory; OPS-002's gate checks write here and ORC-005-S03 is the only eligibility evaluator (RECONCILIATION U-19, C-23) | `models/checks/_framework.sql`, `data/contracts/checks.yaml` | Tenant without a row is treated FAIL by gate (test) | 4 |
 | DBT-005-S02 | Implement check macros: key uniqueness, not-null keys, tenant-inclusive relationships, accepted-batch-only lineage, no double service inclusion (CHARGE registry), exact conservation Σ attribution = parent, sign validity by entry_kind | `macros/checks/*.sql` | Each has a failing and passing fixture | 4 |
 | DBT-005-S03 | Implement `assert_no_fanout(model, parent, key)` before financial sums | macro | Seeded fanout fails | 2 |
 | DBT-005-S04 | Implement sqlglot tenant-join checker (CTE tracking, CROSS/comma joins, IN/EXISTS, exemption comment) | `tools/dbt_lint/tenant_join.py` | Test corpus of 20 SQL cases (10 violating) classified exactly | 6 |
@@ -253,7 +253,7 @@ Release: R1 · Estimate: 34–48 h · Risk: H · Decisions: D-02, D-11, D-12 · 
 Dependency changes: `+ORC-005 (views read the map)`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| DBT-006-S01 | Define serving grain catalog tied to API-001 registry: serving_daily_charge, serving_daily_group, serving_warehouse_daily, serving_workload_daily, serving_query_family_daily (400 d), serving_budget_daily; each lists entitlement dimensions | `datasets.yaml`, `models/serving/_serving.yml` | Every API-001 metric/dimension pair maps to exactly one serving dataset | 3 |
+| DBT-006-S01 | Define serving grain catalog tied to API-001 registry: serving_daily_charge, serving_daily_group, serving_warehouse_daily, serving_workload_daily, serving_query_family_daily (serves WRK-104's `fct_query_family_daily`, grain and columns per RECONCILIATION U-17/C-01; 400 d), serving_budget_daily; each lists entitlement dimensions | `datasets.yaml`, `models/serving/_serving.yml` | Every API-001 metric/dimension pair maps to exactly one serving dataset | 3 |
 | DBT-006-S02 | Implement serving models as revisioned day partitions from ledger/allocation revisions in workset | `models/serving/*.sql` | Fixture totals equal ledger totals per currency | 4 |
 | DBT-006-S03 | Encode authorized-grain rule with SEC-005: team-restricted profile sees only its group rows; account totals require account entitlement | RAP bodies per table | Restricted user on serving_daily_charge gets 0 rows, not partial totals | 3 |
 | DBT-006-S04 | Deploy secure serving views via migration (DBT-101 template) with `_pub_from/_pub_to`; reader grants on SERVING only | migration | Reader select on `*_R` fails; view works with pin | 3 |
@@ -341,7 +341,7 @@ Dependency changes: `+DBT-004`.
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | DBT-104-S01 | Define versioned relation naming (`fct_charge_v2_r`) and dataset ids `fct_charge@2` | `datasets.yaml` | Schema-validated | 2 |
-| DBT-104-S02 | Write union serving view template mapping v1/v2 columns (NULL for absent) | migration template | Both branches return identical column list | 3 |
+| DBT-104-S02 | Write the internal union view template over storage-level fact versions mapping v1/v2 columns (NULL for absent) — never a serving namespace; REL-103's version namespaces are the R1 serving contract (RECONCILIATION C-21) | migration template | Both branches return identical column list | 3 |
 | DBT-104-S03 | Per-tenant cutover via map only (no DDL at cutover) | planner/publisher | Tenant switch is one publication | 2 |
 | DBT-104-S04 | Contract phase: drop v1 branch after all tenants cut over and no pins reference v1 | procedure | Drop refused while a pin exists | 2 |
 | DBT-104-S05 | End-to-end test with a renamed column | test | Readers never see a mixed schema | 2 |
@@ -354,7 +354,7 @@ Task acceptance:
 |---|---|---:|---:|
 | DBT-001 | R1 | 28 | 40 |
 | DBT-002 | R1 | 34 | 48 |
-| DBT-003 | R1 | 32 | 46 |
+| DBT-003 | R1 | 28 | 40 |
 | DBT-004 | R1 | 34 | 48 |
 | DBT-005 | R1 | 34 | 50 |
 | DBT-006 | R1 | 34 | 48 |
@@ -362,12 +362,12 @@ Task acceptance:
 | DBT-102 | R1 | 22 | 32 |
 | DBT-103 | R1 | 14 | 22 |
 | DBT-104 | R2 | 10 | 14 |
-| **Total R1** | | **264** | **380** |
+| **Total R1** | | **260** | **374** |
 | **Total R2** | | **10** | **14** |
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 
-1. Approve per-class RAW retention (financial/metering/billing sources 400 days; query-level and user-bearing sources 90 days), challenging ADR-009's uniform 90-day RAW default, so ledger bugs can be corrected by rebuild across the full 400-day history?
+1. Approve per-class RAW retention (financial/metering/billing sources 400 days; query-level and user-bearing sources 90 days), challenging ADR-009's uniform 90-day RAW default, so ledger bugs can be corrected by rebuild across the full 400-day history? — Resolved by D-26 (RECONCILIATION C-02).
 2. Approve a one-off central Snowflake benchmark budget (≈ 200 credits) for DBT-101 before FIN model work begins?
 3. Accept that R1 analytical schema changes are additive-only (breaking changes wait for DBT-104 in R2)?
 4. Who approves shadow-rebuild diff reports that intentionally change customer numbers in open periods (analytics lead alone, or analytics + FinOps)?

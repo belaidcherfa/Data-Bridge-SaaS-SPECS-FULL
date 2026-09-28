@@ -117,7 +117,7 @@ Evidence:
 Why it matters: a tenant-wide evaluator could compute partitions outside the monitor owner's scope and push them to a Slack channel. The only guard would be application code, which is exactly the filter-only enforcement ADR-005 rejects. Per-monitor queries under each owner's role, however, destroy batching (G-GOV-06).
 
 Resolution (consistent with ADR-005 and D-02, no amendment):
-- Each monitor, budget and forecast runs as its owner's current normalized **profile role**. It is re-resolved at every tick from durable PG state (SEC-006).
+- Each monitor, budget and forecast runs as its owner's current normalized **profile role**. It is re-resolved at every tick from durable PG state (SEC-006). No GOV process holds serving credentials: evaluators submit server-signed batch plans to the broker's JOB class (API-002), which assumes the tenant user and sets the profile role; Python results are written through ORC-103 under the central writer identity (RECONCILIATION C-09).
 - Batches are keyed `(tenant, profile_role, dataset, window, input_publication)`. Many monitors share the FinOps Admin profile, so batching survives.
 - If the owner is removed, or the owner's scope no longer covers the monitor scope, the monitor becomes `PAUSED_AUTH`. It is never silently narrowed. Its open incidents stay visible, and admins are notified to reassign.
 - Delivery reauthorizes each email recipient against the partition scope. Channel destinations use `authorized_scope` plus `disclosure_level` (G-GOV-11).
@@ -412,7 +412,7 @@ Dependency changes: `−ALC-007` (org/account/service budgets do not need showba
 | GOV-001-S02 | Create PG `governance.budgets`, `budget_revisions(effective_from)` with FORCE RLS and composite FKs | migration | An amount edit creates a revision; history is queryable | 3 |
 | GOV-001-S03 | Validate: registry metric and dimensions; scope ⊆ owner grants; single native currency across scope accounts (else 422 `MIXED_CURRENCY_SCOPE` listing accounts); team dimension requires allocated_spend + book_id | `apps/api/budgets/validate.py` | EUR+USD accounts → 422 with both listed; a Finance Team Admin cannot budget Marketing | 3 |
 | GOV-001-S04 | Implement the R1 period generator (month/quarter/year, fiscal_year_start_month) with boundary tests | `apps/api/budgets/periods.py` | FY starting Feb: Q1 = Feb 1–May 1 [); leap Feb 29 included; year crossing correct | 3 |
-| GOV-001-S05 | Build the actuals daily series via the semantic planner (no new SQL formula), run as the owner's profile role and batched per (tenant, profile); `last_complete_date` from D-13 | `data/dbt/models/marts/budgets/mart_budget_actual_daily.sql` + batch job | Actual equals the Explorer `spend` for the same scope/period (150.00) | 4 |
+| GOV-001-S05 | Build the actuals daily series via the semantic planner (no new SQL formula), run as the owner's profile role through the broker's JOB class (API-002; RECONCILIATION C-09) and batched per (tenant, profile); `last_complete_date` from D-13 | `data/dbt/models/marts/budgets/mart_budget_actual_daily.sql` + batch job | Actual equals the Explorer `spend` for the same scope/period (150.00) | 4 |
 | GOV-001-S06 | Implement the pure derived measures (remaining, variance, variance_pct, burn_rate, days_remaining, forecast refs) | `packages/budgets/measures.py` | 280/150 → remaining 130, burn 10/day; zero budget → pct null + absolute overrun; zero complete days → burn null | 3 |
 | GOV-001-S07 | Keep overlapping budgets independent: list/detail responses have no cross-budget total field | API + UI | Schema has no sum field; UI shows no total row | 1 |
 | GOV-001-S08 | Handle partial data: coverage < 100% on any day → PARTIAL; unpriced spend → `UNKNOWN_RISK`, never under-budget | measures + API | Fixture with a null-cost day shows UNKNOWN_RISK | 2 |
@@ -432,7 +432,7 @@ Task acceptance:
 
 ### GOV-002 — Implement forecasting (R1: run-rate + seasonal-naive)
 Release: R1 (Theil–Sen, selection and intervals → GOV-105 R2) · Estimate: 30–43 h · Risk: M · Decisions: D-13 · Closes: G-GOV-02 (R1 part)
-Dependency changes: `−WRK-005`, `+GOV-101`, `+ORC-005` (triggered by publication events).
+Dependency changes: `−WRK-005`, `+GOV-101`, `+ORC-005` (triggered by publication events), `+ORC-103` (`py_forecast` lands through ORC-103's writer; RECONCILIATION U-18, C-09); keep GOV-001.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -441,7 +441,7 @@ Dependency changes: `−WRK-005`, `+GOV-101`, `+ORC-005` (triggered by publicati
 | GOV-002-S03 | Apply the eligibility ladder for R1: h < 7 INSUFFICIENT_HISTORY; 7–27 RUN_RATE_FALLBACK; ≥ 28 SEASONAL_NAIVE (mean of last 4 same weekdays); a gap inside the required window falls back to run-rate over the contiguous tail ≥ 7 | `services/intelligence/forecast/select.py` | Table-driven tests for h = 6, 7, 27, 28 and a gap on day 20 | 3 |
 | GOV-002-S04 | Compute remaining dates from last_complete_date+1 to end−1 inclusive (lagged days included); forecast_total = actual + Σ predictions + approved scheduled adjustments | `forecast/project.py` | 15 days × 10 → 300; with a 2-day source lag remaining days are still counted | 2 |
 | GOV-002-S05 | Handle adjustments: extrapolate only the gross stream; add future credits only from approved scheduled changes; never extrapolate historical refunds | `forecast/adjust.py` | A −50 refund in history does not reduce the forecast | 2 |
-| GOV-002-S06 | Build the Dagster asset `forecast_budgets`: one series query per (tenant, profile role), triggered by ORC-005 publication, writing via the Python output contract (immutable batch → accepted) | `services/intelligence/forecast/asset.py` | Per tenant, one Snowflake read per profile per publication | 4 |
+| GOV-002-S06 | Build the Dagster asset `forecast_budgets`: one series read per (tenant, profile role), submitted as a server-signed batch plan to the broker's JOB class (API-002) — no GOV process holds serving credentials — triggered by ORC-005 publication, writing results through ORC-103's writer under the central writer identity (RECONCILIATION C-09, U-18, C-17) | `services/intelligence/forecast/asset.py` | Per tenant, one Snowflake read per profile per publication | 4 |
 | GOV-002-S07 | Make runs idempotent: forecast key → identical row on rerun; a newer publication supersedes | tests | Byte-identical output on replay | 2 |
 | GOV-002-S08 | Add statistical fixtures: constant 10/day; Mon 20/others 10 over 35 days → Mondays 20; abrupt growth (SN lags, documented limitation); all-zero; refund day; missing period | `tests/statistics/forecast/` | Expected values independently computed | 4 |
 | GOV-002-S09 | Implement `GET /v1/budgets/{id}/forecast` returning method, history days, limitations, interval null + UNCALIBRATED | API | Contract test; no "90%" text anywhere | 2 |
@@ -488,7 +488,7 @@ Dependency changes: `−GOV-002` (only S03's forecast_breach evaluation needs it
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | GOV-004-S01 | Write the observation DDL (insert-only; key per G-GOV-01; supersedes) | `data/dbt/models/marts/monitor_events/fct_monitor_observation` DDL | Contract test passes | 3 |
-| GOV-004-S02 | Build the batch evaluator SQL: one query per batch via the `cfg_monitor_scope` join, run as the profile role, partition key = canonical JSON of stable IDs, overflow top-N + `__other__` | `services/monitor/evaluator.py` + SQL templates (bound parameters) | Batch of 20 monitors → 1 query; results equal 20 single queries | 4 |
+| GOV-004-S02 | Build the batch evaluator SQL: one query per batch via the `cfg_monitor_scope` join, submitted as a server-signed batch plan keyed (tenant, profile role, dataset, window, input publication) to the broker's JOB class (API-002), which sets the profile role (RECONCILIATION C-09), partition key = canonical JSON of stable IDs, overflow top-N + `__other__` | `services/monitor/evaluator.py` + SQL templates (bound parameters) | Batch of 20 monitors → 1 query; results equal 20 single queries | 4 |
 | GOV-004-S03 | Evaluate conditions in Python (Decimal; bridge_stats for anomaly); null/incomplete → INSUFFICIENT_DATA with reason; complete zero-day = 0 | `services/monitor/conditions.py` | Null cost → INSUFFICIENT_DATA(`UNPRICED`); zero spend → OK for gt 100 | 3 |
 | GOV-004-S04 | Re-evaluate on corrections: windows within lookback (7 windows or since the oldest active episode, ≤ 35 days) when a newer publication revises them | planner hook | Revised D2 produces a superseding observation | 3 |
 | GOV-004-S05 | Build the tracker as a pure fold over distinct windows; transactional upsert with `SELECT … FOR UPDATE`; unique partial index on active episodes | `services/monitor/tracker.py` + migration | 20 parallel evaluations of the same key → 1 active incident | 4 |
@@ -513,12 +513,12 @@ Task acceptance:
 
 ### GOV-005 — Implement robust anomaly candidates and quality gates
 Release: R1 · Estimate: 18–26 h · Risk: M · Decisions: D-10 · Closes: G-GOV-03, G-GOV-07 (digest)
-Dependency changes: `+GOV-101` (statistics moved there); GOV-004 kept (monitor integration).
+Dependency changes: `+GOV-101` (statistics moved there), `+ORC-103` (`py_anomaly_candidate` lands through ORC-103's writer; RECONCILIATION U-18); GOV-004 kept (monitor integration). GOV-005 is the anomaly evaluator; INS-003's Q07 calls it (INS-003 +GOV-005; U-09).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | GOV-005-S01 | Build the anomaly condition evaluator on bridge_stats: baseline = previous 28 complete days excluding the current day, from first_seen; weekday cohort = 8 same weekdays within 56 days; < 28 obs → INSUFFICIENT_HISTORY | `services/intelligence/anomaly/evaluate.py` | A Monday series with 8 prior Mondays uses the cohort; 7 prior → 28-day baseline | 3 |
-| GOV-005-S02 | Split gross-positive and refund streams; write `py_anomaly_candidate` (baseline median, MAD, score or null, method ROBUST_Z/ABSOLUTE_DEVIATION, impact signed and abs, sample count, coverage, model version, publication) | DDL + writer | A refund spike flags only in the refund stream | 3 |
+| GOV-005-S02 | Split gross-positive and refund streams; write through ORC-103's writer (RECONCILIATION U-18, C-17) `py_anomaly_candidate` (baseline median, MAD, score or null, method ROBUST_Z/ABSOLUTE_DEVIATION, impact signed and abs, sample count, coverage, model version, publication) | DDL + writer | A refund spike flags only in the refund stream | 3 |
 | GOV-005-S03 | Version the parameter set `anomaly_v1` (3.5, 10%, 20% MAD0, ISO-4217 minor units) | `data/contracts/anomaly.json` | Parameters persisted with every candidate | 1 |
 | GOV-005-S04 | Build the digest: ≤ 10 candidates per tenant/evaluation ranked by absolute impact, grouped by parent resource; suppressed candidates inspectable | `anomaly/digest.py` | 10k-partition noise fixture → ≤ 10 delivered; the rest listed as suppressed | 3 |
 | GOV-005-S05 | Suppress candidates inside declared scheduled changes (actions or user-declared) with a label | `anomaly/planned.py` | Planned change window → labelled suppression | 2 |
@@ -587,7 +587,7 @@ Task acceptance:
 
 ### GOV-008 — Build incident center and governance E2E acceptance
 Release: R1 · Estimate: 33–47 h · Risk: M · Decisions: — · Closes: G-GOV-08 (UI), G-GOV-01 (E2E)
-Dependency changes: `−UX-008` (inverted: UX-008 should depend on GOV-008), `+UX-002`; keep GOV-007.
+Dependency changes: `−UX-008` (inverted: UX-008 should depend on GOV-008), `+UX-002`, `+GOV-002`, `+GOV-005` (the governance E2E acceptance covers forecast and anomaly monitors, which GOV-004 −GOV-002 and INS-001 −GOV-005 had orphaned; RECONCILIATION C-29); keep GOV-007.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -619,7 +619,7 @@ Dependency changes: new task; deps `FND-004`; new downstream edges `GOV-002, GOV
 |---|---|---|---|---|
 | GOV-101-S01 | Create the package skeleton (pure Python, Decimal only, no I/O) with typed results carrying algorithm_version and parameters | `packages/bridge_stats/` | mypy strict; import has no side effects | 2 |
 | GOV-101-S02 | Implement median (even-length mean of the middle two, exact) and MAD | `robust.py` | Parity with `statistics.median` on 10k random Decimal vectors | 2 |
-| GOV-101-S03 | Implement robust_z and impact_floor (max(pct·abs(median), minor unit)); score ≥ 3.5 inclusive | `robust.py` | 100/10/160 → 4.046944556859571… | 2 |
+| GOV-101-S03 | Implement robust_z and impact_floor (max(pct·abs(median), minor unit)), the single monetary impact floor, parameterized per tenant/currency with INS-supplied config (INS-001-S04 consumes it; RECONCILIATION U-09); score ≥ 3.5 inclusive | `robust.py` | 100/10/160 → 4.046944556859571… | 2 |
 | GOV-101-S04 | Implement the MAD=0 ABSOLUTE_DEVIATION rule (20% or one minor unit; never divide by epsilon) | `robust.py` | 100→101 suppress; 100→130 flag; equal → never flag | 2 |
 | GOV-101-S05 | Implement the weekday cohort selector (8 within 56 days) and baseline builder (from first_seen, coverage-gap aware) | `cohorts.py` | Boundary tests at 7/8 prior weekdays | 2 |
 | GOV-101-S06 | Implement run_rate and seasonal_naive with actual calendar dates (no compaction) | `forecast.py` | Gap handling equals the GOV-002 ladder | 3 |
@@ -631,15 +631,15 @@ Task acceptance:
 - [ ] All governance statistical fixtures pass with independently computed values; INS and GOV import this package only.
 
 ### GOV-102 — Notification delivery infrastructure (SES, egress proxy, Slack app, Teams setup)
-Release: R1 (Teams parts R1*) · Estimate: 21–30 h · Risk: M · Decisions: D-23, D-25 · Closes: G-GOV-09, G-GOV-10, G-GOV-11 (proxy), G-GOV-12
-Why: lead-time items (SES production access, DNS records, Slack app registration) and network isolation must exist before GOV-006. Plugs in after INF-002 (egress) and INF-006 (DNS).
+Release: R1 (Teams parts R1*) · Estimate: 14–20 h · Risk: M · Decisions: D-23, D-25 · Closes: G-GOV-09, G-GOV-10, G-GOV-11 (proxy), G-GOV-12
+Why: lead-time items (Slack app registration) and network isolation must exist before GOV-006. The SES identity (`notify.<domain>`), configuration set and production-access request are INF-006-S11's; GOV-102 keeps the egress proxy, Slack app, Teams guide and destination secrets (RECONCILIATION U-07). Plugs in after INF-002 (egress) and INF-006 (DNS, SES).
 Dependency changes: new task; deps `INF-002, INF-003, INF-006`; new downstream edge `GOV-006 → GOV-102`.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
-| GOV-102-S01 | Create the SES identity for `notify.<domain>` per environment: Easy DKIM 2048, custom MAIL FROM, DMARC with rua | IaC `infra/ses/` | DKIM/SPF/DMARC pass on a test message (headers checked) | 3 |
-| GOV-102-S02 | Submit the SES production-access request (use case, bounce handling, volumes); keep staging in the sandbox | ticket + record | Request filed in week 1; response recorded | 1 |
-| GOV-102-S03 | Configure the configuration set → SNS → SQS (+DLQ) for BOUNCE, COMPLAINT, DELIVERY, REJECT, DELIVERY_DELAY; account-level suppression for BOUNCE+COMPLAINT | IaC | The SES mailbox simulator bounce appears in SQS | 3 |
+| GOV-102-S01 | Moved to INF-006-S11 per RECONCILIATION U-07 (SES identity for `notify.<domain>`, Easy DKIM, custom MAIL FROM, DMARC) — consume it here | — | — | 0 |
+| GOV-102-S02 | Moved to INF-006-S11 per RECONCILIATION U-07 (SES production-access request) | — | — | 0 |
+| GOV-102-S03 | Moved to INF-006-S11 per RECONCILIATION U-07 (configuration set → SNS → SQS bounces/complaints) — GOV-006/GOV-007 consume its queue | — | — | 0 |
 | GOV-102-S04 | Deploy the Smokescreen egress proxy in an isolated subnet; notification worker SG egress only to the proxy + VPC endpoints; ACL per role | IaC `infra/egress-proxy/` | A worker connecting directly to the internet or to 10.0.0.0/8 is blocked | 4 |
 | GOV-102-S05 | Verify the proxy's IPv6 behaviour; if unsupported, remove the IPv6 route from the proxy subnet (TO VERIFY LIVE) | test report | Documented result | 2 |
 | GOV-102-S06 | Register the Slack app: OAuth v2 scopes chat:write, channels:read, groups:read; redirect URL; signing secret; distribution enabled | app manifest in repo | Install into the test workspace succeeds | 3 |
@@ -648,7 +648,7 @@ Dependency changes: new task; deps `INF-002, INF-003, INF-006`; new downstream e
 | GOV-102-S09 | Record evidence | evidence | Complete | 1 |
 
 Task acceptance:
-- [ ] SES authenticated sending plus bounce/complaint pipeline are live in staging; production access requested.
+- [ ] (Delivered by INF-006-S11, RECONCILIATION U-07.) SES authenticated sending plus bounce/complaint pipeline are live in staging; production access requested.
 - [ ] Notification workers can reach the internet only through the SSRF-filtering proxy.
 
 ### GOV-103 — Monitor evaluation scale and cost benchmark
@@ -715,11 +715,11 @@ Dependency changes: new task; deps `GOV-002, GOV-101`; no R1 downstream edges.
 | GOV-007 | R1 | 39 | 55 |
 | GOV-008 | R1 | 33 | 47 |
 | GOV-101 | R1 | 20 | 28 |
-| GOV-102 | R1 | 21 | 30 |
+| GOV-102 | R1 | 14 | 20 |
 | GOV-103 | R1 | 13 | 18 |
 | GOV-104 | R2 | 18 | 26 |
 | GOV-105 | R2 | 22 | 31 |
-| **Total R1** | | **352** | **500** |
+| **Total R1** | | **345** | **490** |
 | **Total R2** | | **40** | **57** |
 
 (Teams-specific effort inside R1 totals, conditional on D-20: GOV-006-S07 3 h + GOV-102-S07 2 h + evidence ≈ 6–9 h.)

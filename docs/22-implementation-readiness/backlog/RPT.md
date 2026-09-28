@@ -78,7 +78,7 @@ Affects: RPT-002.
 Severity: MEDIUM · Type: VENDOR-FACT
 Evidence: `reporting.md`: "URL lifetime bounds residual revocation exposure". VERIFIED (docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html, search snippet 2026-09-27): "If you created a presigned URL using a temporary token, then the URL expires when the token expires", and "Amazon S3 checks the expiration date and time of a signed URL at the time of the HTTP request".
 Why it matters: Exposure = URL lifetime (to *start* the download) + transfer duration. A download started at second 59 of a 60 s URL completes after revocation. A URL signed by a task role whose credentials expire sooner than X-Amz-Expires fails early and causes spurious errors.
-Resolution: The broker signs with credentials that have ≥ 15 min remaining, sets `X-Amz-Expires=60`, `response-content-disposition=attachment; filename*=UTF-8''…` and `response-cache-control=private, no-store`, and returns a 302. The disclosed exposure is "60 s to start plus transfer time". Tenants with `HIGH_SENSITIVITY` use the brokered byte stream (authorization is checked before streaming starts; a revocation mid-stream is not interrupted, also disclosed). Every broker decision is audited.
+Resolution: The broker signs with credentials that have ≥ 15 min remaining, sets `X-Amz-Expires=60`, `response-content-disposition=attachment; filename*=UTF-8''…` and `response-cache-control=private, no-store`, and returns a 302. The disclosed exposure is "60 s to start plus transfer time". Tenants with `HIGH_SENSITIVITY` use the brokered byte stream (authorization is checked before streaming starts; a revocation mid-stream is not interrupted, also disclosed). Every broker decision is audited. — Superseded in part by RECONCILIATION U-10/C-12: the broker is SEC-006-S08 (single artifact broker) and the presigned lifetime is 30 s everywhere; the ≥ 15 min signer-credential rule and the brokered stream for HIGH_SENSITIVITY tenants are kept.
 Affects: RPT-005.
 
 ### G-RPT-08 · Attachments cannot be delivered through the specified Slack/Teams integrations
@@ -169,9 +169,9 @@ Affects: RPT-003, RPT-004.
 | State machines | report_run: QUEUED→SNAPSHOTTING→RENDERING→UPLOADING→READY \| FAILED \| CANCELLED; READY→EXPIRED. occurrence: PLANNED→WAITING_DATA→ENQUEUED→COMPLETED \| SKIPPED_DST \| SKIPPED_PAUSED \| MISSED \| FAILED. delivery: PENDING_AUTH→AUTHORIZED \| EXCLUDED(reason)→SENDING→SENT \| FAILED→DLQ | RPT-002-S01, RPT-004-S01 |
 | Schedule schema + resolver spec | cadence, byweekday, day_of_month (1–31 \| LAST), month_in_quarter, local_time, tz (IANA, pinned tzdata version), dst_gap_policy {SHIFT_FORWARD, SKIP}, overlap FIRST, data_period, readiness_policy, catch_up {LATEST_ONLY, NONE}, recipients, formats, channels; DST fixture table (RPT-004-S03) | RPT-004-S01..S03 |
 | Artifact manifest schema | run_id, attempt, formats[{format, s3_key, bytes, sha256}], template@version, metric/dataset versions, publication_ids{}, timezone, filter_summary, scope_class, permissions_snapshot_hash, generated_at, source_as_of, maturity, coverage, retention_class, renderer_image_digest | RPT-002-S10 |
-| CSV serialization spec | G-RPT-09 rules + test vectors; shared package `packages/csv_safe` | RPT-002-S08 |
+| CSV serialization spec | G-RPT-09 rules + test vectors, folded into API-102-S03's shared CSV writer `packages/exporters/csv.py` (RECONCILIATION U-10) | API-102-S03 (RPT-002-S08 adds the G-RPT-09 vectors) |
 | S3 layout + lifecycle | `tenant/{t}/reports/runs/{run}/attempt/{n}/…` (tag accepted); `reports/ephemeral` 30 d, `reports/record` retention policy, NoncurrentVersionExpiration 1 d (ephemeral), ExpiredObjectDeleteMarker; KMS key + encryption context | RPT-002-S10, RPT-005-S08 |
-| IAM | report-worker task role (AssumeRole only), per-job session policy template, broker role (GetObject + kms:Decrypt on tenant context) | RPT-002-S12, RPT-005-S04 |
+| IAM | report-worker task role (AssumeRole only), per-job session policy template, broker role (GetObject + kms:Decrypt on tenant context) | RPT-002-S12 (presigning is SEC-006-S08's broker; RECONCILIATION U-10) |
 | Renderer image spec | Playwright + Chromium version pinned by digest; fonts: Inter, Noto Sans, Noto Sans Mono, Noto Sans Symbols 2, Noto Sans CJK subset; fontconfig allowlist; TZ=UTC; non-root; read-only rootfs | RPT-002-S04 |
 | OpenAPI | `/v1/reports` CRUD, `/v1/reports/validate`, `/v1/reports/{id}/preview`, `/v1/report-runs` (POST 202, GET list/detail, POST cancel), `/v1/report-runs/{id}/artifacts/{aid}/download`, `/v1/report-schedules` CRUD, `/v1/report-schedules/{id}/preview-occurrences`, `/v1/report-schedules/{id}/runs` (manual slot) | RPT-001, RPT-002, RPT-004, RPT-005 |
 | Error codes | REPORT_UNSUPPORTED_METRIC 422, REPORT_CURRENCY_MIXED 422, REPORT_TEXT_UNSAFE 422, STATEMENT_NOT_ISSUED 422, REPORT_TOO_LARGE 413, REPORT_STALE_REVISION 409, PERMISSION_EPOCH_CHANGED, SNAPSHOT_STALE, REPORT_PAGE_LIMIT, RENDER_TIMEOUT, RECIPIENT_SCOPE_INSUFFICIENT, OWNER_SCOPE_CHANGED, ATTACHMENT_TOO_LARGE | all |
@@ -203,7 +203,7 @@ Task acceptance:
 - [ ] No HTML/URL/script is accepted in any definition field.
 
 ### RPT-002 — Implement isolated snapshot and render workers
-Release: R1 · Estimate: 44–66 h · Risk: H · Decisions: D-02, D-22, D-18 · Closes: G-RPT-06, G-RPT-09, G-RPT-10, G-RPT-12, G-RPT-14, G-RPT-17
+Release: R1 · Estimate: 42–63 h · Risk: H · Decisions: D-02, D-22, D-18 · Closes: G-RPT-06, G-RPT-09, G-RPT-10, G-RPT-12, G-RPT-14, G-RPT-17
 Dependency changes: `+INF-005` (ECS base/roles), `+CTL-004` (leases/fence), `+API-004` (job contract), `+API-002` (query broker). Keep RPT-001, ORC-003, INF-004.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -214,7 +214,7 @@ Dependency changes: `+INF-005` (ECS base/roles), `+CTL-004` (leases/fence), `+AP
 | RPT-002-S05 | Render isolation: static bundle via `file://` or 127.0.0.1; `page.route('**/*')` aborts non-bundle requests; SG egress only to S3 endpoint/SQS/PG proxy | `services/reporting/render/browser.py`, Terraform SG | Label `<img src=https://attacker>` renders as text; request log shows 0 external requests; `curl snowflakecomputing.com` from the task times out | 3 |
 | RPT-002-S06 | Chromium sandbox probe on Fargate (TO VERIFY LIVE); if `--no-sandbox` is required, document compensating controls; one browser process per job, killed after | `docs/evidence/RPT-002/sandbox.md` | Evidence recorded with the runtime platform version | 2 |
 | RPT-002-S07 | PDF: A4/Letter, printBackground, CSS paged media (repeat `thead`, `break-inside: avoid` on rows and total groups), maturity/coverage footer per page; pikepdf normalizes CreationDate/ModDate/ID | `render/pdf.py`, `render/print.css` | Two renders of the same input → identical sha256 | 4 |
-| RPT-002-S08 | CSV writer per G-RPT-09 from the snapshot (not the DOM) | `packages/csv_safe/`, `render/csv.py` | All test vectors pass; `-20.00` money unchanged; `-foo` label escaped | 3 |
+| RPT-002-S08 | Reuse API-102-S03's CSV writer library on the snapshot (not the DOM) and add the G-RPT-09 test vectors to it (RECONCILIATION U-10) | `render/csv.py` (uses `packages/exporters/csv.py`) | All test vectors pass; `-20.00` money unchanged; `-foo` label escaped | 1 |
 | RPT-002-S09 | Limits: RLIMIT_CPU 60 s on the browser process tree, 120 s wall per stage, page count ≤ 100 checked post-render, 100 MiB cap, 4 GiB task memory; failures → safe codes, no partial publish | `render/limits.py` | 150-page fixture → REPORT_PAGE_LIMIT; infinite-layout fixture → RENDER_TIMEOUT | 3 |
 | RPT-002-S10 | Upload + acceptance: objects tagged `accepted=false`; manifest written last; PG acceptance transaction checks fence and not-cancelled, then tags `accepted=true`; lifecycle deletes untagged after 1 d | `runs.py`, S3 lifecycle Terraform | Crash injected between upload and acceptance → retry yields exactly one accepted manifest (oracle) | 4 |
 | RPT-002-S11 | Cancellation: CANCEL_REQUESTED checked at each stage; acceptance refuses a cancelled run | same | Cancel during render → no READY, objects removed by lifecycle | 2 |
@@ -278,14 +278,14 @@ Task acceptance:
 - [ ] Monthly finance reports wait for billing-stable data or disclose PROVISIONAL.
 
 ### RPT-005 — Implement report history, secure access and retention
-Release: R1 · Estimate: 29–44 h · Risk: M · Decisions: D-02, D-10, D-25 · Closes: G-RPT-05, G-RPT-07
-Dependency changes: `+SEC-006` (revocation epochs). Keep RPT-004, SEC-008, CTL-007.
+Release: R1 · Estimate: 25–38 h · Risk: M · Decisions: D-02, D-10, D-25 · Closes: G-RPT-05, G-RPT-07
+Dependency changes: `+SEC-006` (revocation epochs; its S08 is the single artifact download broker into which this task plugs a report authorization resolver — RECONCILIATION U-10). Keep RPT-004, SEC-008, CTL-007.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | RPT-005-S01 | History API `GET /v1/report-runs` (cursor) and detail with generation, authorization and delivery states separated | `apps/api/report-runs/*` | Foreign run ID → 404 | 3 |
 | RPT-005-S02 | History UI `/reports/history`: columns Run, Artifact, Delivery, Scope; states pending/running/ready/failed/expired; safe retry (same occurrence, new attempt) | `apps/web/reports/history/*` | Playwright: failed run retry keeps the occurrence ID | 3 |
-| RPT-005-S03 | Download broker: authN, tenant, artifact READY and unexpired, requester ∈ owner ∪ delivered recipients ∪ report viewers, current scope_class equals the artifact's; otherwise 404/403 with a regenerate offer | `apps/api/report-downloads/broker.py` | User revoked after generation → 404; narrowed scope → 403 + regenerate | 3 |
-| RPT-005-S04 | Presign mode per G-RPT-07 (60 s, attachment disposition, private/no-store, signer credentials ≥ 15 min remaining) + 302 | broker | Request at 61 s → S3 403; response headers asserted | 2 |
+| RPT-005-S03 | Plug the report authorization resolver into SEC-006-S08's single artifact download broker (RECONCILIATION U-10): artifact READY and unexpired, requester ∈ owner ∪ delivered recipients ∪ report viewers, current scope_class equals the artifact's; otherwise 404/403 with a regenerate offer | `apps/api/report-downloads/resolver.py` | User revoked after generation → 404; narrowed scope → 403 + regenerate | 1 |
+| RPT-005-S04 | Moved to SEC-006-S08 per RECONCILIATION U-10, C-12 (presign 30 s — not 60 s —, attachment disposition, private/no-store, signer credentials ≥ 15 min remaining, 302) | — | — | 0 |
 | RPT-005-S05 | Brokered stream mode for HIGH_SENSITIVITY tenants (chunked, Content-Disposition attachment, Cache-Control no-store, 100 MiB cap) | broker | 100 MiB fixture streams with bounded API memory (< 64 MiB RSS delta) | 3 |
 | RPT-005-S06 | Notification secure link = app route (no bearer token); login then broker | link builder | Link contains no signature or token query parameters | 1 |
 | RPT-005-S07 | Download audit (actor, artifact, mode, decision, reason) via SEC-008 | audit emitter | Every broker decision has one audit row | 1 |
@@ -297,7 +297,7 @@ Dependency changes: `+SEC-006` (revocation epochs). Keep RPT-004, SEC-008, CTL-0
 | RPT-005-S13 | Observability (`rpt_download_total{mode,decision}`) and runbook (legal hold, retention change) | runbook | Reviewed | 2 |
 Task acceptance:
 - [ ] A revoked user receives no artifact; a guessed foreign job ID reveals nothing.
-- [ ] Presigned URL lifetime 60 s, with the exposure disclosed; brokered stream available.
+- [ ] Presigned URL lifetime 30 s via SEC-006-S08 (RECONCILIATION C-12), with the exposure disclosed; brokered stream available.
 - [ ] Ephemeral artifacts and their versions are gone after 30 days; closed-statement RECORD artifacts are retained per policy.
 
 ## 5. New tasks required
@@ -337,14 +337,14 @@ Task acceptance:
 - [ ] External recipients restricted to allowlisted domains.
 
 ### RPT-103 — Dashboards builder and viewer-scoped widgets
-Release: R2 · Estimate: 38–57 h · Risk: M · Decisions: D-02, D-18 · Closes: G-RPT-16
-Why/where: `/dashboards` and `/dashboard-builder` are in the navigation and UI spec but have no implementing task; CTL-007 only stores configuration. Reuses the RPT-001 component contracts. Deps: RPT-001, CTL-007, UX-004.
+Release: R2 · Estimate: 27–41 h · Risk: M · Decisions: D-02, D-18 · Closes: G-RPT-16
+Why/where: `/dashboards` and `/dashboard-builder` are in the navigation and UI spec but have no implementing task; CTL-007 only stores configuration. Reuses the RPT-001 component contracts. RPT-103 owns the backend (dashboard definition as a report layout kind, widget data API under the viewer's scope, sharing, export to report); the list, builder and viewer UI are UX-101's, into which CTL-103 is merged (RECONCILIATION U-01). Deps: RPT-001, CTL-007, UX-004; UX-101 depends on this task.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | RPT-103-S01 | Dashboard definition = a report definition with layout kind DASHBOARD (12-col responsive, 1 col mobile) | schema extension | Validator shared with reports | 3 |
 | RPT-103-S02 | Widget data API: each widget queried under the **viewer's** scope (visibility grant ≠ data grant) | `apps/api/dashboards/*` | Restricted viewer sees restricted numbers for the same dashboard | 5 |
-| RPT-103-S03 | Builder UI (drag, resize, configure compatible metrics only) | `apps/web/dashboards/builder/*` | Playwright drag/keyboard alternative | 6 |
-| RPT-103-S04 | Viewer UI with stale/partial/unavailable widget states (publication/as-of kept) | `apps/web/dashboards/*` | No transient zeros | 5 |
+| RPT-103-S03 | Moved to UX-101-S02/S03 per RECONCILIATION U-01 (builder UI) — expose the definition/widget API it consumes | — | — | 0 |
+| RPT-103-S04 | Moved to UX-101-S06 per RECONCILIATION U-01 (viewer UI and widget states) — the widget data API returns the state codes | — | — | 0 |
 | RPT-103-S05 | Sharing (visibility grants) and optimistic concurrency | API | Stale save → 409 | 4 |
 | RPT-103-S06 | "Export dashboard to report" (same components) | converter | Numbers equal between dashboard and PDF | 4 |
 | RPT-103-S07 | Isolation suite (foreign dashboard ID, shared dashboard to an out-of-scope user) | tests | Non-enumerating | 3 |
@@ -360,15 +360,15 @@ Task acceptance:
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
 | RPT-001 | R1 | 36 | 54 |
-| RPT-002 | R1 | 44 | 66 |
+| RPT-002 | R1 | 42 | 63 |
 | RPT-003 | R1 | 36 | 54 |
 | RPT-004 | R1 | 40 | 60 |
-| RPT-005 | R1 | 29 | 44 |
+| RPT-005 | R1 | 25 | 38 |
 | RPT-101 | R2 | 30 | 45 |
 | RPT-102 | R2 | 22 | 33 |
-| RPT-103 | R2 | 38 | 57 |
-| **Total R1** | | **185** | **278** |
-| **Total R2** | | **90** | **135** |
+| RPT-103 | R2 | 27 | 41 |
+| **Total R1** | | **179** | **269** |
+| **Total R2** | | **79** | **119** |
 
 ## 7. Owner questions
 
@@ -376,5 +376,5 @@ Task acceptance:
 2. RECORD retention for issued chargeback statement artifacts (and the underlying statement lines): 400 days, the contract term, or 7 years? This drives OPS-005 and storage cost.
 3. Are external (non-user) recipients and email attachments needed for the first customer (proposed R2)?
 4. Should monthly finance reports wait for billing-stable data by default (WAIT_FOR_FINAL, 7 days), even if that means the report arrives around the 6th instead of the 1st?
-5. Is the brokered byte stream (highest assurance, API bandwidth cost) required for any first-customer tenant, or is a 60 s presigned URL acceptable?
+5. Is the brokered byte stream (highest assurance, API bandwidth cost) required for any first-customer tenant, or is a 30 s presigned URL (RECONCILIATION C-12) acceptable?
 6. Is the Dashboards area (PRD navigation) required for R1, or can the Home page plus reports cover executive needs until R2?

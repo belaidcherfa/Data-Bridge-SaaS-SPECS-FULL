@@ -19,7 +19,7 @@ This plan replaces the big-bang path to the first paying customer ([AUDIT X-05](
 | FND | all | | |
 | INF | all | | PrivateLink ingress path (D-09) |
 | SEC | SEC-001, 002, 004, 005, 006, 007, 008 | SEC-003 (SAML/OIDC for the customer's IdP) | additional IdP protocols |
-| CTL | all (saved views, commercial records) | | custom dashboard builder depth |
+| CTL | all (saved views; commercial records are owned by LCH-001/LCH-101 per RECONCILIATION U-08) | | CTL-103 merged into UX-101 (R2 dashboards) |
 | CON | all | | PrivateLink-only accounts |
 | ING | ING-001…011; ING-012 Data Health UX | | ING-012 hot path (D-24) |
 | ORC | all | | |
@@ -61,7 +61,7 @@ Corrected dependency edges enabling these lanes: [RECONCILIATION.md §3](RECONCI
 
 ## 5. Estimates
 
-Senior-engineer hours including tests, review fixes and evidence (D-19), low–high, after de-duplication of overlapping tasks ([RECONCILIATION.md](RECONCILIATION.md)). Source: [revised-task-graph.json](revised-task-graph.json). R1\* hours exclude the conditional parts of otherwise-R1 tasks (e.g. FIN-008 replication, GOV-006 Teams), which are itemized in the backlog files.
+Senior-engineer hours including tests, review fixes and evidence (D-19), low–high, after de-duplication of overlapping tasks ([RECONCILIATION.md](RECONCILIATION.md)). Source: [revised-task-graph.json](revised-task-graph.json). The table counts tasks by their release tag. Including the conditional replication part of FIN-008 (8–12 h), R1\* is **247–366 h**; including the R2 parts of otherwise-R1 tasks, R2 is **663–1,036 h** ([RECONCILIATION.md](RECONCILIATION.md) §4). GOV-006's Teams adapter (≈ 6–9 h) is inside R1 and only needed if the customer uses Teams.
 
 | Domain | R1 (tasks · h) | R1\* (tasks · h) | R2 (tasks · h) | Backlog |
 |---|---:|---:|---:|---|

@@ -122,12 +122,12 @@ Affects: CTL-002.
 | "Add a tenant table" template | Migration template with composite keys, RLS ENABLE+FORCE, policies, explicit grants, generated isolation tests | CTL-101-S11 |
 | Event catalog | `schemas/events/<event_type>.v<n>.json` (IDs/versions only, ≤64 KB), routing table event_type → transport/queue/ordering | CTL-004-S01 |
 | Error catalog | Codes, HTTP status, retryable flag, message template; includes `STALE_REVISION`(412), `PRECONDITION_REQUIRED`(428), `IDEMPOTENCY_KEY_REUSED`(409), `IDEMPOTENCY_KEY_REQUIRED`(400), `NOT_FOUND`(404, non-enumerating), `ANALYTICS_BUSY`(503) | CTL-003-S03 |
-| Control OpenAPI | Tenants/members/grants/invitations/teams/organizations/accounts/saved views/dashboards/config publications/entitlements paths with If-Match/Idempotency-Key semantics | CTL-003-S01, CTL-001-S09, CTL-007-S03 |
+| Control OpenAPI | Tenants/members/grants/invitations/teams/organizations/accounts/saved views/dashboards/config publications paths (entitlements: LCH-101, RECONCILIATION U-08) with If-Match/Idempotency-Key semantics | CTL-003-S01, CTL-001-S09, CTL-007-S03 |
 | Pool budget manifest | `infra/db/pool-budget.yaml` per component (replicas_max, surge factor, processes, pool_size, max_overflow, role, DB) + CI rule | CTL-002-S08 |
 | Expand/contract protocol | Appendix C rules + migration linter configuration | CTL-002-S01 |
 | Redis key/value contract | Appendix D key families, envelope schema, TTL classes, caps, ACL users | CTL-006-S01 |
 | Config snapshot contract | Snowflake `CONFIG.*` DDL, header/commit-marker rules, S3 archive key format, PG publication states | CTL-005-S01/S02 |
-| Tenant and subscription state machines | Appendix F + CTL-102 transitions, guards and effects matrix | CTL-102-S01, CTL-007-S07 |
+| Tenant and subscription state machines | CTL-102 tenant transitions, guards and effects matrix; subscription machine per `LCH.md` G-LCH-03 (Appendix F superseded) | CTL-102-S01 (tenant), LCH-001-S02 (subscription) (RECONCILIATION C-08) |
 | Control ERD | `docs/data/control-erd.md` generated from migrations | CTL-001-S10 |
 
 ## 4. Revised production backlog
@@ -286,8 +286,9 @@ Task acceptance:
 - [ ] 100 identical misses cause 1 query (Redis up) and at most one per broker replica (Redis down).
 
 ### CTL-007 — Saved views, dashboards and commercial control records
-Release: R1 (custom dashboard builder depth → CTL-103, R2) · Estimate: 48–72 h · Risk: M · Decisions: D-17 · Closes: G-CTL-08, G-CTL-14
-Dependency changes: `+API-001` (registry contract for spec validation; contract only, not live data), `+CTL-102` (tenant state), `−CTL-005` (not needed); keep CTL-003, UX-001.
+Release: R1 (custom dashboard builder depth → UX-101/RPT-103, R2; CTL-103 merged into UX-101 per RECONCILIATION U-01) · Estimate: 31–46 h · Risk: M · Decisions: D-17 · Closes: G-CTL-14 (G-CTL-08 → LCH-101/LCH-001 per RECONCILIATION U-08, C-08)
+Scope after RECONCILIATION U-08: saved views, shares, R1 dashboards (`report.dashboards`, ≤ 30 widgets, fixed grid, per-widget states) and spec validation. Plans/entitlements/admission are LCH-101's; subscription state machine, invoice references and payment evidence are LCH-001's.
+Dependency changes: `+API-001` (registry contract for spec validation; contract only, not live data), `−CTL-005` (not needed); keep CTL-003, UX-001. The requested `+CTL-102` edge is dropped with the commercial scope (RECONCILIATION U-08).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -297,18 +298,18 @@ Dependency changes: `+API-001` (registry contract for spec validation; contract 
 | CTL-007-S04 | Rendering rule: always recipient's profile; filters outside recipient scope → widget `PARTIAL_SCOPE` without echoing names; deleted metric → `UNAVAILABLE_METRIC` with migration hint; other widgets render | `packages/semantic/render_saved.py` | Recipient with A1 scope viewing an A1+A2 view sees A1 values and a partial-scope notice | 4 |
 | CTL-007-S05 | Ownership lifecycle: removed owner → shared objects owned by tenant admins; private views of removed members deleted after 30 days | `services/workers/saved_view_gc.py` | GC run matches fixture expectations | 2 |
 | CTL-007-S06 | Metric version migration: compatible auto-upgrade per registry rules; incompatible → flagged | `packages/semantic/spec_migration.py` | Deprecated metric fixture upgraded or flagged | 3 |
-| CTL-007-S07 | Migrate commercial tables (Appendix F): `plans` (versioned quotas), `subscriptions` (launch.md states), `entitlement_snapshots`, `invoices_metadata`, `payment_events` (unique `(tenant_id, external_ref)`, recorded_by, reviewed_by ≠ recorded_by for corrections) | migration | CHECK enforces state enum from launch.md | 4 |
-| CTL-007-S08 | Subscription state machine with guards; transitions only from the CTL-102 internal console; effects matrix (Appendix F) | `packages/commercial/state_machine.py` | Illegal transition → 409 | 4 |
-| CTL-007-S09 | Entitlement check `entitlements.check(tenant, quota_key, requested)` + admission hooks (connection create, invitation accept, backfill plan, schedule create, API client create, heavy job) with 60 s cache keyed by entitlement revision | `packages/commercial/entitlements.py` | 6th account on a 5-account plan → 403 `QUOTA_EXCEEDED` | 3 |
-| CTL-007-S10 | Payment idempotency: same external_ref twice → one activation; correction requires second operator | `packages/commercial/payments.py` | Duplicate payment event cannot activate twice | 2 |
-| CTL-007-S11 | Tests: shared view recipient-only data; suspended tenant blocks jobs but keeps configuration; restore after plan change; duplicate payment | `tests/control/test_views_commercial.py` | All PASS | 4 |
-| CTL-007-S12 | UI: save view, share dialog (members/teams/tenant), dashboard grid with per-widget states, read-only plan/limits page (`/settings-billing`) | `apps/web/dashboards/`, `apps/web/settings/billing/` | Playwright covers partial-scope and unavailable-metric widgets | 8 |
+| CTL-007-S07 | Moved to LCH-101-S01 (`commercial.plans`, `commercial.tenant_entitlements`) and LCH-001-S04 (`invoice_refs`, `payment_events`) per RECONCILIATION U-08, C-08 — CTL-007 creates no commercial or subscription table | — | — | 0 |
+| CTL-007-S08 | Moved to LCH-001-S02 per RECONCILIATION C-08 (canonical subscription state machine, `LCH.md` G-LCH-03) | — | — | 0 |
+| CTL-007-S09 | Moved to LCH-101-S03 per RECONCILIATION U-08 (`entitlements.check()` and admission hooks) — consume it here for saved-view/dashboard quotas | — | — | 0 |
+| CTL-007-S10 | Moved to LCH-001 (payment evidence, S04/S07) per RECONCILIATION U-08 | — | — | 0 |
+| CTL-007-S11 | Tests: shared view recipient-only data; suspended tenant keeps saved views and dashboards (commercial tests — plan change, duplicate payment — are LCH-101/LCH-001's, RECONCILIATION U-08) | `tests/control/test_views_dashboards.py` | All PASS | 2 |
+| CTL-007-S12 | UI: save view, share dialog (members/teams/tenant), dashboard grid with per-widget states (the plan/limits page `/settings-billing` moves with the commercial scope to LCH, RECONCILIATION U-08) | `apps/web/dashboards/` | Playwright covers partial-scope and unavailable-metric widgets | 6 |
 | CTL-007-S13 | Audit, metrics and evidence | `docs/evidence/CTL-007/<commit>/` | PASS | 3 |
 
 Task acceptance:
 - [ ] A shared view renders only recipient-authorized data and never discloses out-of-scope filter values.
 - [ ] PG stores specs and layouts only (no analytical result values).
-- [ ] Subscription states follow launch.md; a duplicate payment event cannot activate twice; quotas are enforced at admission.
+- [ ] Saved-view and dashboard quotas are checked through LCH-101's `entitlements.check()` (subscription states and payment evidence are LCH-001's; RECONCILIATION U-08).
 
 ## 5. New tasks required
 
@@ -337,45 +338,46 @@ Task acceptance:
 - [ ] Concurrent duplicate idempotency keys produce exactly one mutation.
 
 ### CTL-102 — Tenant lifecycle and operator provisioning console
-Release: R1 · Estimate: 28–44 h · Risk: M · Decisions: D-17, D-25 · Closes: G-CTL-13, SEC.md G-SEC-24
-Why: tenant creation, suspension, offboarding and restore-time tombstones have no owner; SEC-105 needs a trigger; LCH-001 needs an internal console for finance operators. Plugs in after SEC-004, SEC-105, CTL-004; consumed by SEC-104, CTL-007, LCH-001, OPS-005.
-Dependency changes: `+SEC-004`, `+SEC-105`, `+CTL-004`.
+Release: R1 · Estimate: 25–39 h · Risk: M · Decisions: D-17, D-25 · Closes: G-CTL-13, SEC.md G-SEC-24
+Why: tenant creation, suspension and offboarding have no owner; SEC-105 needs a trigger; LCH-001 needs an internal console for finance operators. CTL-102 owns the single ops plane (ops API, operator authentication for console and CLI, operator role catalog, tenant lifecycle endpoints); OPS-106 owns permission sets and the `bridge-admin` CLI, SEC-104 support grants, LCH-001 only registers finance-operator capabilities (RECONCILIATION U-05). Tombstones are OPS-104's and the deletion orchestrator is OPS-005's (U-11, C-19). Plugs in after SEC-004, SEC-105, CTL-004, INF-006; consumed by SEC-104, LCH-101, LCH-001, OPS-106, ONB-102.
+Dependency changes: `+SEC-004`, `+SEC-105`, `+CTL-004`, `+INF-006` (ops API/console on the internal ALB private listener; RECONCILIATION U-05).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | CTL-102-S01 | Specify tenant state machine PROVISIONING → ACTIVE ⇄ SUSPENDED → OFFBOARDING → DELETED with guards/effects (logins, reads, jobs, extraction, exports) | `docs/data/tenant-lifecycle.md` | Reviewed with LCH and OPS owners | 2 |
-| CTL-102-S02 | Internal console authentication via IAM Identity Center OIDC, operator roles `ops_viewer`, `ops_provisioner`, `finance_operator`, hardware MFA, private ALB listener | `apps/internal_console/auth/` | Customer Cognito sessions rejected; public internet cannot reach console | 5 |
+| CTL-102-S02 | Single ops plane (RECONCILIATION U-05): internal ops API service on the INF-006 private ALB listener; operator authentication via IAM Identity Center OIDC (console) and SigV4 from operator roles (`bridge-admin` CLI, OPS-106); operator role catalog `ops_viewer`, `ops_provisioner`, `finance_operator`, `support_agent`, `incident_responder`; hardware MFA | `apps/internal_console/auth/`, `apps/ops_api/` | Customer Cognito sessions rejected; public internet cannot reach console or ops API; unsigned CLI call → 403 | 7 |
 | CTL-102-S03 | `POST /internal/v1/tenants` (ops_provisioner, step-up, reason): SEC-004 bootstrap transaction, outbox `tenant.principal.requested`, first-owner invitation | `apps/internal_console/routes/tenants.py` | Idempotent on retry; audit event with operator id | 3 |
 | CTL-102-S04 | Activation when SEC-105 reports principal ACTIVE; failures visible in console | `services/workers/tenant_activation.py` | Tenant stays PROVISIONING while principal fails | 2 |
 | CTL-102-S05 | Suspension/resume: outbox `tenant.suspended` pauses schedules/extraction/jobs; reads per grace flag; banner | `packages/tenancy/suspension.py` | Suspended tenant cannot start jobs (403 `TENANT_SUSPENDED`) | 3 |
-| CTL-102-S06 | Offboarding automation for RB-14: pause, revoke WIF (CON), disable principal (SEC-105), export window, ordered deletion plan (dry-run manifest), `platform.tenant_tombstones` | `services/workers/offboarding.py` | Dry-run manifest lists every store; execution requires second operator | 5 |
-| CTL-102-S07 | Restore guard: startup/restore validation refuses to serve tenants present in tombstones (RB-10/RB-11) | `packages/tenancy/tombstones.py` | Restored backup containing a deleted tenant keeps it inaccessible | 3 |
+| CTL-102-S06 | Start offboarding for RB-14: transition to OFFBOARDING, start the export window, then hand over to OPS-005's tenant-deletion orchestrator (ordered stages, dry-run manifest, second operator; stage handlers CON-006/CON-001 revoke, SEC-105-S07 disable) which writes the TENANT tombstone to OPS-104 (RECONCILIATION U-11, C-19) | `packages/tenancy/offboarding.py` | OFFBOARDING tenant has an OPS-005 TENANT_DELETION request; no `platform.tenant_tombstones` table exists | 1 |
+| CTL-102-S07 | Restore guard: startup/restore validation reads OPS-104's TENANT tombstones (S3 mirror outside restore scope) and refuses to serve tenants present there (RB-10/RB-11; RECONCILIATION U-11) | `packages/tenancy/restore_guard.py` | Restored backup containing a deleted tenant keeps it inaccessible | 2 |
 | CTL-102-S08 | Tests for every transition guard and effect | `tests/control/test_tenant_lifecycle.py` | All PASS | 3 |
 | CTL-102-S09 | Audit, runbook and evidence | `docs/runbooks/tenant-lifecycle.md` | Drill executed | 2 |
 
 Task acceptance:
 - [ ] Tenants are created only by authenticated operators with audit; activation waits for the serving principal.
-- [ ] Suspension stops new work without deleting configuration; offboarding needs two operators and leaves a tombstone that restores honour.
+- [ ] Suspension stops new work without deleting configuration; offboarding starts OPS-005's two-operator deletion workflow, and restores honour OPS-104's tombstones.
 
 ### CTL-103 — Custom dashboard builder depth
-Release: R2 · Estimate: 24–40 h · Risk: L · Decisions: D-01 · Closes: RELEASE_PLAN "custom dashboard builder depth"
-Why: R1 ships saved views and a fixed-grid dashboard; richer building is breadth. Plugs in after CTL-007 and UX-004.
-Dependency changes: `+CTL-007`, `+UX-004`.
+**Merged into UX-101 per RECONCILIATION U-01.** UX-101 owns the dashboards list, builder UI and widget states; RPT-103 owns the backend (dashboard definition as a report layout kind, widget data API under the viewer's scope, sharing, export to report). The entry stays for traceability (`merged_into: UX-101` in revised-task-graph.json).
+Release: R2 · Estimate: 0 h (merged; was 24–40 h) · Risk: L · Decisions: D-01 · Closes: RELEASE_PLAN "custom dashboard builder depth" (via UX-101/RPT-103)
+Why: R1 ships saved views and a fixed-grid dashboard; richer building is breadth.
+Dependency changes: none — edges retired with the merge (was `+CTL-007`, `+UX-004`).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| CTL-103-S01 | Responsive grid layout engine with drag/resize and keyboard alternatives | `apps/web/dashboards/layout/` | Keyboard-only rearrangement works | 5 |
-| CTL-103-S02 | Widget spec v2 (KPI, time series, bar, table, text) with schema migration from v1 | `schemas/dashboards/widget.v2.json` | v1 dashboards migrate losslessly | 4 |
-| CTL-103-S03 | Dashboard-level filters and cross-filtering pinned to one publication | `packages/semantic/dashboard_filters.py` | All widgets show the same publication_id | 4 |
-| CTL-103-S04 | Persona templates (FinOps, platform, team) | `data/dashboards/templates/` | Templates validate against registry | 3 |
-| CTL-103-S05 | Duplicate/version dashboards with revision history | API + UI | Restore previous revision works | 2 |
-| CTL-103-S06 | Accessibility at 390 px and 200 % zoom | Playwright suite | No clipped actions | 3 |
-| CTL-103-S07 | Tests incl. shared dashboard under narrower recipient | `tests/control/test_dashboards_v2.py` | PASS | 3 |
-| CTL-103-S08 | Evidence | `docs/evidence/CTL-103/<commit>/` | PASS | 2 |
+| CTL-103-S01 | Merged into UX-101-S03 (grid editor with keyboard alternatives) per RECONCILIATION U-01 | — | — | 0 |
+| CTL-103-S02 | Merged into UX-101-S02 (widget model) and RPT-103-S01 (dashboard definition schema) per U-01 | — | — | 0 |
+| CTL-103-S03 | Merged into UX-101-S04 (dashboard-level scope/period, one publication per load) per U-01 | — | — | 0 |
+| CTL-103-S04 | Merged into UX-101 (persona templates as optional R2 breadth) per U-01 | — | — | 0 |
+| CTL-103-S05 | Merged into UX-101-S05 / RPT-103-S05 (revision, optimistic concurrency) per U-01 | — | — | 0 |
+| CTL-103-S06 | Merged into UX-101-S08 (a11y/mobile) per U-01 | — | — | 0 |
+| CTL-103-S07 | Merged into UX-101-S08 and RPT-103-S07 (shared dashboard under a narrower viewer) per U-01 | — | — | 0 |
+| CTL-103-S08 | Evidence recorded under UX-101 per U-01 | — | — | 0 |
 
 Task acceptance:
-- [ ] Dashboards remain configuration-only and render under the viewer's profile.
-- [ ] All widgets in one dashboard read one publication.
+- [ ] (Carried by UX-101/RPT-103 acceptance.) Dashboards remain configuration-only and render under the viewer's profile.
+- [ ] (Carried by UX-101-S04.) All widgets in one dashboard read one publication.
 
 ## 6. Estimate summary
 
@@ -388,11 +390,11 @@ Task acceptance:
 | CTL-004 | R1 | 40 | 60 |
 | CTL-005 | R1 | 40 | 62 |
 | CTL-006 | R1 | 36 | 54 |
-| CTL-007 | R1 | 48 | 72 |
-| CTL-102 | R1 | 28 | 44 |
-| CTL-103 | R2 | 24 | 40 |
-| **Total R1** | \| **352** | **536** |
-| **Total R2** | \| **24** | **40** |
+| CTL-007 | R1 | 31 | 46 |
+| CTL-102 | R1 | 25 | 39 |
+| CTL-103 (merged into UX-101, RECONCILIATION U-01) | R2 | 0 | 0 |
+| **Total R1** | \| **332** | **505** |
+| **Total R2** | \| **0** | **0** |
 
 ## 7. Owner questions
 
@@ -558,6 +560,8 @@ On db.r6g.large (`max_connections` ≈1,716, secondary source; formula VERIFIED)
 4. Errors: unknown/expired/revoked/rotated token → uniform 410 `INVITE_INVALID`; email mismatch → 403 `INVITE_EMAIL_MISMATCH`; inviter lost rights → 409 `INVITE_INVALIDATED`; already member → 409 `ALREADY_MEMBER`; same subject re-accepting → 200 with the existing membership. Rate limit 5 accept attempts/min/subject.
 
 ## Appendix F — Subscription and entitlement model (launch.md canonical)
+**Superseded by RECONCILIATION U-08/C-08:** plans, entitlements and admission are LCH-101's; the canonical subscription state machine and effect matrix are LCH-001's (`LCH.md` G-LCH-03). Kept for reference only; CTL-007 implements none of it.
+
 States: `TRIAL → ACTIVE_PENDING_PAYMENT → ACTIVE_PAID`; `ACTIVE_PAID → PAST_DUE → ACTIVE_PAID | SUSPENDED`; `SUSPENDED → ACTIVE_PAID`; any → `CANCELLED` (effective date). Transitions only by internal console roles (`finance_operator`), with payment-event evidence for `ACTIVE_PAID`; corrections need a second operator.
 
 | State | New connections/backfills/jobs | Interactive reads | Exports | Scheduled reports |

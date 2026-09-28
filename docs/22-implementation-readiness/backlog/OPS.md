@@ -148,11 +148,11 @@ Affects: OPS-001, OPS-101.
 | `docs/operations/propagation.md` | W3C `traceparent` carriers: HTTP header; outbox column `traceparent`; SQS message attribute; ECS RunTask env `TRACEPARENT`; Dagster run tag `bridge/traceparent`; Snowflake QUERY_TAG JSON `{"c":<component>,"r":<run_id>,"t":<trace_id[0:16]>,"tn":<tenant or "multi">}` (≤ 2000 chars) | OPS-001-S03 |
 | `infra/observability/slo/slo-catalog.yaml` | For each SLO: id, SLI numerator/denominator, exclusions (explicit, counted), source (ALB logs / API histogram / ops facts / probes), window (28-day rolling), target, burn alerts, owner, error-budget policy link (content in OPS-003 table) | OPS-003-S01 |
 | `data/quality/gate-catalog.yaml` | Check id, family, version, SQL/asset reference, severity REQUIRED/ADVISORY, scope (partition), expected/observed schema, blocking rule (content in OPS-002) | OPS-002-S01 |
-| DDL `ops.quality_results` (Snowflake) | `(tenant_id, dataset, partition_key, candidate_revision_id, check_id, check_version, status PASS/WARN/FAIL/ERROR, severity, observed VARIANT, expected VARIANT, evidence_ref, run_id, evaluated_at)`; PK first six columns | OPS-002-S02 |
-| DDL `privacy.tombstones` (PG) + S3 object schema `tombstone.v1.json` | `seq BIGINT` (identity, gapless not required but monotonic), `tombstone_id UUID`, `kind` TENANT/ACCOUNT/SUBJECT/DATASET_RANGE, `tenant_id`, `account_id NULL`, `subject_hmac NULL`, `dataset NULL`, `range_start/end NULL`, `effective_at`, `request_id`, `legal_basis`, `created_by`; append-only (no UPDATE/DELETE grants) | OPS-104-S01 |
+| DDL `ops.quality_results` (Snowflake) | `(tenant_id, dataset, partition_key, candidate_revision_id, check_id, check_version, status PASS/WARN/FAIL/ERROR, severity, observed VARIANT, expected VARIANT, evidence_ref, run_id, evaluated_at)`; PK first six columns | DBT-005-S01 — the single result store is `QUALITY.CHECK_RESULT` keyed by candidate revision; `ops.quality_results` is not created (RECONCILIATION U-19) |
+| DDL `privacy.tombstones` (PG) + S3 object schema `tombstone.v1.json` | `seq BIGINT` (identity, gapless not required but monotonic), `tombstone_id UUID`, `kind` TENANT/ACCOUNT/CONNECTION/SUBJECT/DATASET_RANGE (single tombstone registry; RECONCILIATION U-11, C-19), `tenant_id`, `account_id NULL`, `subject_hmac NULL`, `dataset NULL`, `range_start/end NULL`, `effective_at`, `request_id`, `legal_basis`, `created_by`; append-only (no UPDATE/DELETE grants) | OPS-104-S01 |
 | DDL `privacy.deletion_requests`, `privacy.deletion_stages`, `privacy.legal_holds` (PG) | Request type SUBJECT_ACCESS/SUBJECT_ERASURE/TENANT_DELETION; states RECEIVED→PREVIEWED→APPROVED→HELD/EXECUTING→VERIFIED→CERTIFIED / REJECTED; stages per store with `expected_count`, `deleted_count`, `verified_at`; holds with `scope`, `reason_code`, `approved_by`, `review_by` | OPS-005-S01 |
 | `data/contracts/recovery-manifest.v1.json` | `snapshot_id, as_of, central_account_locator, dbt_manifest_sha, schema_versions, publication_map[{tenant_id,dataset,partition_key,revision_id}], revisions[{dataset,tenant_id,partition_key,revision_id,s3_prefix,row_count,hash_agg,amount_sums{currency:decimal}}], config_versions[], security_snapshot_ref, tombstone_hwm, journal_hwm[{source,account_id,accepted_seq}]` | OPS-007-S01 |
-| DDL `ops.processing_ledger` (Snowflake, internal) | `(run_id, model, tenant_id, input_rows, input_bytes, output_rows, started_at, ended_at)` written by every multi-tenant dbt run; basis for transform cost split | OPS-109-S02 |
+| DDL `ops.processing_ledger` (Snowflake, internal) | `(run_id, model, tenant_id, input_rows, input_bytes, output_rows, started_at, ended_at)` written by every multi-tenant dbt run; basis for transform cost split | ORC-104-S02 — per-tenant build rows `OPS_INTERNAL.BUILD_MODEL_TENANT_ROWS`; `ops.processing_ledger` is not created and the name stays with ORC-101 (RECONCILIATION U-06, U-25) |
 | DDL `internal_cost.*` (separate Snowflake database, no customer grants) | `cost_source_line(provider, account, service, usage_start, usage_end, amount, currency, source_ref, source_version)`, `cost_driver_fact(period, driver, tenant_id, quantity)`, `tenant_platform_cost(period, tenant_id, component, amount, currency, allocation_version, method)`, `unallocated_cost(period, component, amount)` | OPS-009-S01 |
 | `support.access_grants` (PG) + ops API OpenAPI `ops-api.v1.yaml` | Grant fields in OPS-106; endpoints `POST /ops/v1/support-grants`, `POST …/{id}/approve` (tenant admin), `POST …/{id}/revoke`, `GET /ops/v1/tenants/{t}/health`, `GET /ops/v1/batches/{id}`, `GET /ops/v1/coverage-diff`, `GET /ops/v1/reconciliations/{id}/explain` | OPS-106-S01 |
 | `docs/operations/oncall-policy.md` | Coverage hours, SEV matrix → paging vs ticket, ack targets, escalation chain, handover template, compensation note, alarm tag policy | OPS-102-S01 |
@@ -169,21 +169,21 @@ Affects: OPS-001, OPS-101.
 | OPS-104 (new) | → M1 | CTL-002, INF-003, SEC-001 | tombstones must precede any restore drill |
 | OPS-108 (new) | → M1 (continuous) | INF-007, SEC-008 | SOC 2 evidence window starts when controls start |
 | OPS-006 | M9 → **M2** (re-run M10) | −OPS-005, −INF-006, −INF-003 (transitive) → INF-004, CTL-004, OPS-104, OPS-102 | drill needs tombstone log, not the full deletion workflow |
-| OPS-103 (new) | → M2 | INF-008, CON-003 | live WIF tests and canaries need synthetic accounts |
+| OPS-103 (new) | → M2 | CON-003, INF-101 (replaces INF-008; RECONCILIATION U-03) | canaries run on the INF-101 test estate |
 | OPS-101 (new) | → M3 | OPS-001, ING-007, ORC-003 | pipeline dashboards/freshness emitters |
-| OPS-106 (new) | → M3 | SEC-008, INF-006, ING-007 | runbooks need `bridge-admin` |
+| OPS-106 (new) | → M3 | SEC-008, INF-006, ING-007, CTL-102 (RECONCILIATION U-05) | runbooks need `bridge-admin` |
 | OPS-109 (new) | → M3 | OPS-001, ORC-003, INF-008 | cost tags must be present in history OPS-009 reads |
 | OPS-105 (new) | → M3 (+M5 part) | ING-008, ORC-003, OPS-101; part B +API-003 | capacity evidence before D-06/D-07 freeze |
 | OPS-002 | M4 | +OPS-101 | dashboards consume gate results |
 | OPS-003 | M9 → **M5** | −GOV-007, −RPT-005 → OPS-101, OPS-102, OPS-103, API-003 | API/freshness SLOs needed at first serving; delivery SLIs moved to OPS-110 |
-| OPS-007 | M9 → **M5** | −OPS-005 → ING-011, FIN-010, DBT-006, OPS-104 | 90-day journal horizon expires ~60–90 days after first backfill |
+| OPS-007 | M9 → **M5** | −OPS-005 → ING-011, FIN-010, DBT-006, OPS-104, ORC-105 (RECONCILIATION U-17) | 90-day journal horizon of QUERY_GRAIN sources expires ~60–90 days after first backfill (FINANCIAL sources keep 400 d per D-26; RECONCILIATION C-02) |
 | OPS-110 (new) | → M7 | OPS-003, GOV-007, RPT-005 | delivery SLIs |
 | OPS-005 | M9 → **M7** | +OPS-104 | deletion workflow once reports exist |
-| OPS-004, OPS-008, OPS-009, OPS-010, OPS-011 | M9 | +OPS-106 (004, 010); +OPS-105 (008); +OPS-109 (009); +OPS-110 (010); +OPS-107 (011) | final qualification only |
+| OPS-004, OPS-008, OPS-009, OPS-010, OPS-011 | M9 | +OPS-106, +SEC-104, −API-006 (004); +OPS-105, +ORC-102 (008); +OPS-109, +ORC-104, +LCH-001, +INF-105 (009); +OPS-110 (010); +OPS-107, +INS-105, +ING-009 (011) — per RECONCILIATION U-05, U-06, C-22, C-29 | final qualification only |
 | OPS-107 (new) | → M9 (book at M6) | OPS-004 | external test after internal suite |
 | OPS-111 (new, R2) | → R2 | OPS-007 | regional replication |
 
-Cross-domain edges requested from other owners: REL-003 +OPS-107; ONB-101 +OPS-105; LCH-101 consumes OPS-008 C1 quotas.
+Cross-domain edges requested from other owners: REL-003 +OPS-107; ONB-101 +OPS-105; LCH-101 consumes OPS-008 C1 quotas. (The requested CON-003 +OPS-103 is replaced by CON-003 +INF-101 — RECONCILIATION U-03, C-25.)
 
 ### OPS-001 — Instrument shared telemetry contract, correlation and platform dashboards
 Release: R1 · Estimate: 34–52 h · Risk: M · Decisions: D-06, D-07, D-22 · Closes: G-OPS-01, G-OPS-18
@@ -213,21 +213,21 @@ Task acceptance (task-specific, 3–8 items, NO boilerplate):
 - [ ] Runtime and customer-facing roles cannot read logs or traces.
 
 ### OPS-002 — Implement publication quality gates and financial canaries
-Release: R1 · Estimate: 38–58 h · Risk: H · Decisions: D-05, D-06, D-12 · Closes: G-OPS-17
-Dependency changes: `+OPS-101` (gate results feed data-health dashboards and ops facts). Milestone M4 unchanged.
+Release: R1 · Estimate: 31–47 h · Risk: H · Decisions: D-05, D-06, D-12 · Closes: G-OPS-17
+Dependency changes: `+OPS-101` (gate results feed data-health dashboards and ops facts). Milestone M4 unchanged. OPS-002 owns the gate catalogue (T/X/F/S families), the gate-specific checks, fixtures and dashboards; results go to DBT-005's single store `QUALITY.CHECK_RESULT` and ORC-005-S03 is the only eligibility evaluator (RECONCILIATION U-19, C-23).
 
 Gate catalogue (normative for S01): REQUIRED — T01 every manifest file has a LOADED receipt whose row count equals the manifest; T02 file SHA-256 at upload equals manifest; T03 Σ manifest rows = RAW rows for the batch; T04 schema fingerprint equals the registry version; X01 scoped natural-key uniqueness per staging model; X02 no orphan tenant/account keys (keys ∈ published config); X03 every staging row's batch_id ∈ accepted batches; X04 published window coverage contiguous; F01 Σ `fct_charge` per D-12 billing bucket = Σ authoritative source bucket, exact decimal; F02 warehouse query-attributed + idle = warehouse charge per warehouse-day; F03 allocated + unallocated = eligible per book/currency (when allocation enabled); F04 no aggregate row mixes currencies; S01 serving totals per tenant/month/currency = ledger totals for the candidate. ADVISORY — F05 tenant daily total > 10× trailing 7-day median AND > 100 currency units → WARN; F06 reconciliation status pass-through (blocks close, not publication); optional-source coverage gaps.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-002-S01 | Write the gate catalogue above as data (id, family, version, severity, scope, SQL/asset ref, owner) and get FinOps + Data sign-off. | `data/quality/gate-catalog.yaml` | Catalogue validates against its JSON Schema; two named reviewers recorded. | 3 |
-| OPS-002-S02 | Create `ops.quality_results` (PK tenant, dataset, partition_key, candidate_revision_id, check_id, check_version) and an idempotent writer (insert-or-ignore on PK; a changed result for the same PK is an ERROR). | `data/dbt/models/ops/quality_results.sql` (DDL), `services/quality/results.py` | Writing the same result twice → 1 row; conflicting status for same PK → raises and records ERROR. | 2 |
-| OPS-002-S03 | Implement T01–T04 as Dagster asset checks over receipts/manifests (ING-005/007 tables). | `services/quality/transport_checks.py` | Fixture batch with 3 files/2 receipts → T01 FAIL; checksum mismatch → T02 FAIL; clean batch → 4 PASS. | 4 |
-| OPS-002-S04 | Implement X01–X04 as custom dbt generic tests with an `on-run-end` hook that writes per-partition results keyed by the candidate revision. | `data/dbt/tests/generic/{unique_scoped,no_orphan_tenant,accepted_batch_lineage,coverage_contiguous}.sql`, `data/dbt/macros/write_quality_results.sql` | Each test has one failing and one passing fixture; results rows carry the candidate revision id. | 5 |
-| OPS-002-S05 | Implement F01–F04 against the canonical models (bucket authority per D-12, decomposition, conservation, currency separation) using exact DECIMAL(38,9) sums. | `data/dbt/tests/financial/f01…f04.sql` | F-270 fixture passes all four; EUR 20 bucket never summed with USD; query 140 + idle 60 = 200. | 6 |
+| OPS-002-S02 | Moved to DBT-005-S01 per RECONCILIATION U-19, C-23 (single result store `QUALITY.CHECK_RESULT` keyed by candidate revision) — write gate results there | — | — | 0 |
+| OPS-002-S03 | Implement T01–T04 as Dagster asset checks over receipts/manifests (ING-005/007 tables), writing results to `QUALITY.CHECK_RESULT` (U-19). | `services/quality/transport_checks.py` | Fixture batch with 3 files/2 receipts → T01 FAIL; checksum mismatch → T02 FAIL; clean batch → 4 PASS. | 4 |
+| OPS-002-S04 | Implement X01–X04 as custom dbt generic tests with an `on-run-end` hook that writes per-partition results keyed by the candidate revision into DBT-005's `QUALITY.CHECK_RESULT` (U-19). | `data/dbt/tests/generic/{unique_scoped,no_orphan_tenant,accepted_batch_lineage,coverage_contiguous}.sql`, `data/dbt/macros/write_quality_results.sql` | Each test has one failing and one passing fixture; results rows carry the candidate revision id. | 5 |
+| OPS-002-S05 | Implement F01–F04 against the canonical models (bucket authority per D-12, decomposition, conservation, currency separation) using exact NUMBER(38,12) sums (FIN §3.6; RECONCILIATION C-14); F03 reuses DBT-005's conservation macro (U-19). | `data/dbt/tests/financial/f01…f04.sql` | F-270 fixture passes all four; EUR 20 bucket never summed with USD; query 140 + idle 60 = 200. | 4 |
 | OPS-002-S06 | Implement S01 comparing serving views to ledger per tenant/month/currency for the candidate publication. | `data/dbt/tests/semantic/s01_serving_parity.sql` | Parity fixture PASS; a serving view with a dropped row → FAIL naming tenant/month/currency. | 3 |
 | OPS-002-S07 | Implement advisory F05/F06 with WARN semantics that never block publication. | `data/dbt/tests/advisory/` | Spike fixture 10 → 150 → WARN, publication proceeds. | 2 |
-| OPS-002-S08 | Implement `eligible(tenant, candidate)`: every partition of the candidate has PASS for every REQUIRED check at the current check_version for exactly that candidate revision; ERROR or missing result = FAIL; under D-06 a failing tenant is excluded from its pointer advance while others advance. | `services/quality/gate.py`, called by ORC-005 publisher | Two-tenant fixture: tenant A F01 FAIL, tenant B PASS → B pointer advances, A unchanged, A publication age metric grows. | 4 |
+| OPS-002-S08 | Moved to ORC-005-S03 per RECONCILIATION U-19 (the only eligibility evaluator: PASS for every REQUIRED check of this catalogue for exactly the candidate revision; ERROR or missing = FAIL; D-06 per-tenant exclusion) — the two-tenant fixture stays in S09–S11 | — | — | 0 |
 | OPS-002-S09 | Double-count fixture: ingest the billing reference twice under different batch IDs so the naive ledger totals 540. | `tests/spec/OPS-002/test_double_count.py` | F01 FAIL; API/UI still return 270 with `stale_since` metadata and stale banner; no 540 visible anywhere. | 4 |
 | OPS-002-S10 | Missing-file fixture: manifest with 3 files, only 2 received. | same folder | Batch not accepted; no candidate built; Data Health shows coverage gap for that window. | 2 |
 | OPS-002-S11 | Stale-success fixture: PASS recorded for r1, candidate r2 has no results. | same folder | r2 blocked with reason `MISSING_RESULT`; r1 remains published. | 1 |
@@ -285,7 +285,7 @@ Task acceptance:
 
 ### OPS-004 — Run adversarial tenant isolation and internal security qualification
 Release: R1 · Estimate: 56–84 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-14 (internal part), G-OPS-15 (tests)
-Dependency changes: `+OPS-106` (support access and ops API must be in the attack surface). Milestone M9 unchanged (SEC-008 early suite runs from M1).
+Dependency changes: `+OPS-106` (ops API and `bridge-admin` must be in the attack surface), `+SEC-104` (support access; RECONCILIATION U-05), `−API-006` (API-006 is R2: its public-API attack cases run in API-006 when it is enabled; if API-006 becomes R1\*, OPS-004 regains the edge — C-22). Milestone M9 unchanged (SEC-008 early suite runs from M1).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -314,20 +314,20 @@ Task acceptance:
 - [ ] Exception register contains no open blocking item at REL-004.
 
 ### OPS-005 — Implement retention enforcement, deletion/DSAR workflow, legal holds and audit verification
-Release: R1 · Estimate: 58–86 h · Risk: H · Decisions: D-05, D-07, D-10, D-11, D-25 · Closes: G-OPS-09, G-OPS-10
-Dependency changes: `+OPS-104` (tombstone log and data inventory); milestone M9 → M7 (reports exist after RPT-005).
+Release: R1 · Estimate: 56–84 h · Risk: H · Decisions: D-05, D-07, D-10, D-11, D-25, D-26 · Closes: G-OPS-09, G-OPS-10
+Dependency changes: `+OPS-104` (tombstone log and data inventory); milestone M9 → M7 (reports exist after RPT-005). OPS-005 owns the single privacy-request workflow (`/v1/privacy/requests`: access, erasure, tenant deletion) and the deletion orchestrator; SEC-103 `erase_subject()`, SEC-105-S07 and CON-006/CON-001 revoke are stage handlers; CTL-102 starts offboarding (RECONCILIATION U-11, C-20).
 
-Retention matrix (normative for S02; defaults from ADR-009/D-11; contract may override per tenant):
+Retention matrix (normative for S02; defaults from ADR-009/D-11, per-class journal/RAW retention from D-26 — RECONCILIATION C-02; contract may override per tenant):
 
 | Store / class | Retention | Enforcement mechanism | Tenant deletion | Residual after deletion |
 |---|---|---|---|---|
-| S3 `landing/` journal + manifests | 90 d | lifecycle expiration 90 d; `NoncurrentVersionExpiration` 7 d; expired delete-marker cleanup; abort incomplete multipart 1 d | S3 Inventory → keys containing `/tenant_id=<uuid>/` → S3 Batch Operations delete of **every version** | none |
+| S3 `landing/` journal + manifests | per registry `retention_class` (D-26): FINANCIAL (billing/metering/storage sources) 400 d; QUERY_GRAIN 90 d | lifecycle rules generated by ING-005-S04 from the registry and applied by INF-003-S03 (FINANCIAL → Glacier IR at 30 d); `NoncurrentVersionExpiration` 7 d; expired delete-marker cleanup; abort incomplete multipart 1 d | S3 Inventory → keys containing `/tenant_id=<uuid>/` → S3 Batch Operations delete of **every version** | none |
 | S3 quarantine | 30 d | lifecycle | same | none |
-| Snowflake RAW | 90 d from acceptance | daily task `DELETE … WHERE _accepted_at < DATEADD(day,-90,CURRENT_TIMESTAMP())`; `DATA_RETENTION_TIME_IN_DAYS=1` | `DELETE WHERE tenant_id=…` on every RAW table | Time Travel 1 d + Fail-safe 7 d (Snowflake-internal) |
+| Snowflake RAW | per `retention_class` from acceptance (D-26): FINANCIAL 400 d; QUERY_GRAIN 90 d | daily task per class `DELETE … WHERE _accepted_at < DATEADD(day,-<class days>,CURRENT_TIMESTAMP())`; `DATA_RETENTION_TIME_IN_DAYS=1` | `DELETE WHERE tenant_id=…` on every RAW table | Time Travel 1 d + Fail-safe 7 d (Snowflake-internal) |
 | Snowflake staging / intermediate | rebuildable | TRANSIENT tables (no Fail-safe, ≤ 1 d Time Travel) | delete | ≤ 1 d |
-| Canonical facts, allocation, statements | 400 d (+ closed-statement evidence per contract) | partition expiry by partition date; revision GC (not in any publication map, not pinned by a closed statement, not referenced by an active job/cursor, older than 7 d); `DATA_RETENTION_TIME_IN_DAYS=7` | publication-map rows first, then facts | Time Travel 7 d + Fail-safe 7 d |
-| Query-level detail (D-11) | 90 d hot | partition expiry | delete | as above |
-| Query-family × day aggregates | 400 d | partition expiry | delete | as above |
+| Canonical facts, allocation, statements | 400 d (+ closed-statement evidence per contract) | partition expiry and revision GC (not in any publication map, not pinned by a closed statement, not referenced by an active job, older than 7 d) executed by ORC-105-S04, the only physical deleter, and verified here (RECONCILIATION U-17); `DATA_RETENTION_TIME_IN_DAYS=1` on revisioned fact tables (rollback uses retained superseded revisions ≥ 7 d, recovery uses OPS-007 snapshots — C-02) | publication-map rows first, then facts | Time Travel 1 d + Fail-safe 7 d |
+| Query-level detail (D-11) | 90 d hot (`hot_days`) | policy declared by WRK-104, expiry executed by ORC-105 (U-17) | delete | as above |
+| Query-family × day aggregates | 400 d | expiry executed by ORC-105 (U-17) | delete | as above |
 | Snowflake Backups (Tier 1) | 35 d | backup policy expiry | not editable; restore path reapplies tombstones | ≤ 35 d |
 | Recovery export bucket (Tier 2) | manifests 35 d; revisions while referenced | OPS-007 GC | delete tenant prefixes, all versions (break-glass governance bypass) | none |
 | PostgreSQL control data | tenant lifetime | – | ordered DELETE per table; keep tombstone, minimal audit, commercial/invoice records (accounting retention per owner's jurisdiction) | Aurora PITR ≤ 35 d |
@@ -342,21 +342,21 @@ Retention matrix (normative for S02; defaults from ADR-009/D-11; contract may ov
 |---|---|---|---|---|
 | OPS-005-S01 | Create `privacy.deletion_requests` (type SUBJECT_ACCESS / SUBJECT_ERASURE / TENANT_DELETION; states RECEIVED → PREVIEWED → APPROVED → HELD or EXECUTING → VERIFIED → CERTIFIED; REJECTED), `privacy.deletion_stages` (store, expected_count, deleted_count, verified_at, error) and `privacy.legal_holds` (scope tenant/account/subject/dataset, reason_code, requested_by, approved_by, review_by ≤ 90 d, released_at). | Alembic migration `privacy_0001`, state machine `services/privacy/deletion_state.py` | Illegal transitions (e.g. RECEIVED → EXECUTING) rejected in tests; approver ≠ requester enforced. | 3 |
 | OPS-005-S02 | Encode the retention matrix as data with a verification query per store. | `infra/lifecycle/retention-matrix.yaml` | Every store in OPS-104 data inventory has a row; CI fails on a store without a row. | 3 |
-| OPS-005-S03 | Apply S3 lifecycle rules for landing (90 d), quarantine (30 d), reports (tag-filtered 30 d), audit (365 d) with noncurrent-version 7 d, delete-marker cleanup and multipart abort 1 d. | `infra/lifecycle/s3.tf` | Terraform test asserts every bucket has all four rule types; a statement-evidence tagged object is excluded. | 3 |
+| OPS-005-S03 | Apply S3 lifecycle rules for quarantine (30 d), reports (tag-filtered 30 d), audit (365 d) with noncurrent-version 7 d, delete-marker cleanup and multipart abort 1 d; verify the landing rules generated per `retention_class` by ING-005-S04 and applied by INF-003-S03 (D-26: FINANCIAL 400 d, QUERY_GRAIN 90 d; RECONCILIATION C-02). | `infra/lifecycle/s3.tf` | Terraform test asserts every bucket has all four rule types; a statement-evidence tagged object is excluded; a FINANCIAL landing prefix expires at 400 d and a QUERY_GRAIN prefix at 90 d. | 2 |
 | OPS-005-S04 | Implement the Dagster run/event purge job and verify CloudWatch retention coverage. | `services/privacy/dagster_purge.py` | Runs older than 30 d and event logs older than 7 d removed in staging; no log group without retention. | 3 |
-| OPS-005-S05 | Implement Snowflake retention tasks (RAW 90 d delete, canonical partition expiry 400 d) and set table-level Time Travel (RAW 1, canonical 7) and TRANSIENT for staging/intermediate. | `data/dbt/macros/retention/`, `infra/snowflake/retention.sql` | `SHOW TABLES` evidence: kinds and retention values match matrix; delete counts logged. | 4 |
-| OPS-005-S06 | Implement the revision GC job with the DBT owner (collectible rule above), dry-run mode listing counts per dataset. | `services/privacy/revision_gc.py` | Fixture: revision pinned by a closed statement is kept; unreferenced revision older than 7 d is deleted; current publication untouched. | 4 |
+| OPS-005-S05 | Implement the RAW retention task per registry `retention_class` (D-26: FINANCIAL — billing/metering/storage sources — 400 d, QUERY_GRAIN 90 d from acceptance) and verify canonical/query-grain expiry executed by ORC-105-S04's GC (U-17); set table-level Time Travel RAW 1 d and revisioned fact tables 1 d (not 7 d; RECONCILIATION C-02) and TRANSIENT for staging/intermediate. | `data/dbt/macros/retention/`, `infra/snowflake/retention.sql` | `SHOW TABLES` evidence: kinds and retention values match matrix; a FINANCIAL RAW row aged 200 d is kept and a QUERY_GRAIN RAW row aged 91 d is deleted; delete counts logged. | 3 |
+| OPS-005-S06 | Verify ORC-105-S04's revision GC — the only physical deleter of revisioned rows (RECONCILIATION U-17) — against the collectible rule above, with a dry-run report listing counts per dataset. | `services/privacy/revision_gc_verify.py` | Fixture: revision pinned by a closed statement is kept; unreferenced revision older than 7 d is deleted; current publication untouched. | 4 |
 | OPS-005-S07 | Implement PostgreSQL retention: audit partitions older than 365 d dropped only after the S3 export checksum verified; delivered outbox rows > 30 d; idempotency keys > 7 d; expired sessions > 30 d. | `services/privacy/pg_retention.py` | Partition drop refused when export verification is missing. | 3 |
 | OPS-005-S08 | Enforce Redis TTL (lint rule on every write helper) and tenant purge by key prefix with epoch bump. | `packages/cache/ttl_lint.py`, `services/privacy/redis_purge.py` | Write without TTL fails CI; tenant purge leaves 0 keys for the tenant prefix. | 2 |
-| OPS-005-S09 | Implement the tenant-deletion orchestrator with ordered stages: (1) tenant state DELETING, admission blocked; (2) pause schedules; (3) attach deny-all inline policy to the tenant's Bridge IAM roles and notify customer revoke script; (4) permission-epoch bump, sessions revoked; (5) fence in-flight leases; (6) export completed or waived (ONB-102); (7) Snowflake serving → canonical → RAW → ops facts; (8) S3 all versions; (9) recovery bucket prefixes; (10) Redis; (11) PostgreSQL except tombstone/minimal audit/commercial records; (12) schedule tenant KMS key deletion (7 d). Each stage idempotent and resumable. | `services/privacy/tenant_deletion.py` (Dagster job) | Kill the job after stage 7 and rerun → completes without duplicate side effects; stage table shows expected = deleted counts. | 8 |
+| OPS-005-S09 | Implement the single tenant-deletion orchestrator (started by CTL-102-S06; stage handlers CON-006/CON-001 revoke via INF-103, SEC-105-S07 principal disable, SEC-103 key/dictionary deletion; writes the TENANT tombstone to OPS-104 — RECONCILIATION U-11) with ordered stages: (1) tenant state DELETING, admission blocked; (2) pause schedules; (3) attach deny-all inline policy to the tenant's Bridge IAM roles and notify customer revoke script; (4) permission-epoch bump, sessions revoked; (5) fence in-flight leases; (6) export completed or waived (ONB-102); (7) Snowflake serving → canonical → RAW → ops facts; (8) S3 all versions; (9) recovery bucket prefixes; (10) Redis; (11) PostgreSQL except tombstone/minimal audit/commercial records; (12) schedule tenant KMS key deletion (7 d). Each stage idempotent and resumable. | `services/privacy/tenant_deletion.py` (Dagster job) | Kill the job after stage 7 and rerun → completes without duplicate side effects; stage table shows expected = deleted counts. | 8 |
 | OPS-005-S10 | Implement verification queries per store (count = 0 for tenant) and the deletion certificate listing residual copies with expiry dates (Aurora latest backup + 35 d, Snowflake Backups + 35 d, Fail-safe + 7 d after Time Travel, KMS key deletion date). | `services/privacy/verify.py`, certificate JSON + PDF template | Certificate generated for synthetic tenant with all counts 0 and correct dates. | 4 |
 | OPS-005-S11 | Implement SUBJECT_ACCESS export: dictionary entries for the subject HMAC plus pseudonym-linked activity (queries attributed, roles) as CSV within the tenant scope. | `services/privacy/subject_access.py` | Export for subject S contains only S's rows; foreign-tenant subject with same name returns nothing. | 4 |
-| OPS-005-S12 | Implement SUBJECT_ERASURE per D-10: delete the dictionary entry, write SUBJECT tombstone, UI/API render "Erased user ‹first 4 hex of pseudonym›"; facts unchanged. | `services/privacy/subject_erasure.py` | Ledger totals unchanged before/after; name unresolvable in UI, exports and reports generated afterwards. | 3 |
+| OPS-005-S12 | Implement SUBJECT_ERASURE per D-10 by calling SEC-103-S09's `erase_subject()` (delete the dictionary entry, write SUBJECT tombstone to OPS-104; RECONCILIATION U-11), UI/API render "Erased user ‹first 4 hex of pseudonym›"; facts unchanged. | `services/privacy/subject_erasure.py` | Ledger totals unchanged before/after; name unresolvable in UI, exports and reports generated afterwards. | 3 |
 | OPS-005-S13 | Enforce legal holds: each stage checks overlapping active holds → HELD; `review_by` passed → ticket + alarm; release requires approver ≠ requester. | `services/privacy/holds.py` | Held account blocks only its stages; other accounts of the tenant proceed; expired review raises alarm. | 3 |
 | OPS-005-S14 | Race tests: extraction task finishing after stage 7; late Snowpipe receipt; report job completing during deletion. | `tests/privacy/test_deletion_races.py` | Acceptance rejects batches for tenant state DELETING; report artifact deleted in stage 8 and download returns 410. | 3 |
 | OPS-005-S15 | Resurrection test with OPS-006/007: restore a pre-deletion Aurora point and Tier 2 snapshot into an isolated environment; replay tombstones. | `tests/recovery/test_no_resurrection.py` | Deleted tenant absent (0 rows, cannot authenticate) before traffic enable. | 4 |
 | OPS-005-S16 | Stale report URL and cached analytics after deletion. | `tests/privacy/test_post_delete_access.py` | 410 for artifact links; cache keys absent; API 404 for tenant resources. | 1 |
-| OPS-005-S17 | Admin API `POST /v1/privacy/requests` (preview returns per-store counts), `POST …/{id}/approve`, `GET …/{id}` with stages; hook into Settings › Privacy & retention; update RB-14. | `apps/api/privacy/`, `docs/runbooks/RB-14-offboarding.md` | Only Organization Owner can create TENANT_DELETION; Admin can create SUBJECT_*; foreign request ID → 404. | 4 |
+| OPS-005-S17 | Single privacy-request API (RECONCILIATION C-20; approval through SEC-102; UX-102-S05 binds to it) `POST /v1/privacy/requests` (typed SUBJECT_ACCESS / SUBJECT_ERASURE / TENANT_DELETION; preview returns per-store counts), `POST …/{id}/approve`, `GET …/{id}` with stages; hook into Settings › Privacy & retention; update RB-14. | `apps/api/privacy/`, `docs/runbooks/RB-14-offboarding.md` | Only Organization Owner can create TENANT_DELETION; Admin can create SUBJECT_*; foreign request ID → 404. | 4 |
 | OPS-005-S18 | Evidence pack including a full synthetic tenant deletion and one subject erasure. | `docs/evidence/OPS-005/<commit>/` | Certificate and verification outputs attached. | 2 |
 
 Task acceptance:
@@ -394,7 +394,7 @@ Task acceptance:
 
 ### OPS-007 — Implement tiered analytical recovery (backups, incremental revision export) and restore drill
 Release: R1 · Estimate: 56–84 h · Risk: H · Decisions: D-03, D-05, D-21, D-23 · Closes: G-OPS-06, G-OPS-07
-Dependency changes: `−OPS-005`, `+OPS-104`, `+DBT-006` (publication map and revision identity); milestone M9 → M5.
+Dependency changes: `−OPS-005`, `+OPS-104`, `+DBT-006` (publication map and revision identity), `+ORC-105` (recovery-snapshot pins via ORC-105-S09; RECONCILIATION U-17); milestone M9 → M5.
 
 Recovery design (normative):
 
@@ -408,7 +408,7 @@ Customer-side WIF installs are unaffected by a central-account rebuild because c
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| OPS-007-S01 | Write the recovery scope: fct_charge revisions, attribution bridges, allocation results, statements and closed-period evidence, published config versions, publication map and history, SECURITY entitlement/profile tables, reference rates, query-family × day aggregates, hot query detail (included so journal retention need not exceed 90 d). | `data/contracts/recovery-scope.yaml` | Every canonical dbt model tagged `recovery: include/exclude` with reason; CI fails on an untagged canonical model. | 3 |
+| OPS-007-S01 | Write the recovery scope: fct_charge revisions, attribution bridges, allocation results, statements and closed-period evidence, published config versions, publication map and history, SECURITY entitlement/profile tables, reference rates, query-family × day aggregates, hot query detail (included so QUERY_GRAIN journal retention need not exceed 90 d; FINANCIAL journal retention is 400 d per D-26 — RECONCILIATION C-02). | `data/contracts/recovery-scope.yaml` | Every canonical dbt model tagged `recovery: include/exclude` with reason; CI fails on an untagged canonical model. | 3 |
 | OPS-007-S02 | Define manifest v1 and checksum method per revision: `COUNT(*)`, `HASH_AGG(*)`, `SUM(amount)` per currency. | `data/contracts/recovery-manifest.v1.json` | Two exports of the same revision produce identical checksums. | 2 |
 | OPS-007-S03 | Provision the recovery bucket in a separate AWS account: versioning, SSE-KMS with a CMK owned by that account, Object Lock governance mode 35 d (bypass only by break-glass role), bucket policy allowing `PutObject` only from the `RECOVERY_EXPORT_INT` storage-integration role; create Snowflake storage integration, stage and `RECOVERY_EXPORTER` role (SELECT on scope, USAGE on stage, nothing else). | `infra/recovery/*.tf`, `infra/snowflake/recovery.sql` | Exporter cannot DELETE objects; production app roles cannot read the bucket (IAM simulator). | 4 |
 | OPS-007-S04 | Configure Tier 1 backup sets and policy (daily, expire 35 d, no retention lock); verify live which objects/attachments (row access policies, grants) a restore preserves — TO VERIFY LIVE. | `infra/snowflake/backups.sql` | `SHOW BACKUP SETS` evidence; restore of a table in staging preserves or documents policy attachment behaviour. | 3 |
@@ -436,7 +436,7 @@ Task acceptance:
 
 ### OPS-008 — Qualify capacity (staged C1), noisy-neighbor protection and admission quotas
 Release: R1 · Estimate: 56–90 h (+ approved benchmark spend, ASSUMPTION ≤ 300 credits) · Risk: H · Decisions: D-02, D-06, D-07, D-08, D-11 · Closes: G-OPS-11
-Dependency changes: `+OPS-105` (early probes and simulator). Milestone M9 unchanged.
+Dependency changes: `+OPS-105` (early probes and simulator), `+ORC-102` (capacity qualification includes the Dagster metadata guardrails; RECONCILIATION C-29). Milestone M9 unchanged.
 
 Capacity stages: C1 (R1 gate, executed) = 10 tenants × 5 accounts; median 300 k queries/account/day, p90 1 M, one skew account 3 M/day; 2 tenants backfilling 365 d concurrently while 8 are steady; 30 concurrent interactive users, peak 5 req/s; 50 report runs/day. Volume check: 50 accounts × ≈ 500 k mean × 2 query-grain sources (QUERY_HISTORY, QUERY_ATTRIBUTION_HISTORY) ≈ 50 M rows/day steady; backfill 2 × 5 × 365 × 500 k × 2 ≈ 3.65 B rows. C2 (R2) = 50 × 5 with 10 % at 1 M/day. C3 = PRD profile by extrapolation + one live bottleneck test.
 
@@ -466,18 +466,18 @@ Task acceptance:
 
 ### OPS-009 — Measure Bridge unit economics and internal cost allocation
 Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-02, D-06, D-08, D-17 · Closes: G-OPS-12, G-OPS-13
-Dependency changes: `+OPS-109` (tags, processing ledger), `+LCH-101` (revenue references). Milestone M9 unchanged.
+Dependency changes: `+OPS-109` (tags, QUERY_TAG format, serving-user registry), `+ORC-104` (per-build capture and per-tenant build rows — replaces OPS-109's former processing ledger; RECONCILIATION U-06, U-25), `+ALC-104`, `+GOV-103`, `+LCH-001` (revenue references live in `commercial.invoice_refs`, created by LCH-001-S04; OPS asked LCH-101 — U-06/U-08), `+INF-105` (CUR export, INF-105-S05; U-06). Milestone M9 unchanged. OPS-009 owns ingestion into `INTERNAL_COST`, allocation (absorbs ORC-104-S04…S06) and margin.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-009-S01 | Create database `INTERNAL_COST` with the §3 tables; grants only to `FINOPS_INTERNAL` and the cost loader; none to serving/transform/customer roles. | `data/dbt/models/internal_cost/`, `infra/snowflake/internal_cost.sql` | `SHOW GRANTS ON DATABASE INTERNAL_COST` lists only the two roles. | 2 |
-| OPS-009-S02 | Ingest AWS CUR 2.0/Data Exports (daily Parquet) through a dedicated internal source contract. | `services/platform-cost/aws_cur.py` | A fixture month loads with line count and total equal to the export. | 4 |
+| OPS-009-S02 | Ingest AWS CUR 2.0/Data Exports (daily Parquet; export configured by INF-105-S05, RECONCILIATION U-06) through a dedicated internal source contract. | `services/platform-cost/aws_cur.py` | A fixture month loads with line count and total equal to the export. | 4 |
 | OPS-009-S03 | Ingest Bridge's own Snowflake usage (METERING_DAILY_HISTORY, WAREHOUSE_METERING_HISTORY, QUERY_ATTRIBUTION_HISTORY, PIPE_USAGE_HISTORY, TABLE_STORAGE_METRICS, USAGE_IN_CURRENCY_DAILY) with the product's own adapters into `INTERNAL_COST`. | `services/platform-cost/snowflake_own.py` | Month total equals Bridge's USAGE_IN_CURRENCY_DAILY total. | 4 |
 | OPS-009-S04 | Control totals: Σ cost lines per provider/month vs provider invoice; signed delta recorded, no plug. | `internal_cost.control_totals` | Fixture invoice 1,000.00 vs lines 999.40 → delta −0.60 shown. | 3 |
-| OPS-009-S05 | Build driver facts per G-OPS-12 (serving by tenant service user; transform by processing-ledger rows; Snowpipe by bytes; storage by row share; ECS task-seconds; NAT bytes; API requests; active users). | `internal_cost.cost_driver_fact` | Every driver has a source query and unit; no NULL tenant except explicit `UNALLOCATED`. | 5 |
-| OPS-009-S06 | Allocate per component with exact decimal and largest-remainder at cent level; allocated + unallocated = source total; version the allocation method. | `data/dbt/models/internal_cost/tenant_platform_cost.sql` | Σ allocated + unallocated = provider total to the cent for fixture months. | 4 |
+| OPS-009-S05 | Build driver facts per G-OPS-12 (serving by tenant service user; transform by ORC-104-S02's per-tenant build rows (U-06); Snowpipe by bytes; storage by row share; ECS task-seconds; NAT bytes; API requests; active users). | `internal_cost.cost_driver_fact` | Every driver has a source query and unit; no NULL tenant except explicit `UNALLOCATED`. | 5 |
+| OPS-009-S06 | Allocate per component with exact decimal and largest-remainder at cent level (absorbs ORC-104-S04…S06: central credits by rows written per tenant, idle → UNALLOCATED_IDLE, Snowpipe by bytes, broker queries by tag tenant; RECONCILIATION U-06); allocated + unallocated = source total; version the allocation method. | `data/dbt/models/internal_cost/tenant_platform_cost.sql` | Σ allocated + unallocated = provider total to the cent for fixture months. | 4 |
 | OPS-009-S07 | Mark months PROVISIONAL until month end + 5 days and after CUR finalization; recompute on revisions. | same | A CUR revision changes the provisional month only. | 2 |
-| OPS-009-S08 | Read revenue references from `commercial.invoice_refs` (LCH) and recognize straight-line over service period, labelled "estimate — finance approval required". | `internal_cost.revenue_estimate` | Annual invoice 12,000 for 12 months → 1,000/month. | 3 |
+| OPS-009-S08 | Read revenue references from `commercial.invoice_refs` (LCH-001-S04) and recognize straight-line over service period, labelled "estimate — finance approval required". | `internal_cost.revenue_estimate` | Annual invoice 12,000 for 12 months → 1,000/month. | 3 |
 | OPS-009-S09 | Compute margin = (revenue − COGS)/revenue; revenue 0 → NULL. | `internal_cost.gross_margin` | Fixture 1000/100/120/80 → COGS 300, margin 70 %; zero revenue → NULL. | 2 |
 | OPS-009-S10 | Encode COGS scope: production + canary + production share of observability = COGS; staging/dev = R&D; support staff cost entered monthly by finance. | `docs/operations/cogs-policy.md` | Staging costs never appear in `tenant_platform_cost`. | 2 |
 | OPS-009-S11 | Report customer-side Bridge overhead credits (D-08, from customer QUERY_TAG/BRIDGE_FINOPS_WH) separately as `customer_borne_cost`, excluded from COGS. | `internal_cost.customer_borne_cost` | Test: customer overhead 12 credits does not change COGS. | 2 |
@@ -523,7 +523,7 @@ Task acceptance:
 
 ### OPS-011 — Complete cross-product QA and release evidence matrix
 Release: R1 · Estimate: 44–66 h · Risk: M · Decisions: D-01 · Closes: G-OPS-14 (evidence gate)
-Dependency changes: `+OPS-107`; INS-007 dependency becomes conditional on D-01 (if verified savings are R2, the matrix records it as a disclosed limitation instead of blocking).
+Dependency changes: `+OPS-107`, `+INS-105` (detector qualification is release evidence), `+ING-009` (schema-drift handling is release evidence now that FIN-104 depends on ING-008) — RECONCILIATION C-29; INS-007 dependency becomes conditional on D-01 (if verified savings are R2, the matrix records it as a disclosed limitation instead of blocking).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -593,32 +593,32 @@ Task acceptance:
 - [ ] Staging alarms never page.
 
 ### OPS-103 — Synthetic Snowflake canary organization and lagged financial canaries
-Release: R1 · Estimate: 26–40 h (+ ≈ 100 credits/month, ASSUMPTION) · Risk: M · Decisions: D-08, D-13, D-21 · Closes: G-OPS-05
-Why / where: live WIF tests (CON-002/005), canaries (OPS-003), drills (OPS-010) and the E2E live suite (OPS-011) all need continuously active synthetic Snowflake accounts; none is created or funded today. Plugs in at M2 after INF-008 and CON-003.
-Dependency changes: new; deps INF-008, CON-003.
+Release: R1 · Estimate: 12–18 h (no separate credit budget: canaries run inside the INF-101 estate's 150-credit cap — RECONCILIATION C-24) · Risk: M · Decisions: D-08, D-13, D-21 · Closes: G-OPS-05
+Why / where: canaries (OPS-003), drills (OPS-010) and the E2E live suite (OPS-011) need continuously active synthetic Snowflake accounts. The single test estate — organizations, accounts, generators incl. the hourly known-answer canary scenario, spend caps, expiry alarms and provisional install — is INF-101's; OPS-103 keeps only the canary logic: known-answer table, lagged canaries (H+2/H+7/H+10), source-latency measurement and production canary tenants bound to estate accounts (RECONCILIATION U-03). Plugs in at M2 after INF-101 and CON-003.
+Dependency changes: new; deps CON-003, INF-101 (replaces INF-008; RECONCILIATION U-03, C-25).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| OPS-103-S01 | Obtain owner approval/budget and create the synthetic organization with SYN_A (Enterprise, AWS eu-west-1) and SYN_B (Standard, a second region or cloud to exercise non-AWS egress); organization-account/ORGADMIN access for ORGANIZATION_USAGE — TO VERIFY LIVE. | `docs/operations/synthetic-estate.md` (locators in private evidence) | Both accounts reachable; ORGANIZATION_USAGE visible or limitation recorded. | 3 |
-| OPS-103-S02 | Bootstrap SYN accounts as code: `SYN_WH` XSMALL AUTO_SUSPEND=60, resource monitors (monthly quota 60 credits, notify 80 %, suspend 100 %). | `infra/synthetic/snowflake.sql` | Second apply is a no-op; monitor visible. | 3 |
-| OPS-103-S03 | Create the workload generator: stored procedure + TASK `CRON 7 * * * * UTC` running 20 deterministic queries over `SNOWFLAKE_SAMPLE_DATA.TPCH_SF1` with QUERY_TAG `bridge_canary:<yyyymmddhh>:<n>`, 1 intentionally failing query, daily 10 MB CTAS (storage delta), weekly serverless task. | `infra/synthetic/generator.sql` | QUERY_HISTORY shows 21 tagged queries per hour for 24 h. | 4 |
-| OPS-103-S04 | Install Bridge customer scripts (CON-003) on both accounts for staging and production service users; schedule both environments' extraction at the same minute to share one warehouse resume. | install evidence | Both environments extract; BRIDGE_FINOPS_WH resumes once per hour. | 3 |
-| OPS-103-S05 | Create the known-answer table in ops (per hour: 20 success, 1 failed; warehouse SYN_WH). | `data/ops/canary_expectations.sql` | Rows generated for the next 7 days. | 2 |
-| OPS-103-S06 | Implement lagged canaries: H+2 h count of tagged queries in published query facts = 20 (+1 failed); H+7 h WAREHOUSE_METERING_HISTORY row for SYN_WH hour H present; H+10 h Σ query-attributed + idle = metered compute for that warehouse-hour (exact decimal). | `services/canary/financial_canary.py` | 24 consecutive hours green in staging; removing one batch turns the matching hour red. | 4 |
+| OPS-103-S01 | Moved to INF-101-S01…S03 per RECONCILIATION U-03 (synthetic organizations and accounts of the single estate) — bind the canaries to its accounts | — | — | 0 |
+| OPS-103-S02 | Moved to INF-101-S05/S06/S09 per RECONCILIATION U-03, C-24 (estate IaC, generator warehouses, resource monitors) | — | — | 0 |
+| OPS-103-S03 | Moved to INF-101-S06 per RECONCILIATION U-03 (hourly deterministic known-answer canary scenario: 20 tagged queries + 1 failing query per hour, known-answer tags) — consume its tags here | — | — | 0 |
+| OPS-103-S04 | Moved to INF-101-S10 per RECONCILIATION U-03 (customer-side install on estate accounts for staging and production service users) | — | — | 0 |
+| OPS-103-S05 | Create the known-answer table in ops (per hour: 20 success, 1 failed; the warehouse and tags of INF-101-S06's canary scenario). | `data/ops/canary_expectations.sql` | Rows generated for the next 7 days. | 2 |
+| OPS-103-S06 | Implement lagged canaries: H+2 h count of tagged queries in published query facts = 20 (+1 failed); H+7 h WAREHOUSE_METERING_HISTORY row for the canary warehouse hour H present; H+10 h Σ query-attributed + idle = metered compute for that warehouse-hour (exact decimal). | `services/canary/financial_canary.py` | 24 consecutive hours green in staging; removing one batch turns the matching hour red. | 4 |
 | OPS-103-S07 | Measure source-availability latency: an ops task polls QUERY_HISTORY every 5 min for the canary tag and records first-seen; feed FRESH-E2E. | `services/canary/source_latency.py` | p50/p95 source latency recorded over 7 days. | 3 |
-| OPS-103-S08 | Create production canary tenants CANARY_A/CANARY_B bound to SYN_A/SYN_B; isolation cross-reads in probes. | tenant provisioning script | Cross-tenant probe returns 404. | 2 |
-| OPS-103-S09 | Monitor canary spend (credits/month) with alarm at 80 % of budget. | alarm | Alarm fires in a lowered-threshold test. | 2 |
-| OPS-103-S10 | Add expiry/drift alarms: account contract/trial expiry date, WIF trust drift, generator task suspended. | alarms | Suspending the task raises an alarm within 2 h. | 1 |
+| OPS-103-S08 | Create production canary tenants CANARY_A/CANARY_B bound to INF-101 estate accounts (A1/B1); isolation cross-reads in probes. | tenant provisioning script | Cross-tenant probe returns 404. | 2 |
+| OPS-103-S09 | Moved to INF-101-S09 per RECONCILIATION U-03, C-24 (one estate budget of 150 credits/month including canaries and tenant zero) | — | — | 0 |
+| OPS-103-S10 | Moved to INF-101-S12 per RECONCILIATION U-03 (expiry, drift and generator-stopped alarms) | — | — | 0 |
 | OPS-103-S11 | Documentation and evidence. | `docs/evidence/OPS-103/<commit>/` | Includes 7-day canary record and credits. | 2 |
 
 Task acceptance:
 - [ ] Canary hours evaluate at their lagged horizons and never pass vacuously on empty data.
-- [ ] Canary spend stays within the approved monthly quota and suspends at 100 %.
+- [ ] Canary spend is inside INF-101's 150-credit estate cap (RECONCILIATION C-24).
 - [ ] Staging and production extract the synthetic accounts through separate service users.
 
 ### OPS-104 — Tombstone registry outside restore scope and privacy data inventory
 Release: R1 · Estimate: 22–34 h · Risk: H · Decisions: D-10 · Closes: G-OPS-07, G-OPS-09
-Why / where: any restore drill (OPS-006 at M2) must replay tombstones from a log that the restore does not roll back. Plugs in at M1 after CTL-002, INF-003 and SEC-001.
+Why / where: any restore drill (OPS-006 at M2) must replay tombstones from a log that the restore does not roll back. OPS-104 is the only tombstone registry (kinds incl. SUBJECT, TENANT, CONNECTION); SEC-103's dictionary suppression and CTL-102's restore guard read it, and no other tombstone table exists (RECONCILIATION U-11, C-19). Plugs in at M1 after CTL-002, INF-003 and SEC-001.
 Dependency changes: new; deps CTL-002, INF-003, SEC-001; OPS-005, OPS-006, OPS-007 depend on it.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -662,27 +662,27 @@ Task acceptance:
 - [ ] Customer credit coefficients are available to the onboarding estimate.
 
 ### OPS-106 — Operator identity, break-glass, `bridge-admin` CLI and customer-approved support access
-Release: R1 · Estimate: 40–60 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-15
-Why / where: every runbook depends on `bridge-admin`, and the operations contract requires time-bound, customer-approved, audited support access; no task builds either. Plugs in at M3 after SEC-008, INF-006, ING-007; support analytics access step waits for API-002.
-Dependency changes: new; deps SEC-008, INF-006, ING-007; OPS-004 and OPS-010 depend on it.
+Release: R1 · Estimate: 25–38 h · Risk: H · Decisions: D-02, D-22, D-25 · Closes: G-OPS-15
+Why / where: every runbook depends on `bridge-admin`. OPS-106 owns the AWS permission sets, the `bridge-admin` CLI and its commands, dry-run/approval for mutating recovery actions and break-glass; the ops API and operator authentication are CTL-102's, and support-access grants (default 4 h, max 8 h, scopes `health_read`/`analytics_read`) are SEC-104's (RECONCILIATION U-05, C-15). Plugs in at M3 after SEC-008, INF-006, ING-007, CTL-102.
+Dependency changes: new; deps SEC-008, INF-006, ING-007, CTL-102 (ops API skeleton and operator authentication; RECONCILIATION U-05); OPS-004 and OPS-010 depend on it.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-106-S01 | Create IAM Identity Center permission sets `ReadOnlyOps`, `IncidentResponder`, `BreakGlass` (MFA, session ≤ 4 h; BreakGlass requires two-person approval out of band). | `infra/iam/operators.tf` | Sessions expire at 4 h; BreakGlass assignment is empty by default. | 3 |
-| OPS-106-S02 | Build the internal ops API (private ALB, SigV4 from operator roles only) per `ops-api.v1.yaml`. | `apps/ops_api/` | Request without SigV4 or from a runtime role → 403. | 4 |
+| OPS-106-S02 | Moved to CTL-102-S02 per RECONCILIATION U-05 (single ops plane: ops API on the private ALB, SigV4 for the CLI) — the CLI calls it | — | — | 0 |
 | OPS-106-S03 | Build the `bridge-admin` CLI skeleton: mandatory `--env`, prints caller identity and target, refuses production without explicit `--env production`. | `apps/admin_cli/` | Missing `--env` exits non-zero. | 3 |
 | OPS-106-S04 | Implement read-only commands: `health account`, `batch inspect`, `coverage diff`, `reconciliation explain`, `lease list`, `publication show`. | same | Each command tested in staging with captured output. | 8 |
 | OPS-106-S05 | Implement dry-run manifests for mutating recovery actions (replay, publication repoint, restore) requiring a second approver's signed approval before execution. | `apps/admin_cli/manifests.py` | Execution without second approval refused. | 4 |
-| OPS-106-S06 | Create `support.access_grants` (states REQUESTED → APPROVED → ACTIVE → EXPIRED/REVOKED; scope `health_read`, `analytics_read`, `config_write`; reason code; ticket; default 4 h, max 24 h). | Alembic migration, `services/support/grants.py` | Grant > 24 h rejected; expiry automatic. | 3 |
-| OPS-106-S07 | Tenant approval path: Settings › Support access shows pending requests; tenant policy may auto-approve `health_read` only. | `apps/web/settings/support-access`, API | `analytics_read` never auto-approved. | 3 |
-| OPS-106-S08 | Support analytics access via a support permission profile inside the tenant (D-02 role), scope = grant, revoked at expiry by epoch bump (after API-002). | broker integration | Expired grant → next query denied within 30 s. | 4 |
-| OPS-106-S09 | Write customer-visible audit entries for every support action (who, reason, ticket, time, resource). | audit events | Tenant audit log shows the entries. | 2 |
+| OPS-106-S06 | Moved to SEC-104-S01 per RECONCILIATION U-05, C-15 (`identity.support_access_grants`; default 4 h, max 8 h; scopes `health_read`, `analytics_read` — no `config_write` in R1) | — | — | 0 |
+| OPS-106-S07 | Moved to SEC-104-S03 per RECONCILIATION U-05 (tenant approval incl. the `health_read` auto-approve policy) | — | — | 0 |
+| OPS-106-S08 | Moved to SEC-104-S04/S05 per RECONCILIATION U-05 (synthetic SUPPORT membership and profile, expiry reaper) | — | — | 0 |
+| OPS-106-S09 | Moved to SEC-104-S06 per RECONCILIATION U-05 (customer-visible support audit) | — | — | 0 |
 | OPS-106-S10 | Break-glass: sealed AWS root MFA and Snowflake emergency admin procedure with two-person rule; alarms on CloudTrail root sign-in and Snowflake LOGIN_HISTORY use of the emergency user → SEV1 page. | `docs/security/break-glass.md`, alarms | Test sign-in pages on-call. | 4 |
 | OPS-106-S11 | Negative tests: no grant, expired grant, grant for tenant A used on tenant B, read-only command attempting mutation, wrong env. | `tests/security/test_ops_access.py` | All denied and audited. | 3 |
 | OPS-106-S12 | Docs and evidence. | `docs/evidence/OPS-106/<commit>/` | – | 2 |
 
 Task acceptance:
-- [ ] Operators have no standing access to tenant analytics; all access is granted, time-bound and visible to the tenant.
+- [ ] Operators have no standing access to tenant analytics; all access is granted through SEC-104, time-bound and visible to the tenant.
 - [ ] Every runbook command exists in `bridge-admin` and is read-only unless a second approver signs a dry-run manifest.
 - [ ] Break-glass use pages on-call.
 
@@ -733,40 +733,40 @@ Task acceptance:
 - [ ] Deploys without approved review are detectable.
 
 ### OPS-109 — Cost-attribution instrumentation (tags, QUERY_TAG, processing ledger)
-Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-02, D-06, D-07 · Closes: G-OPS-12
-Why / where: OPS-009 at M9 can only attribute months for which tags and driver facts were recorded; they must be emitted from the first pipeline runs (M3).
+Release: R1 · Estimate: 13–19 h · Risk: M · Decisions: D-02, D-06, D-07 · Closes: G-OPS-12
+Why / where: OPS-009 at M9 can only attribute months for which tags and driver facts were recorded; they must be emitted from the first pipeline runs (M3). OPS-109 keeps QUERY_TAG format v1, the serving-user → tenant registry, ECS task usage, extraction bytes and the tag-coverage test; AWS tags and the CUR export are INF-105's, per-tenant build rows ORC-104-S02's, and the name "processing ledger" stays with ORC-101 (RECONCILIATION U-06, U-25).
 Dependency changes: new; deps OPS-001, ORC-003, INF-008; OPS-009 depends on it.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| OPS-109-S01 | Enforce AWS tags `environment, component, cost_owner` via Terraform `default_tags` and an organization tag policy; activate them as cost-allocation tags. | `infra/tagging.tf` | Untagged resource fixture fails policy. | 2 |
-| OPS-109-S02 | Create `ops.processing_ledger` and a dbt `on-run-end` hook writing input rows/bytes per tenant per model per run. | `data/dbt/macros/processing_ledger.sql` | A 3-tenant run writes 3 rows per model with correct counts. | 4 |
-| OPS-109-S03 | Apply the QUERY_TAG builder in extraction, dbt (`query_tag` config), broker and reports. | code changes in those services | – | 3 |
+| OPS-109-S01 | Moved to INF-105-S02 per RECONCILIATION U-06 (provider `default_tags`, org tag policy, cost-allocation tags) | — | — | 0 |
+| OPS-109-S02 | Moved to ORC-104-S02 per RECONCILIATION U-06, U-25 (per-tenant build rows from PARTITION_REVISION; no `ops.processing_ledger`) — OPS-009 consumes them | — | — | 0 |
+| OPS-109-S03 | Define the single QUERY_TAG JSON format v1 (absorbs ORC-104's fields `app, env, lane, build_id, model, layer`; RECONCILIATION U-06) and apply the builder in extraction, dbt (`query_tag` config), broker and reports. | code changes in those services | – | 3 |
 | OPS-109-S04 | Maintain the serving-user → tenant registry for attribution (D-02). | `ops.serving_principal_map` | Every serving user maps to one tenant. | 2 |
 | OPS-109-S05 | Record ECS task usage per account-cycle (tenant, account, vCPU, memory, seconds). | `ops.task_usage` | Sum of task-seconds per day within ± 2 % of ECS metrics. | 3 |
 | OPS-109-S06 | Record extraction bytes per tenant (manifest bytes and network bytes if measurable). | `ops.batch_timeline` columns | – | 2 |
 | OPS-109-S07 | Coverage test: over 24 h in staging, ≥ 99 % of central Snowflake queries have a parsable QUERY_TAG; untagged queries listed. | `tests/spec/OPS-109/` | Coverage report attached. | 3 |
-| OPS-109-S08 | Enable AWS CUR 2.0/Data Exports (daily Parquet) to the internal cost bucket. | `infra/cost/cur.tf` | First export delivered. | 2 |
+| OPS-109-S08 | Moved to INF-105-S05 per RECONCILIATION U-06 (CUR 2.0 Data Export) | — | — | 0 |
 | OPS-109-S09 | Evidence. | `docs/evidence/OPS-109/<commit>/` | – | 1 |
 
 Task acceptance:
 - [ ] Every central Snowflake workload is attributable to a component and run; single-tenant queries also to a tenant.
-- [ ] Multi-tenant dbt runs record per-tenant input rows.
+- [ ] Multi-tenant dbt runs record per-tenant input rows (ORC-104-S02; RECONCILIATION U-06).
 
 ### OPS-110 — Notification and report delivery SLIs
-Release: R1 · Estimate: 14–22 h · Risk: L · Decisions: none · Closes: G-OPS-02
-Why / where: split from OPS-003 so API/freshness SLOs are not delayed to M7. Plugs in after GOV-007 and RPT-005.
+Release: R1 · Estimate: 11–17 h · Risk: L · Decisions: none · Closes: G-OPS-02
+Why / where: split from OPS-003 so API/freshness SLOs are not delayed to M7. OPS-110 owns SLI definitions, emission, burn alarms and dashboards only; error classification is GOV-007-S03's and the destination-health UI GOV-006-S13's (RECONCILIATION U-07). Plugs in after GOV-007 and RPT-005.
 Dependency changes: new; deps OPS-003, GOV-007, RPT-005; OPS-010 depends on it.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | OPS-110-S01 | Define NOTIF-DELIVERY (logical notifications DELIVERED ≤ 10 min after episode open / all, target 99 %) and REPORT-DELIVERY (occurrences delivered ≤ 60 min after scheduled time, 99 %); customer-destination permanent errors are counted and shown as destination health, not silently excluded. | catalogue entries | Reviewed. | 2 |
 | OPS-110-S02 | Emit SLI events from GOV-007/RPT outbox transitions. | `services/slo/delivery.py` | Fixture counts correct. | 3 |
-| OPS-110-S03 | Classify destination permanent errors: HTTP 401/403/404/410, Slack `invalid_auth`/`channel_not_found`, SES permanent bounce. | `services/slo/destination_errors.py` | Table-driven test. | 2 |
+| OPS-110-S03 | Moved to GOV-007-S03 per RECONCILIATION U-07 (destination error classification) — the SLI consumes its classes | — | — | 0 |
 | OPS-110-S04 | Burn alarms and DLQ alarms with owners. | alarms | Fault test fires. | 2 |
 | OPS-110-S05 | Fault tests: webhook 500 then success within 10 min (good), permanent 410 (destination DEGRADED, visible), SES throttling. | `tests/spec/OPS-110/` | Outcomes as stated. | 3 |
 | OPS-110-S06 | Dashboard and RB-08 update. | dashboard, runbook | – | 2 |
-| OPS-110-S07 | Show destination health (status, last error class, last success time) per destination in Settings › Integrations so customer-caused permanent failures are visible to the customer. | `apps/web/settings/integrations` health panel | Revoked Slack token fixture shows DEGRADED with `invalid_auth` class. | 2 |
+| OPS-110-S07 | Moved to GOV-006-S13 per RECONCILIATION U-07, U-22 (destinations health UI at `/settings/destinations`) | — | — | 0 |
 | OPS-110-S08 | Evidence. | `docs/evidence/OPS-110/<commit>/` | – | 1 |
 
 Task acceptance:
@@ -796,10 +796,10 @@ Task acceptance:
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
 | OPS-001 | R1 | 34 | 52 |
-| OPS-002 | R1 | 38 | 58 |
+| OPS-002 | R1 | 31 | 47 |
 | OPS-003 | R1 | 34 | 52 |
 | OPS-004 | R1 | 56 | 84 |
-| OPS-005 | R1 | 58 | 86 |
+| OPS-005 | R1 | 56 | 84 |
 | OPS-006 | R1 | 34 | 50 |
 | OPS-007 | R1 | 56 | 84 |
 | OPS-008 | R1 | 56 | 90 |
@@ -808,19 +808,19 @@ Task acceptance:
 | OPS-011 | R1 | 44 | 66 |
 | OPS-101 | R1 | 22 | 34 |
 | OPS-102 | R1 | 18 | 28 |
-| OPS-103 | R1 | 26 | 40 |
+| OPS-103 | R1 | 12 | 18 |
 | OPS-104 | R1 | 22 | 34 |
 | OPS-105 | R1 | 26 | 40 |
-| OPS-106 | R1 | 40 | 60 |
+| OPS-106 | R1 | 25 | 38 |
 | OPS-107 | R1 | 24 | 36 |
 | OPS-108 | R1 | 32 | 48 |
-| OPS-109 | R1 | 20 | 30 |
-| OPS-110 | R1 | 14 | 22 |
-| **Total R1** | | **738** | **1120** |
+| OPS-109 | R1 | 13 | 19 |
+| OPS-110 | R1 | 11 | 17 |
+| **Total R1** | | **690** | **1047** |
 | OPS-111 | R2 | 22 | 36 |
 | **Total R2** | | **22** | **36** |
 
-Excluded from hours: benchmark credits (≤ 300 + ≤ 100), canary estate (≈ 100 credits/month), pentest vendor fee, SOC 2 auditor/platform fees.
+Excluded from hours: benchmark credits (≤ 300 + ≤ 100), canary estate (inside INF-101's 150-credit/month test-estate cap; RECONCILIATION C-24), pentest vendor fee, SOC 2 auditor/platform fees.
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)
 

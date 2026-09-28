@@ -497,7 +497,7 @@ Task acceptance:
 
 ### UX-008 — End-to-end product-state, accessibility and navigation qualification
 Release: R1 · Estimate: 38–52 h · Risk: M · Decisions: D-18, D-25 · Closes: G-UX-12 (coverage), G-UX-13 (perf evidence)
-Dependency changes: `+UX-102`, `+UX-103`, `+UX-104`, `+WRK-002`, `+WRK-004`; `UX-007` only if R1*.
+Dependency changes: `+UX-102`, `+UX-103`, `+UX-104`, `+WRK-002`, `+WRK-004`, `+GOV-008` (inverted edge, GOV backlog), and per RECONCILIATION C-29 `+UX-003`, `+UX-004`, `+WRK-005`, `+WRK-102`, `+ALC-007`, `+INS-101` (UX-008 qualifies all R1 routes; UX-005/006 no longer depend on UX-004); keep UX-005, UX-006; `UX-007` only if R1*.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -523,7 +523,7 @@ Task acceptance:
 
 ### UX-101 — Dashboards list and builder
 Release: R2 · Estimate: 30–44 h · Risk: M · Decisions: D-17 · Closes: G-UX-01 (dashboards)
-Dependency changes: new; depends on `UX-002`, `UX-004` (saved analyses), `CTL-007` (persistence), `API-102` (widget export R2). Plugs after UX-004; not on the R1 path.
+Dependency changes: new; depends on `UX-002`, `UX-004` (saved analyses), `CTL-007` (persistence), `API-102` (widget export R2), `RPT-103` (dashboard backend: definition as report layout kind, widget data API under the viewer's scope, sharing, export to report; RECONCILIATION U-01). UX-101 owns the dashboards list, builder UI and widget states; CTL-103 is merged into this task (U-01). Plugs after UX-004; not on the R1 path.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -542,7 +542,7 @@ Task acceptance:
 
 ### UX-102 — Settings and administration pages (workspace, roles, audit, privacy, support)
 Release: R1 · Estimate: 32–46 h · Risk: M · Decisions: D-10, D-25 · Closes: G-UX-01 (settings)
-Dependency changes: new; depends on `UX-002`, `SEC-004` (capability matrix, G-SEC-04), `SEC-008` (audit query/export API), `SEC-007` + `OPS-005` (privacy/retention APIs), `CTL-003`. Dependents: UX-008.
+Dependency changes: new; depends on `UX-002`, `SEC-004` (capability matrix, G-SEC-04), `SEC-008` (audit query/export API), `SEC-007` (privacy-mode API), `CTL-003`. `OPS-005` is not a graph edge: only S05 needs OPS-005-S17's `/v1/privacy/requests` API (step-level, feature-flagged; RECONCILIATION C-29). Dependents: UX-008.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -550,7 +550,7 @@ Dependency changes: new; depends on `UX-002`, `SEC-004` (capability matrix, G-SE
 | UX-102-S02 | Workspace settings: tenant name/slug, default currency display, timezone label (UTC fixed), default period, retention plan summary (read-only) | page | Mutations use If-Match; stale revision → 409 dialog | 3 |
 | UX-102-S03 | Roles & access scopes: role matrix (read-only from the capability matrix), member grants editor (role + scope clauses per SEC-101 grammar; every dimension explicit) with a "who can see what" preview | page | Omitting a scope dimension is impossible in the form (422 prevented client-side and server-side) | 6 |
 | UX-102-S04 | Audit log viewer: filters (actor pseudonym/name per `people.read`, action, object, time), keyset paging, detail drawer with redacted before/after, restricted export (auditor capability) | page | Viewer without the audit capability gets the denied state; exports are audited | 5 |
-| UX-102-S05 | Privacy & retention: privacy mode (FULL/SANITIZED/METADATA_ONLY) change with impact text and confirmation (data-visibility change bumps tenant authz epoch per G-SEC-12), retention classes display, D-10 identity-dictionary erasure request flow | page | Changing privacy mode requires re-auth + confirmation; the audit event is recorded | 5 |
+| UX-102-S05 | Privacy & retention: privacy mode (FULL/SANITIZED/METADATA_ONLY) change with impact text and confirmation (data-visibility change bumps tenant authz epoch per G-SEC-12), retention classes display, D-10 subject access/erasure request flow bound to OPS-005's `POST /v1/privacy/requests` (typed SUBJECT_ACCESS / SUBJECT_ERASURE, approval via SEC-102; RECONCILIATION C-20), feature-flagged until OPS-005-S17 is live | page | Changing privacy mode requires re-auth + confirmation; the audit event is recorded | 5 |
 | UX-102-S06 | Support page: create a support request with request IDs and an optional diagnostics bundle (no values, no SQL), links to status page and docs | page | Diagnostics payload scan finds no money values or SQL | 3 |
 | UX-102-S07 | Tests: restricted admin cannot grant beyond own scope (delegation rule), audit filters, privacy-mode flip effect on query detail (SQL hidden after METADATA_ONLY) | tests | All pass | 4 |
 | UX-102-S08 | Mobile/a11y/screenshots | evidence | Axe clean | 2 |
@@ -561,20 +561,20 @@ Task acceptance:
 - [ ] A privacy-mode change is confirmed, audited, and takes effect on the next request.
 
 ### UX-103 — Integration Health and connection detail
-Release: R1 · Estimate: 20–28 h · Risk: M · Decisions: D-08, D-09, D-21 · Closes: G-UX-01 (integrations), G-UX-10 (D-08/D-09 content)
-Dependency changes: new; depends on `UX-002`, `CON-005` (capability probes), `CON-006` (pause/revoke APIs), `GOV-006` (destination health, optional panel), `ING-012` (coverage links).
+Release: R1 · Estimate: 12–17 h · Risk: M · Decisions: D-08, D-09, D-21 · Closes: G-UX-01 (integrations), G-UX-10 (D-08/D-09 content)
+Dependency changes: new; depends on `UX-002`, `CON-005` (capability probes), `CON-006` (links to its connection detail page), `ING-012` (coverage links, Bridge overhead panel). `−GOV-006`: the destination-health UI is GOV-006-S13's (RECONCILIATION U-07, U-22). UX-103 keeps the Integration Health summary, egress-IP and network-policy status, and links to CON-006-S12 and ING-012-S08 (U-22).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
-| UX-103-S01 | Screen contracts for integrations and connection-detail incl. D-08/D-09 content | contracts | Reviewed with CON owner | 2 |
+| UX-103-S01 | Screen contracts for the Integration Health summary incl. D-08/D-09 content, with links to CON-006-S12 (connection detail) and ING-012-S08 (Bridge overhead) | contracts | Reviewed with CON owner | 2 |
 | UX-103-S02 | Integration Health summary: connections, WIF status, last successful login, capability matrix per source (available/unsupported/permission missing), grant gaps (e.g. warehouses missing MONITOR — WRK G-WRK-09) with generated remediation SQL | page | A missing grant shows the exact GRANT statement to run, not a stack trace | 4 |
-| UX-103-S03 | Customer footprint panel: BRIDGE_FINOPS_WH credits month-to-date vs resource-monitor quota (D-08), egress IPs to allowlist (D-09), network-policy status | component | Values come from the CON probe API; unknown → "—" + reason | 3 |
-| UX-103-S04 | Connection detail: accounts, sources, schedules, pause/resume/revoke (CON-006) with confirmation and impact text | page | Revoke requires typed confirmation; the audit event is recorded | 4 |
-| UX-103-S05 | Destinations health (email/Slack/webhook last delivery outcome) when GOV-006 is available | component | Feature-flagged until GOV-006 | 2 |
+| UX-103-S03 | Customer footprint panel: egress IPs to allowlist (D-09), network-policy status, and a link to ING-012-S08's Bridge overhead panel for BRIDGE_FINOPS_WH credits vs quota (D-08; RECONCILIATION U-22) | component | Values come from the CON probe API; unknown → "—" + reason | 2 |
+| UX-103-S04 | Moved to CON-006-S12 per RECONCILIATION U-22 (connection detail page incl. pause/resume/revoke) — link to it here | — | — | 0 |
+| UX-103-S05 | Moved to GOV-006-S13 per RECONCILIATION U-07, U-22 (destinations health UI) | — | — | 0 |
 | UX-103-S06 | Tests + a11y: technical details only in an expandable support section (no role ARNs/Dagster IDs in the primary view) | tests | Primary view contains no ARN/Dagster strings | 3 |
 
 Task acceptance:
-- [ ] Customers can see and fix grant gaps, egress allowlisting and Bridge warehouse spend without contacting support.
+- [ ] Customers can see and fix grant gaps and egress allowlisting, and reach Bridge warehouse spend (ING-012-S08) and connection detail (CON-006-S12), without contacting support.
 - [ ] No internal infrastructure identifiers appear outside the support detail section.
 
 ### UX-104 — Explain drawer, analysis jobs and exports center
@@ -608,11 +608,11 @@ Task acceptance:
 | UX-006 | R1 | 26 | 38 |
 | UX-008 | R1 | 38 | 52 |
 | UX-102 (new) | R1 | 32 | 46 |
-| UX-103 (new) | R1 | 20 | 28 |
+| UX-103 (new) | R1 | 12 | 17 |
 | UX-104 (new) | R1 | 26 | 36 |
 | UX-007 | R1* (D-20) / else R2 | 28 | 40 |
 | UX-101 (new) | R2 | 30 | 44 |
-| **Total R1** (excluding R1* UX-007) | | **338** | **470** |
+| **Total R1** (excluding R1* UX-007) | | **330** | **459** |
 | **Total R2** (UX-101 + UX-007 if not R1*) | | **58** | **84** |
 
 The original plan was 8 tasks × 2–6 h = 16–48 h. The realistic figure is about 10× higher: 20 screens had no owner, and the design system, data layer and qualification were each a multi-week effort presented as three steps.

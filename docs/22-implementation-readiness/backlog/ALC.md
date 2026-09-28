@@ -258,7 +258,7 @@ Affects: all ALC tasks, GOV-001.
 | Precedence spec `docs/…/alc-precedence.md` | Level order, per-level priority, conflict and runtime-conflict rules, inheritance chain query→warehouse, container chain table→schema→database→account | ALC-002-S04 |
 | Snowflake CONFIG DDL | `cfg_rule, cfg_rule_predicate, cfg_rule_split, cfg_override, cfg_group_set, cfg_group, cfg_value_mapping, cfg_group_closure, cfg_allocation_policy, cfg_pool, cfg_transfer` keyed `(tenant_id, config_version, …)`, insert-only; mirrored in `SIMULATION_INPUT` keyed `(tenant_id, simulation_id, …)` | ALC-002-S07, ALC-004-S04, ALC-005-S02 |
 | dbt model contracts | `int_alloc_subject_attrs, int_query_classification_key, int_tag_resolution, fct_tag_assignment, int_group_membership, dim_group_closure, int_alloc_unit, fct_allocation_line, srv_allocation_restricted, mart_allocation_quality, fct_chargeback_statement_line` with grain, unique key, tenant key, clustering, tests | ALC-001/002/004/005/006/008, ALC-101 |
-| Rounding spec + fixtures | Signed LR algorithm (G-ALC-05), hierarchical order, 1e-12 and minor-unit use, ISO-4217 minor units, fixtures ALC-GOLD-R1…R5 | ALC-005-S04, ALC-008-S03 |
+| Rounding spec + fixtures | Signed LR algorithm (G-ALC-05), hierarchical order, 1e-12 and minor-unit use, ISO-4217 minor units, fixtures ALC-GOLD-R1…R5 | ALC-005-S04, FIN-106-S03 (ALC-008-S03 moved there; RECONCILIATION U-20) |
 | State machines | Ruleset/hierarchy/policy: DRAFT→SIMULATING→REVIEWABLE→APPROVED→PUBLISHING→PUBLISHED→SUPERSEDED with STALE, SIMULATION_FAILED, PUBLISH_FAILED and guards; Statement: DRAFT→PREPARED→REVIEWED→APPROVED→ISSUED→SUPERSEDED | ALC-003-S01, ALC-008-S01 |
 | Access-impact & disclosure spec | Impact computation, ACCESS approver role, recheck at publish, epoch bump; pool disclosure CONCEALED/DISCLOSED with k≤2 warning; restricted projection column list | ALC-003-S05, ALC-101-S01/S05 |
 | OpenAPI | `/v1/tag-dimensions`, `/v1/rulesets{,/id/simulate,/approvals,/publish,/rollback}`, `/v1/simulations/{id}`, `/v1/usage-group-sets{…/groups,/hierarchy}`, `/v1/allocation/policies`, `/v1/allocation/quality`, `/v1/allocation/transfers`, `/v1/showback`, `/v1/chargeback/statements{…:prepare,:approve,:issue,:restate}` with Idempotency-Key/If-Match | ALC-001…008 |
@@ -270,7 +270,7 @@ Affects: all ALC tasks, GOV-001.
 
 ### ALC-001 — Create dimension registry and external tag fact model
 Release: R1 · Estimate: 36–52 h · Risk: M · Decisions: D-10, D-16 · Closes: G-ALC-11 (partial), G-ALC-16 (partial)
-Dependency changes: `−FIN-009` (the registry needs the charge schema and resource identity, not reconciliation UX), `+FIN-001`, `+DBT-003` (SCD2 resource identity). WRK-001 is kept only for S07 (workload attributes).
+Dependency changes: `−FIN-009` (the registry needs the charge schema and resource identity, not reconciliation UX), `+FIN-001`, `+DBT-003` (SCD2 resource identity), `+ING-103` (AU.TAG_REFERENCES daily snapshot contract, G-ALC-11; RECONCILIATION C-10). WRK-001 is kept only for S07 (workload attributes).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -325,13 +325,13 @@ Task acceptance:
 
 ### ALC-003 — Build simulation, review and ruleset publication
 Release: R1 · Estimate: 54–77 h · Risk: H · Decisions: D-04, D-06, D-05 · Closes: G-ALC-07, G-ALC-08, G-ALC-09, G-ALC-15
-Dependency changes: `+CTL-005` (config-publisher, D-04); `+FIN-010` contract only (the period-state read interface for the retroactivity guard; no live evidence needed); `+SEC-006` (epoch bump on access-relevant publish).
+Dependency changes: `+CTL-005` (config-publisher, D-04); `+FIN-010` contract only (the period-state read interface for the retroactivity guard; no live evidence needed; step-level, not a graph edge); `+SEC-006` (epoch bump on access-relevant publish); `+ORC-004` (the simulation is a transform run as a Dagster dbt job, not by the D-33 analysis-worker; RECONCILIATION C-05).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | ALC-003-S01 | Specify the ruleset state machine with all transitions and guards (incl. STALE, SIMULATION_FAILED, PUBLISH_FAILED) and implement it as a PG-checked transition function | `apps/api/rulesets/state.py` + spec | An illegal transition → 409 `INVALID_TRANSITION`; table-driven test covers every edge | 3 |
-| ALC-003-S02 | `POST /v1/rulesets/{id}/simulate`: validate, create an API-004 job and outbox event; the config-publisher inserts compiled draft rows into `SIMULATION_INPUT.cfg_*` keyed (tenant, simulation_id) | API + publisher handler | Published `CONFIG.cfg_*` rows untouched (checksum before/after); a dbt graph test forbids non-sim models from reading SIMULATION_INPUT | 3 |
-| ALC-003-S03 | Add the dbt `allocation_sim` selector with vars (simulation_id, window ≤ 92 d, input_publication_id) writing baseline and candidate into `SIMULATION.*` on the same pinned publication | dbt selectors + Dagster job | Baseline equals the live published allocation when the publication is unchanged (12-dp equality) | 4 |
+| ALC-003-S02 | `POST /v1/rulesets/{id}/simulate`: validate, create an API-004 job record (user-facing status and cancellation only; execution is S03's Dagster dbt job — RECONCILIATION C-05) and outbox event; the config-publisher inserts compiled draft rows into `SIMULATION_INPUT.cfg_*` keyed (tenant, simulation_id) | API + publisher handler | Published `CONFIG.cfg_*` rows untouched (checksum before/after); a dbt graph test forbids non-sim models from reading SIMULATION_INPUT | 3 |
+| ALC-003-S03 | Add the dbt `allocation_sim` selector with vars (simulation_id, window ≤ `hot_days` = 90 by default, input_publication_id; RECONCILIATION C-01) writing baseline and candidate into `SIMULATION.*` on the same pinned publication; run it as a Dagster dbt job in the dbt lane under the transform identity, concurrency 1 per tenant (C-05) | dbt selectors + Dagster job | Baseline equals the live published allocation when the publication is unchanged (12-dp equality) | 4 |
 | ALC-003-S04 | Build `sim_preview_summary`: coverage before/after (abs basis), movement matrix, top 50 changed subjects, conflicts with ≤ 20 samples each, untested scope (days/accounts with incomplete coverage) | dbt model + API projection | Fixture: Finance subset coverage 0% → 100%, 1 matched workload, 0 conflicts (UI fixture) | 4 |
 | ALC-003-S05 | Compute access impact per granted (group_set, group) incl. ancestors: entering/leaving subjects and amount, affected profiles and users | dbt model + API | Moving a subject into granted group G flags access_relevant with 1 affected profile | 3 |
 | ALC-003-S06 | Store the window fingerprint and dependency versions on the simulation; approvals reference simulation_id + fingerprint + content hash | PG columns + fingerprint SQL | The fingerprint changes when a charge revision in the window changes and not when data is appended after the window | 2 |
@@ -462,14 +462,14 @@ Task acceptance:
 - [ ] Unavailable modules (budget/forecast/insights) show explicit unavailable states.
 
 ### ALC-008 — Implement chargeback statements, rounding and adjustments
-Release: R1 · Estimate: 43–61 h · Risk: H · Decisions: D-05, D-25 · Closes: G-ALC-05, G-ALC-12
+Release: R1 · Estimate: 39–55 h · Risk: H · Decisions: D-05, D-25 · Closes: G-ALC-05, G-ALC-12
 Dependency changes: `−ALC-007` (not needed), `+ALC-006` (UI components), `+ALC-103` (transfers), `+RPT-002` (renderer; PDF async); keep FIN-010 and API-005. RPT-003 keeps its ALC-008 edge (template styling only).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | ALC-008-S01 | Write the PG DDL for `chargeback_statements` and `statement_approvals` (states, digest, pdf fields, idempotency) and the Snowflake DDL for `fct_chargeback_statement_line` (insert-only, no UPDATE grant) | migrations + DDL | A post-ISSUED update trigger → error; the Snowflake role lacks UPDATE/DELETE | 3 |
 | ALC-008-S02 | Build the statement run: pin the close record's allocation publication; compute exact per (target, category); hierarchical signed LR book → target → line; store per-line rounding deltas | dbt model + service | Σ statements = T_book; Σ lines = statement total, for all fixtures | 4 |
-| ALC-008-S03 | Build the shared rounding library and SQL macro parity: 1.00 thirds → 0.34/0.33/0.33; −1.00 → −0.34/−0.33/−0.33; mixed +1.005/−0.335/−0.335 → Σ 0.34; property test over 10k mixed-sign vectors | `packages/allocation_helpers/rounding.py` | All pass; Python = SQL | 4 |
+| ALC-008-S03 | Moved to FIN-106-S03 per RECONCILIATION U-20 (single rounding library and SQL macro; this task's mixed-sign fixtures — 1.00 thirds, −1.00, +1.005/−0.335/−0.335 → Σ 0.34 — move into FIN-106's property test) — consume it in S02 | — | — | 0 |
 | ALC-008-S04 | Implement the issue preconditions (close/exception, RECONCILED/exception, BILLED_SOURCE/exception, single book and currency, four-eyes) | `apps/api/chargeback/guards.py` | Each missing precondition → 409 `STATEMENT_PRECONDITION_FAILED` with a code list | 3 |
 | ALC-008-S05 | Issue: Idempotency-Key + If-Match → freeze digest → ISSUED → async PDF render (RPT-002) to S3 with Object Lock and retention class `financial_statement` (7 years default) → `pdf_status=READY` + sha256 | API + worker | A duplicate issue returns the same statement id; the PDF checksum matches the stored value | 4 |
 | ALC-008-S06 | Corrections: NEXT_PERIOD_ADJUSTMENT (default) and RESTATEMENT after FIN-010 restate; exact-delta LR; unchanged targets get 0 | service + dbt | Storage 12→11 correction: only affected targets get −1.00 total delta; others 0.00 | 4 |
@@ -585,13 +585,13 @@ Task acceptance:
 | ALC-005 | R1 | 49 | 70 |
 | ALC-006 | R1 | 37 | 53 |
 | ALC-007 | R1 | 30 | 43 |
-| ALC-008 | R1 | 43 | 61 |
+| ALC-008 | R1 | 39 | 55 |
 | ALC-101 | R1 | 31 | 44 |
 | ALC-102 | R1 | 13 | 18 |
 | ALC-103 | R1 | 24 | 34 |
 | ALC-104 | R1 | 16 | 23 |
 | D-16 regex operators (ALC-002 R2 follow-up: RE2-safe engine check, cost test) | R2 | 8 | 14 |
-| **Total R1** | | **414** | **590** |
+| **Total R1** | | **410** | **584** |
 | **Total R2** | | **8** | **14** |
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)

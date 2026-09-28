@@ -94,7 +94,7 @@ Affects: REL-001, REL-004.
 
 ### REL-001 — Qualify complete CI/CD promotion, provenance and schema compatibility
 Release: R1 · Estimate: 40–60 h · Risk: M · Decisions: D-21, D-25 · Closes: G-REL-06, G-REL-07, G-REL-08
-Dependency changes: `+REL-101`, `+REL-103`.
+Dependency changes: `+REL-101`, `+REL-103`, `+FND-006` (promotion qualification needs the CI gates, orphaned by INF-001 −FND-006), `−OPS-011` (rehearsing the promotion pipeline does not wait for product QA; the release-candidate gate REL-004 does) — RECONCILIATION C-29; keep INF-007.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -147,7 +147,7 @@ Task acceptance:
 
 ### REL-003 — Assemble operational, commercial and support readiness pack
 Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-17, D-25 · Closes: G-REL-07
-Dependency changes: `+LCH-001`, `+LCH-102`, `+LCH-104`, `+OPS-107`.
+Dependency changes: `+LCH-001`, `+LCH-102`, `+LCH-104`, `+OPS-107`, `+OPS-108` (the readiness pack includes the SOC 2-ready control evidence, D-25; RECONCILIATION C-29); keep REL-002, OPS-009.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -169,7 +169,7 @@ Task acceptance:
 
 ### REL-004 — Approve immutable release candidate and production gate
 Release: R1 · Estimate: 12–18 h · Risk: M · Decisions: D-25 · Closes: G-REL-07
-Dependency changes: none.
+Dependency changes: `+OPS-011` (the release-candidate gate consumes the release evidence matrix; RECONCILIATION C-29); keep REL-003.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -189,26 +189,26 @@ Task acceptance:
 ## 5. New tasks required
 
 ### REL-101 — Migration safety gate and expand/contract harness
-Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: none · Closes: G-REL-02
-Why / where: first migrations and rolling deploys happen at M1; plugs in after CTL-002/INF-007; REL-001 depends on it.
+Release: R1 · Estimate: 10–14 h · Risk: M · Decisions: none · Closes: G-REL-02
+Why / where: first migrations and rolling deploys happen at M1; plugs in after CTL-002/INF-007; REL-001 depends on it. REL-101 keeps the migration policy, the N−1 compatibility job against the previous release tag and the contract-migration gate; the runner, linter, backfill framework and RLS catalog lint are CTL-101/CTL-002's (RECONCILIATION U-14, C-16).
 Dependency changes: new; deps CTL-002, INF-007.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-101-S01 | Write the migration policy (§3). | `docs/releases/migration-policy.md` | Reviewed by backend + DevOps. | 2 |
-| REL-101-S02 | Run a Postgres migration linter on Alembic offline SQL in CI with the forbidden-operation list. | `.github/workflows/migrations.yml`, linter config | Fixture `ADD COLUMN x int NOT NULL` without default fails. | 3 |
-| REL-101-S03 | Implement the migration runner as a one-off ECS task: advisory lock, `lock_timeout=5s`, statement timeout, records head in manifest. | `tools/migrate/runner.py`, task definition | Two concurrent runners: second waits/aborts, no double apply. | 3 |
+| REL-101-S02 | Moved to CTL-002-S01 per RECONCILIATION U-14 (migration linter and forbidden-operation list) — reference it from the policy | — | — | 0 |
+| REL-101-S03 | Moved to CTL-101-S01 per RECONCILIATION U-14, C-16 (runner `bridge-migrate` as one-off ECS task, advisory lock, `lock_timeout=3s` with 5 retries) | — | — | 0 |
 | REL-101-S04 | N−1 compatibility job: check out previous release tag, run its integration tests against the DB migrated to the new head. | `.github/workflows/n-minus-1.yml` | A rename migration fails the job. | 5 |
-| REL-101-S05 | Provide the batched backfill template (chunked, resumable, throttled). | `tools/migrate/backfill_template.py` | 1 M-row fixture backfill resumable after kill. | 2 |
+| REL-101-S05 | Moved to CTL-002-S03 per RECONCILIATION U-14 (batched backfill framework) | — | — | 0 |
 | REL-101-S06 | Gate contract migrations: allowed only when no N−1 task definition is active in any environment. | `tools/migrate/contract_gate.py` | Contract migration blocked while staging runs N−1. | 2 |
-| REL-101-S07 | Catalog guard: new tenant tables must have `tenant_id`, composite FKs, FORCE RLS and policies. | `tests/migrations/test_rls_guard.py` | Fixture table without FORCE RLS fails CI. | 2 |
-| REL-101-S08 | Negative fixtures for missing `lock_timeout` and non-concurrent index. | fixtures | Both fail. | 1 |
+| REL-101-S07 | Moved to CTL-101-S04 per RECONCILIATION U-14 (RLS catalog lint and generated isolation tests) | — | — | 0 |
+| REL-101-S08 | Moved to CTL-002-S01 per RECONCILIATION U-14 (linter negative fixtures: missing `lock_timeout`, non-concurrent index) | — | — | 0 |
 | REL-101-S09 | Evidence. | `docs/evidence/REL-101/<commit>/` | – | 1 |
 
 Task acceptance:
-- [ ] Unsafe migrations fail CI before merge.
+- [ ] Unsafe migrations fail CI before merge (CTL-002's linter, referenced by the policy).
 - [ ] Previous release's tests pass against every new schema head.
-- [ ] No tenant table can ship without FORCE RLS.
+- [ ] No tenant table can ship without FORCE RLS (CTL-101-S04's catalog lint).
 
 ### REL-102 — Feature flags and operational kill switches
 Release: R1 · Estimate: 20–30 h · Risk: M · Decisions: D-07, D-17 · Closes: G-REL-05
@@ -234,7 +234,7 @@ Task acceptance:
 ### REL-103 — Serving schema versioning and code/publication compatibility
 Release: R1 · Estimate: 26–40 h · Risk: H · Decisions: D-05, D-22 · Closes: G-REL-03
 Why / where: first serving schema at M4/M5; plugs in after DBT-006, API-001, ORC-005; REL-001/REL-002 depend on it.
-Dependency changes: new; deps DBT-006, API-001, ORC-005.
+Dependency changes: new; deps DBT-006, API-001, ORC-005. REL-103's version namespaces are the R1 serving contract (the broker selects the namespace from the tenant publication's `serving_schema_version`); DBT-104's (R2) union view is internal, never a serving namespace (RECONCILIATION C-21).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -255,20 +255,20 @@ Task acceptance:
 - [ ] New view versions are never readable without row access policies.
 
 ### REL-104 — Dark production environment from M5
-Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-09, D-23 · Closes: G-REL-01
+Release: R1 · Estimate: 20–31 h · Risk: M · Decisions: D-09, D-23 · Closes: G-REL-01
 Why / where: production-only differences must surface early; plugs in at M5 after INF-007/INF-008, OPS-102, OPS-103; REL-002 and OPS-107 depend on it.
 Dependency changes: new; deps INF-007, INF-008, OPS-102, OPS-103.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | REL-104-S01 | Provision production AWS stacks and the production central Snowflake account through the pipeline. | Terraform state per prod stack | Second apply no-op. | 5 |
-| REL-104-S02 | Production-only configuration: secrets, SES production access request (lead time), Cognito production pool, WAF rules, quota increases; allocate NAT Elastic IPs once (D-09) and publish them in the wizard config. | config records | SES out of sandbox; EIPs recorded as permanent. | 4 |
+| REL-104-S02 | Production-only configuration: secrets, Cognito production pool, WAF rules, quota increases; apply INF-006-S11's SES production access (lead time) and INF-002-S03's production NAT Elastic IPs once (D-09; published to customers by CON-102-S01) — RECONCILIATION U-07, U-24. | config records | SES out of sandbox; EIPs recorded as permanent. | 4 |
 | REL-104-S03 | Set `signup.enabled=false`; only canary tenants; public hostname shows maintenance page to non-allowlisted users. | flag state | Anonymous signup returns closed page. | 2 |
 | REL-104-S04 | Deploy every weekly candidate to production after staging, running the smoke suite. | pipeline | Four consecutive weekly deploys recorded. | 3 |
 | REL-104-S05 | Enable production canary tenants and probes (OPS-103/OPS-003). | probes | Probes green 7 days. | 2 |
 | REL-104-S06 | Enable paging on production alarms (OPS-102). | routing | Test page received. | 1 |
 | REL-104-S07 | Nightly drift detection on production stacks. | workflow | Manual change detected. | 2 |
-| REL-104-S08 | Cost guards: AWS Budgets alarms and Snowflake resource monitors on production. | budgets | Alarm test fires. | 2 |
+| REL-104-S08 | Moved to INF-105 per RECONCILIATION U-06 (AWS Budgets, anomaly detection, Snowflake monitor notifications) — production coverage recorded in S09 evidence | — | — | 0 |
 | REL-104-S09 | Evidence. | `docs/evidence/REL-104/<commit>/` | – | 1 |
 
 Task acceptance:
@@ -284,11 +284,11 @@ Task acceptance:
 | REL-002 | R1 | 36 | 56 |
 | REL-003 | R1 | 22 | 34 |
 | REL-004 | R1 | 12 | 18 |
-| REL-101 | R1 | 20 | 30 |
+| REL-101 | R1 | 10 | 14 |
 | REL-102 | R1 | 20 | 30 |
 | REL-103 | R1 | 26 | 40 |
-| REL-104 | R1 | 22 | 34 |
-| **Total R1** | | **198** | **302** |
+| REL-104 | R1 | 20 | 31 |
+| **Total R1** | | **186** | **283** |
 | **Total R2** | | **0** | **0** |
 
 ## 7. Owner questions (only those not already covered by D-01…D-25)

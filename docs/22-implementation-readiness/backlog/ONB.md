@@ -108,11 +108,11 @@ Affects: ONB-005.
 |---|---|---|
 | ONB-101 (new) | M5 | ING-010, CON-005, OPS-105, LCH-101 |
 | ONB-001 | M5 | CON-006, ING-012, UX-002 → +LCH-101, +ONB-101 |
-| ONB-102 (new) | M9 | OPS-005, API-004, ALC-008, CON-006 |
+| ONB-102 (new) | M9 | OPS-005, API-004, ALC-008, CON-006, API-102, CTL-102 (RECONCILIATION U-10, U-11) |
 | ONB-002 | M9 (drafts from M5) | ONB-001, OPS-010 → +ONB-102 |
 | ONB-003 | M11 | REL-004, ONB-002, LCH-001 → +LCH-003 (go-live precedes first customer, see LCH), +LCH-102 (DPA signed) |
 | ONB-004 | M11 | ONB-003, ING-010, FIN-010 → +ONB-101 |
-| ONB-005 | M11 | ONB-004, ALC-008, GOV-008, INS-007, RPT-005 → −INS-007, +INS-006 |
+| ONB-005 | M11 | ONB-004, ALC-008, GOV-008, INS-007, RPT-005 → −INS-007, +INS-006, +RPT-003, +UX-004 (RECONCILIATION C-29) |
 
 ### ONB-001 — Build resumable onboarding checklist as a projection of domain state
 Release: R1 · Estimate: 52–78 h · Risk: H · Decisions: D-08, D-09, D-13, D-17, D-18 · Closes: G-ONB-01, G-ONB-04, G-ONB-05, G-ONB-07, G-ONB-08
@@ -220,7 +220,7 @@ Task acceptance:
 
 ### ONB-005 — Complete FV-1 workshop and customer acceptance
 Release: R1 · Estimate: 20–32 h · Risk: M · Decisions: D-11, D-15, D-16 · Closes: G-ONB-03, G-ONB-05, G-ONB-09
-Dependency changes: `−INS-007`, `+INS-006`.
+Dependency changes: `−INS-007`, `+INS-006`, `+RPT-003`, `+UX-004` (S05 generates a report and checks parity with the Explorer; RPT-004 no longer depends on RPT-003 — RECONCILIATION C-29).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -244,18 +244,18 @@ Task acceptance:
 ## 5. New tasks required
 
 ### ONB-101 — Pre-consent history, credit and duration estimates
-Release: R1 · Estimate: 26–40 h · Risk: M · Decisions: D-08, D-11, D-17 · Closes: G-ONB-02, G-ONB-04
-Why / where: D-08 requires credits shown before consent; onboarding.md requires evidence-based ETAs. Plugs in at M5 after ING-010, CON-005, OPS-105, LCH-101; ONB-001 and ONB-004 depend on it.
+Release: R1 · Estimate: 22–34 h · Risk: M · Decisions: D-08, D-11, D-17 · Closes: G-ONB-02, G-ONB-04
+Why / where: D-08 requires credits shown before consent; onboarding.md requires evidence-based ETAs. ONB-101 owns the volume probe, the duration/ETA estimate, the backfill consent panel (embedded by CON-006-S08) and estimate-vs-actual tracking; the credit estimator (steady and backfill) is CON-101-S01's and backfill seconds-per-day calibration OPS-105-S06's (RECONCILIATION U-13). Plugs in at M5 after ING-010, CON-005, OPS-105, LCH-101; ONB-001 and ONB-004 depend on it.
 Dependency changes: new; deps ING-010, CON-005, OPS-105, LCH-101.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| ONB-101-S01 | Specify the estimate model (inputs/outputs in §3) and coefficient versioning. | `data/estimates/onboarding-estimate.v1.json` | Reviewed with OPS-105 owner. | 3 |
+| ONB-101-S01 | Specify the estimate model (inputs/outputs in §3; credit ranges come from CON-101-S01's estimator — RECONCILIATION U-13) and coefficient versioning. | `data/estimates/onboarding-estimate.v1.json` | Reviewed with OPS-105 and CON-101 owners. | 2 |
 | ONB-101-S02 | Implement a bounded, tagged volume probe per account (7-day query count and approximate row width). | `services/onboarding/volume_probe.py` | Probe query tagged `bridge_finops:probe`; runtime ≤ 60 s on XSMALL for 3 M/day fixture. | 3 |
-| ONB-101-S03 | Implement credit formulas: steady = accounts × cycles/day × billed_seconds_per_cycle/3600 × 30 (XSMALL = 1 credit/h); backfill = Σ chunks × seconds_per_chunk/3600; ranges from coefficient p50/p90. | `services/onboarding/estimate.py` | 5 accounts hourly at 90–120 s → 90–120 credits/month. | 3 |
+| ONB-101-S03 | Moved to CON-101-S01 per RECONCILIATION U-13 (single estimator for steady and backfill credits) — call it with the S02 volume probe here | — | — | 0 |
 | ONB-101-S04 | Implement duration estimate considering backfill slots per tenant and lane fairness; ETA only after ≥ 3 completed chunks during execution. | same | Before evidence the API returns `eta: null, reason: INSUFFICIENT_THROUGHPUT_EVIDENCE`. | 4 |
 | ONB-101-S05 | Show entitlement preview (accounts, history days) vs selection. | API field | Over-limit selection flagged. | 2 |
-| ONB-101-S06 | Build the consent panel: requested vs available per source, gaps, credits range with note "priced at your Snowflake contract rate", duration range; consent binds to estimate version. | `apps/web/onboarding/consent` | Changing selection invalidates prior consent. | 5 |
+| ONB-101-S06 | Build the backfill consent panel (embedded in CON-006-S08's wizard step; U-13): requested vs available per source, gaps, credits range with note "priced at your Snowflake contract rate", duration range; consent binds to estimate version. | `apps/web/onboarding/consent` | Changing selection invalidates prior consent. | 5 |
 | ONB-101-S07 | Refine live during backfill from actual throughput. | projection field | ETA narrows as chunks complete. | 2 |
 | ONB-101-S08 | Track estimate vs actual per onboarding for recalibration. | ops facts | Error distribution visible. | 2 |
 | ONB-101-S09 | Tests: 365 requested / 90 available; zero-volume account; 3 M/day account. | `tests/spec/ONB-101/` | Outputs match expected ranges. | 2 |
@@ -267,15 +267,15 @@ Task acceptance:
 
 ### ONB-102 — Offboarding export, disconnect/pause semantics and reconnection
 Release: R1 · Estimate: 26–40 h · Risk: M · Decisions: D-10, D-11 · Closes: G-ONB-06
-Why / where: DPA return-or-delete obligation and duplicate-free reconnection; plugs in at M9 after OPS-005, API-004, ALC-008, CON-006; ONB-002 depends on it.
-Dependency changes: new; deps OPS-005, API-004, ALC-008, CON-006.
+Why / where: DPA return-or-delete obligation and duplicate-free reconnection; plugs in at M9 after OPS-005, API-004, ALC-008, CON-006, API-102, CTL-102; ONB-002 depends on it. ONB-102 owns the customer-facing offboarding request, the export bundle and reconnection; pause/disconnect/revoke semantics are CON-006's, the tenant state machine CTL-102's and deletion OPS-005's (RECONCILIATION U-11).
+Dependency changes: new; deps OPS-005, API-004, ALC-008, CON-006, API-102 (tenant export bundle = an API-102 export kind; RECONCILIATION U-10), CTL-102 (offboarding state transitions; U-11).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | ONB-102-S01 | Define the export bundle: charges by D-12 bucket, allocation results, closed statements (PDF + CSV), budget/monitor configuration, tenant audit — Parquet + CSV with manifest and checksums. | `data/contracts/tenant-export.v1.json` | Schema reviewed. | 3 |
-| ONB-102-S02 | Implement the export as an analysis job (API-004) pinned to one publication; artifacts in the reports bucket with 7-day expiry; brokered download. | `services/export/tenant_export.py` | Bundle totals equal Explorer totals for the publication. | 5 |
-| ONB-102-S03 | Implement the offboarding workflow API/UI: request → confirm → pause → export (optional) → OPS-005 deletion request with residual dates. | `apps/api/offboarding/`, settings page | Only Organization Owner can start. | 4 |
-| ONB-102-S04 | Define and implement pause (retain data, no extraction), disconnect account (revoke, keep history, account DISCONNECTED), offboard tenant (delete). | state docs + code | Each state has distinct UI and admission behaviour. | 3 |
+| ONB-102-S02 | Implement the tenant export bundle as an API-102 export kind (export job and CSV writer reused; RECONCILIATION U-10) pinned to one publication; artifacts with 7-day expiry; download through SEC-006-S08's broker. | `services/export/tenant_export.py` (API-102 export kind) | Bundle totals equal Explorer totals for the publication. | 2 |
+| ONB-102-S03 | Implement the customer-facing offboarding workflow API/UI: request → confirm → pause (CON-006) → export (optional) → CTL-102 OFFBOARDING transition, which opens the OPS-005 deletion request with residual dates (RECONCILIATION U-11). | `apps/api/offboarding/`, settings page | Only Organization Owner can start. | 4 |
+| ONB-102-S04 | Moved to CON-006-S09/S11 per RECONCILIATION U-11 (pause, disconnect and revoke semantics); offboarding of the tenant is CTL-102/OPS-005's — link to them here | — | — | 0 |
 | ONB-102-S05 | Implement reconnection: same organization + account locator re-binds to the same account UUID within retention; re-probe; backfill only uncovered windows. | `services/connections/reconnect.py` | No new account UUID; covered days untouched. | 5 |
 | ONB-102-S06 | Guard: locator bound to another tenant is refused unless that tenant is deleted and tombstoned. | check | ACCOUNT_ALREADY_BOUND returned. | 2 |
 | ONB-102-S07 | Test: disconnect, reconnect 10 days later. | `tests/spec/ONB-102/test_reconnect.py` | Gap backfilled; totals for previously covered days unchanged; no duplicate charges. | 3 |
@@ -295,9 +295,9 @@ Task acceptance:
 | ONB-003 | R1 | 18 | 30 |
 | ONB-004 | R1 | 26 | 42 |
 | ONB-005 | R1 | 20 | 32 |
-| ONB-101 | R1 | 26 | 40 |
-| ONB-102 | R1 | 26 | 40 |
-| **Total R1** | | **204** | **316** |
+| ONB-101 | R1 | 22 | 34 |
+| ONB-102 | R1 | 21 | 32 |
+| **Total R1** | | **195** | **302** |
 | **Total R2** | | **0** | **0** |
 
 Customer elapsed time (P0–P12) is not engineering effort and is excluded.

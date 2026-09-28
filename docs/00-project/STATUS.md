@@ -84,5 +84,5 @@ OPEN VALIDATIONS: production APIs, authentication/authorization, WIF/Snowflake/A
 DONE: full-specification deep review in [docs/22-implementation-readiness](../22-implementation-readiness/README.md) — cross-cutting audit (X-01…X-47), 317 domain findings (29 BLOCKER, 151 HIGH), 34 decisions with recommended defaults, 233 contract-first artifacts, per-domain production backlogs (249 tasks, 2,792 micro-steps with oracles and hours), reconciliation of cross-domain overlaps/contradictions and a validated revised task graph (critical path 73 → 42 tasks).
 NEXT: owner records the decisions (priority: D-17, D-18, D-19, D-20, D-25, D-30, D-32 owner inputs; ADR amendments for D-02, D-04, D-05/06, D-07, D-26), approves the non-production budget, then P0 contract-first artifacts begin.
 BLOCKED: implementation start is blocked on those decisions; no production task status changes.
-RISKS: R1 estimate 6,779–9,974 senior-engineer hours; real-data surprises (mitigated by tenant zero and a design partner); vendor behaviors marked TO VERIFY LIVE.
+RISKS: R1 estimate 6,779–9,974 senior-engineer hours (R1* 247–366, R2 663–1,036); real-data surprises (mitigated by tenant zero and a design partner); vendor behaviors marked TO VERIFY LIVE.
 

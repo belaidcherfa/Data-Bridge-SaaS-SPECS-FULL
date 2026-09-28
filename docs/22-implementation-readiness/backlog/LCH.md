@@ -109,26 +109,26 @@ Affects: LCH-001, LCH-002.
 
 | Task | Milestone now → proposed | Dependencies now → proposed |
 |---|---|---|
-| LCH-101 (new) | → M2 | CTL-007, SEC-004, CTL-006 |
+| LCH-101 (new) | → M2 | SEC-004, CTL-006, CTL-102 (−CTL-007; RECONCILIATION U-08) |
 | LCH-102 (new) | → M8 | SEC-001, OPS-104, OPS-005 |
 | LCH-103 (new) | → M9 | LCH-101 |
 | LCH-104 (new) | → M9 | OPS-102 |
-| LCH-001 | M10 → M9 | REL-003, CTL-007 → −REL-003 (reversed: REL-003 +LCH-001), +LCH-101, +LCH-103 |
+| LCH-001 | M10 → M9 | REL-003, CTL-007 → −REL-003 (reversed: REL-003 +LCH-001), −CTL-007, +LCH-101, +LCH-103, +CTL-102 (RECONCILIATION U-05, U-08) |
 | LCH-003 | M12 → M10/M11 boundary (go-live) | LCH-002, REL-004 → −LCH-002; REL-004 only; ONB-003 +LCH-003 |
 | LCH-002 | M12 | ONB-005, LCH-001 (order-independent payment evidence) |
 | LCH-004 | M12 | LCH-003 → +ONB-004 (reviews start at first connection; FV-2 at first close) |
 
 ### LCH-001 — Implement subscription state machine, manual billing references and payment evidence workflow
-Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-17, D-25 · Closes: G-LCH-03, G-LCH-05, G-LCH-09, G-LCH-10
-Dependency changes: `−REL-003` (reversed), `+LCH-101`, `+LCH-103`; milestone M10 → M9.
+Release: R1 · Estimate: 36–53 h · Risk: M · Decisions: D-17, D-25 · Closes: G-LCH-03, G-LCH-05, G-LCH-09, G-LCH-10
+Dependency changes: `−REL-003` (reversed), `−CTL-007` (subscription state machine, invoice references and payment evidence are owned here; CTL-007 creates no commercial table — RECONCILIATION U-08, C-08), `+LCH-101`, `+LCH-103`, `+CTL-102` (finance-operator capabilities on the single ops plane; U-05); milestone M10 → M9.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | LCH-001-S01 | Record the owner's plan catalogue (Pilot + first commercial plan) in the D-17 quota vector, with the OPS-009 price-floor inputs and the disclosed customer-side footprint beside it. | `docs/commercial/plans.md`, seed data for `commercial.plans` | Owner approval recorded; seed loads. | 2 |
-| LCH-001-S02 | Implement the canonical subscription state machine and events (§3); migrate CTL-007's enum (ACTIVE → ACTIVE_PENDING_PAYMENT/ACTIVE_PAID). | migration `commercial_0002`, `services/commercial/subscription.py` | Illegal transitions (TRIAL → ACTIVE_PAID without payment) rejected. | 3 |
+| LCH-001-S02 | Implement the canonical — and only — subscription state machine and events (§3, G-LCH-03); CTL-007 creates no subscription table, so there is no enum to migrate (RECONCILIATION C-08, U-08). | migration `commercial_0002`, `services/commercial/subscription.py` | Illegal transitions (TRIAL → ACTIVE_PAID without payment) rejected. | 3 |
 | LCH-001-S03 | Implement the effect matrix in the entitlement engine (LCH-101) by state. | `services/entitlements/state_effects.py` | SUSPENDED tenant: scheduled sync paused, reads allowed, export allowed, new backfill denied. | 4 |
 | LCH-001-S04 | Create `invoice_refs` and `payment_events` (§3) with RLS for tenant reads and write access only for the internal finance operator path. | migration | Tenant role cannot INSERT/UPDATE. | 3 |
-| LCH-001-S05 | Create the internal FinanceOperator capability on the ops API (IAM Identity Center, MFA), separate from tenant roles; audit every action. | `apps/ops_api/commercial/` | Tenant Owner cannot call these endpoints. | 3 |
+| LCH-001-S05 | Register the FinanceOperator capabilities on CTL-102's single ops plane (operator role `finance_operator`; IAM Identity Center/MFA authentication is CTL-102-S02's — RECONCILIATION U-05), separate from tenant roles; audit every action. | `apps/ops_api/commercial/` | Tenant Owner cannot call these endpoints. | 1 |
 | LCH-001-S06 | Implement invoice reference entry (CSV import from the invoicing tool or manual form): uniqueness `(issuer_entity, invoice_number)`, ISO 4217 currency, decimal amounts, VAT treatment, VAT ID required for reverse charge, PA id/status optional. | `services/commercial/invoices.py` | Duplicate number rejected; reverse charge without VAT ID rejected. | 4 |
 | LCH-001-S07 | Implement payment evidence: unique bank reference, allocations to invoices (partial allowed), `VERIFIED` requires `verified_by ≠ recorded_by`; invoice fully covered by VERIFIED payments → ACTIVE_PAID. | `services/commercial/payments.py` | Same reference twice → one payment; partial payment keeps ACTIVE_PENDING_PAYMENT; self-verification rejected. | 4 |
 | LCH-001-S08 | Implement corrections: payment REVERSED event recomputes state; credit note marks invoice CANCELLED_BY_CREDIT_NOTE; no updates/deletes of issued records. | same | Reversal returns tenant to ACTIVE_PENDING_PAYMENT or PAST_DUE by due date. | 3 |
@@ -211,8 +211,8 @@ Task acceptance:
 
 ### LCH-101 — Plan-agnostic entitlements and admission enforcement
 Release: R1 · Estimate: 28–42 h · Risk: M · Decisions: D-11, D-17 · Closes: G-LCH-02
-Why / where: every admission point needs one limits engine from M2; extends CTL-007. ONB-001, ONB-101, ING-010, API-004/006, RPT-004, CTL-003 consume it; OPS-008 C1 quotas load into it.
-Dependency changes: new; deps CTL-007, SEC-004, CTL-006.
+Why / where: every admission point needs one limits engine from M2. LCH-101 owns plans, entitlements and admission enforcement; CTL-007 no longer carries commercial tables (RECONCILIATION U-08). ONB-001, ONB-101, ING-010 (history-days quota), CON-006 (connection-count quota), API-004/006, RPT-004, CTL-003, CTL-007 consume it; OPS-008 C1 quotas load into it.
+Dependency changes: new; deps SEC-004, CTL-006, CTL-102 (overrides through the ops API); `−CTL-007` (RECONCILIATION U-08).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -302,7 +302,7 @@ Task acceptance:
 
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
-| LCH-001 | R1 | 38 | 56 |
+| LCH-001 | R1 | 36 | 53 |
 | LCH-002 | R1 | 8 | 14 |
 | LCH-003 | R1 | 12 | 20 |
 | LCH-004 | R1 | 20 | 32 |
@@ -310,7 +310,7 @@ Task acceptance:
 | LCH-102 | R1 | 30 | 46 |
 | LCH-103 | R1 | 14 | 24 |
 | LCH-104 | R1 | 14 | 22 |
-| **Total R1** | | **164** | **256** |
+| **Total R1** | | **162** | **253** |
 | **Total R2** | | **0** | **0** |
 
 Excluded: counsel and accountant fees; invoicing tool/approved-platform subscription; customer payment terms (elapsed time to M12).

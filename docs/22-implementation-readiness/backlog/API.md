@@ -136,7 +136,7 @@ Resolution: new task **API-102**.
 - Same request → planner → broker path (records or aggregate mode). Sync CSV only if est_rows ≤ 10,000 and ≤ 5 MB; otherwise an async job (API-004) writes gzip CSV parts to S3 `exports/<tenant>/<job>/` (KMS, 7-day lifecycle), capped at 1,000,000 rows / 250 MB compressed; above that → 422 `EXPORT_TOO_LARGE` with a narrowing hint.
 - **Type-driven escaping**: numeric/decimal columns are emitted raw from the decimal string and validated by `^-?\d+(\.\d+)?$`. Text columns are prefixed with `'` when the first non-whitespace character ∈ {`=`,`+`,`-`,`@`,`\t`,`\r`,`＝`,`＋`,`－`,`＠`}, then RFC 4180-quoted.
 - The ZIP contains `data.csv` plus `manifest.json` (request, publication_id, metric versions, coverage, row count, SHA-256).
-- Downloads go through `GET /v1/exports/{id}/download`, which re-authorizes and then redirects to a 30 s presigned URL (SEC Appendix F).
+- Downloads go through the single artifact broker `GET /v1/artifacts/{id}/download` (SEC-006-S08; RECONCILIATION U-10, C-12), which re-authorizes and then redirects to a 30 s presigned URL (SEC Appendix F).
 - PNG/PDF (R2) render through the RPT-002 isolated worker from the same stored result snapshot, never from a screenshot of the user's browser.
 Affects: API-102, API-004, RPT-002, UX-104, UX-004.
 
@@ -244,7 +244,7 @@ Affects: CTL-006, API-003.
 | v1 metric catalog (§3.1) | 47 YAML files with populations and null policies | API-001-S04…S06 |
 | Dimension catalog (§3.2) | 46 YAML files: type, cardinality class, entitlement flag, pii flag (D-10), hierarchy, autocomplete flag | API-001-S07 |
 | QueryPlan IR `schema/query_plan.schema.json` | `{plan_version, tenant_id, subject_id, profile_hash, membership_epoch, publication_id, registry_version, mode: AGGREGATE\|RECORDS, class: INTERACTIVE\|JOB, period:[start,end), grain, metrics:[{id,version,relation,measure}], dimensions:[{id,column_ref,join_path}], filters:[{dimension,op,param_refs}], params:{p1:typed value}, compare?, top_n?, sort:[…,row_key], limit, keyset_after?, currency_rule, maturity, privacy_mode, substitution?, tier: HOT\|AGGREGATE, exp, sig}` — signed with Ed25519 (API signing key in Secrets Manager; broker holds the public key); canonical JSON = RFC 8785 | API-002-S03, S06 |
-| OpenAPI 3.1 `docs/api/openapi.yaml` | Paths: `POST /v1/analytics/query`, `POST /v1/analytics/batch` (≤12 items, one publication), `GET /v1/cost`, `POST /v1/analytics/records`, `GET /v1/dimensions/{id}/values`, `GET /v1/entities/{kind}/{id}`, `GET /v1/metrics`, `GET /v1/dimensions`, `GET /v1/me/context`, `GET /v1/publications/current`, `POST/GET /v1/analysis-jobs`, `GET /v1/analysis-jobs/{id}`, `POST /v1/analysis-jobs/{id}/cancel`, `GET /v1/analysis-jobs/{id}/result`, `GET /v1/explain/{ref}`, `GET /v1/explain/nodes/{ref}/children`, `POST /v1/exports`, `GET /v1/exports/{id}`, `GET /v1/exports/{id}/download`, `GET/POST /v1/machine-clients`, `POST /v1/machine-clients/{id}/rotate`, `POST /v1/machine-clients/{id}/revoke` | API-003-S01 (skeleton), extended by API-004/005/102/104/006 |
+| OpenAPI 3.1 `docs/api/openapi.yaml` | Paths: `POST /v1/analytics/query`, `POST /v1/analytics/batch` (≤12 items, one publication), `GET /v1/cost`, `POST /v1/analytics/records`, `GET /v1/dimensions/{id}/values`, `GET /v1/entities/{kind}/{id}`, `GET /v1/metrics`, `GET /v1/dimensions`, `GET /v1/me/context`, `GET /v1/publications/current`, `POST/GET /v1/analysis-jobs`, `GET /v1/analysis-jobs/{id}`, `POST /v1/analysis-jobs/{id}/cancel`, `GET /v1/analysis-jobs/{id}/result`, `GET /v1/explain/{ref}`, `GET /v1/explain/nodes/{ref}/children`, `POST /v1/exports`, `GET /v1/exports/{id}`, `GET /v1/artifacts/{id}/download` (SEC-006-S08 broker; RECONCILIATION U-10), `GET/POST /v1/machine-clients`, `POST /v1/machine-clients/{id}/rotate`, `POST /v1/machine-clients/{id}/revoke` | API-003-S01 (skeleton), extended by API-004/005/102/104/006 |
 | Response meta JSON Schema `packages/api_contracts/meta.schema.json` | `{request_id, api_version, tenant_id, scope:{organization_ids, account_ids, summary_key}, publication_id, publication_as_of, registry_version, metric_versions:{id:int}, source_as_of:[{source_id, complete_through}], materialized_at, data_status:{overall, composition:{PROVISIONAL:dec,FINAL:dec,RECONCILED:dec}}, reconciliation_status: PENDING\|MATCHED\|WARNING\|FAILED\|NOT_APPLICABLE, close_status: OPEN\|CLOSED\|RESTATED\|NOT_APPLICABLE, coverage:{source_ratio, attribution_ratio, missing_sources:[…], excluded_by_maturity}, price_basis:[…], currency, retention_tier, exactness, metric_substitution?, comparison_status?, totals:{metric:dec\|null}, null_reasons_totals?, planner:{route, est_rows_bucket}, warnings:[{code, params}], page:{limit, next_cursor, has_more}, explain:{query_token}}` | API-003-S01 |
 | Value encoding | Decimal = JSON string `^-?(0\|[1-9]\d*)(\.\d{1,12})?$`, no exponent, no `-0`, at least minor-unit digits for money (G-FIN-19). Row = `{key, dims:{…}, values:{metric: dec\|int\|null}, null_reasons:{metric: NullReason}}`. `NullReason` enum: PRICE_UNKNOWN, SOURCE_MISSING, SOURCE_NOT_ENABLED, ATTRIBUTION_UNAVAILABLE, CAPABILITY_UNSUPPORTED, ZERO_DENOMINATOR, DENOMINATOR_OUTSIDE_SCOPE, RETENTION_EXPIRED, PRIVACY_SUPPRESSED, NOT_APPLICABLE_SCOPE, INSUFFICIENT_HISTORY, CURRENCY_EXCLUDED | API-003-S01/S02 |
 | Problem catalogue `packages/api_contracts/problems.yaml` | RFC 9457 `application/problem+json` with the CTL fields `code, message, request_id, retryable, field_errors`. Codes/status: VALIDATION_FAILED 422, METRIC_UNKNOWN 422, DIMENSION_INCOMPATIBLE 422, CURRENCY_MIXED 422, RANGE_TOO_LARGE 422, QUERY_REQUIRES_ASYNC 422, EXPORT_TOO_LARGE 422, METRIC_VERSION_RETIRED 410, CURSOR_INVALID 400, CURSOR_MISMATCH 400, CURSOR_EXPIRED 410, PUBLICATION_RETIRED 410, SCOPE_CHANGED 409, RESULT_SCOPE_CHANGED 409, IDEMPOTENCY_KEY_REUSED 409, ALREADY_COMPLETED 409, FORBIDDEN 403, NOT_FOUND 404 (non-enumerating), TENANT_BUSY 429, RATE_LIMITED 429, QUOTA_EXCEEDED 429, QUERY_DEADLINE_EXCEEDED 503, UPSTREAM_UNAVAILABLE 503 | API-003-S01 |
@@ -438,7 +438,7 @@ Dependency changes: none upstream beyond API-002. Downstream: UX-002 depends onl
 | API-003-S02 | Implement decimal serialization from Snowflake NUMBER(38,12) via Python Decimal with the FIN-106 context (G-FIN-19): plain string, no exponent, no `-0`, money padded to ISO 4217 minor units | `apps/api/analytics/serialize.py` | `Decimal('-0.000000000000')` → `"0.00"` (USD); `Decimal('1E+3')` → `"1000.00"`; `12345678901234567890.123456789012` round-trips exactly | 2 |
 | API-003-S03 | Assemble meta from the publication manifest (as-of, materialized_at, source_as_of), coverage marts, reconciliation/close status and data_status composition (computed with GROUPING SETS in the same statement); totals for the full result (not the page) | `apps/api/analytics/meta.py` | Fixture: a partial month shows composition PROVISIONAL 15,000 / RECONCILED 0 and `comparison_status=PARTIAL_CURRENT` | 4 |
 | API-003-S04 | Distinguish empty-confirmed vs no-coverage vs forbidden: empty rows + coverage complete → 200 empty; coverage missing → rows empty + `data_status.overall=UNAVAILABLE` + missing_sources; unauthorized → 403/404 | code + tests | Three fixtures produce three distinct, schema-valid responses | 2 |
-| API-003-S05 | Implement the sealed-token library (AES-256-GCM, kid ring, purpose AAD) and the rotation Lambda/job; spec doc | `packages/sealed_tokens/`, `docs/09-api/tokens.md` | A token minted under kid k1 validates after rotation to k2; a k0 token after its retirement → CURSOR_INVALID; a purpose-swapped token (explain used as cursor) fails | 4 |
+| API-003-S05 | Implement the sealed-token library (AES-256-GCM, kid ring, purpose AAD) and the rotation Lambda/job; spec doc. It is the single cursor/token library (SEC-006 consumes it; RECONCILIATION U-21, C-07); cursor TTL 1 h from the config key `cursor_ttl_seconds` owned here and read by ORC-105's GC grace; cursors create no pins | `packages/sealed_tokens/`, `docs/09-api/tokens.md` | A token minted under kid k1 validates after rotation to k2; a k0 token after its retirement → CURSOR_INVALID; a purpose-swapped token (explain used as cursor) fails | 4 |
 | API-003-S06 | Implement keyset pagination for aggregate and records modes: sort tuple + `row_key` (hash of dims, or `(account_id, query_id)`), NULLS LAST encoded, typed `after` values | `apps/api/analytics/pagination.py` | 1,000 rows all with spend `"10.00"` paginate at 100/page with each row_key exactly once | 4 |
 | API-003-S07 | Implement the cursor validation matrix (G-API-07 order) with identical bodies for tamper/foreign/unknown kid | code + tests | Foreign-tenant cursor and random bytes produce byte-identical problem bodies (except request_id) | 2 |
 | API-003-S08 | Implement publication resolution: "latest" → id at request start (per-tenant publication map); jobs/exports/statements/reports create pins through ORC-105's pin API; cursors rely on ORC's grace window (cursor TTL 1 h < grace); 410 PUBLICATION_RETIRED when the revision is gone | `apps/api/analytics/publication.py`, ORC-105 client | While a job pin exists the ORC GC dry-run lists the revision as protected; a cursor used after grace expiry → 410 PUBLICATION_RETIRED with restart guidance | 3 |
@@ -483,7 +483,7 @@ Task acceptance:
 
 ### API-005 — Explain This Number: lazy lineage tree
 Release: R1 · Estimate: 32–46 h · Risk: H · Decisions: D-05, D-12, D-15 · Closes: G-API-08
-Dependency changes: `API-003`, `DBT-006` (charge/attribution/source-set explain), `ALC-005` + `FIN-010` only for the statement-line resolvers (S05 is gated; the other steps are not). Add `+ING` batch-manifest read API (the owner is the ING backlog).
+Dependency changes: `API-003`, `DBT-006` (charge/attribution/source-set explain), `ALC-005` + `FIN-010` only for the statement-line resolvers (S05 is gated; the other steps are not — step-level, not graph edges), `+ING-012` (batch-manifest read endpoint `GET /v1/data-health/batches/{batch_id}` added to ING-012-S03; RECONCILIATION C-27).
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -534,8 +534,8 @@ Task acceptance:
 ## 5. New tasks required
 
 ### API-102 — Exports: CSV (sync/async) and evidence bundles; PNG/PDF via render worker
-Release: R1 (CSV, evidence bundles) / R2 (PNG, PDF) · Estimate: R1 24–34 h, R2 8–12 h · Risk: M · Decisions: D-18 · Closes: G-API-09
-Dependency changes: new; depends on `API-003`, `API-004`, `INF-003` (S3/KMS); PNG/PDF steps depend on `RPT-002`. Dependents: UX-104, UX-004 export action, API-005-S10. Plugs in parallel with API-005.
+Release: R1 (CSV, evidence bundles) / R2 (PNG, PDF) · Estimate: R1 22–31 h, R2 8–12 h · Risk: M · Decisions: D-18 · Closes: G-API-09
+Dependency changes: new; depends on `API-003`, `API-004`, `INF-003` (S3/KMS); PNG/PDF steps depend on `RPT-002`. Dependents: UX-104, UX-004 export action, UX-101, ONB-102 (tenant export bundle = an API-102 export kind), API-005-S10. API-102 owns the CSV writer library and the export job kinds (RPT-002 and ONB-102 reuse them); downloads go through SEC-006-S08 (RECONCILIATION U-10). Plugs in parallel with API-005.
 
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -543,12 +543,12 @@ Dependency changes: new; depends on `API-003`, `API-004`, `INF-003` (S3/KMS); PN
 | API-102-S02 | Implement sync/async decision (est_rows ≤ 10,000 and ≤ 5 MB sync), hard limits (1,000,000 rows / 250 MB gz) → 422 EXPORT_TOO_LARGE with narrowing hints | `apps/api/exports/plan.py` | 10,001-row estimate → async; 2M → 422 | 2 |
 | API-102-S03 | Implement the type-driven CSV writer: decimal columns raw from strings (regex-validated), text columns escaped per G-API-09 incl. full-width triggers, RFC 4180 quoting, UTF-8 without BOM by default (BOM option for Excel), header row from i18n labels + stable column ids | `packages/exporters/csv.py` | Fuzz: 100k random strings → no exported text cell starts with an unescaped trigger; `-1234.500000000000` stays exact | 3 |
 | API-102-S04 | Streaming async writer in analysis-worker: `COPY INTO @stage` or chunked cursor fetch → multipart S3 upload; manifest.json (request, publication_id, metric versions, coverage, row count, SHA-256 per part) | worker extension | 1M-row export completes with worker RSS < 300 MB; manifest checksums verify | 5 |
-| API-102-S05 | Download endpoint: re-authorize (subject, epochs, scope hash) → 302 to a 30 s presigned URL; audit event with row count and checksum, no data | `GET /v1/exports/{id}/download` | Revoked user → 403; presigned URL expired after 30 s | 2 |
+| API-102-S05 | Moved to SEC-006-S08 per RECONCILIATION U-10, C-12 (single artifact download broker, 30 s presigned URL) — register export artifacts (row count, checksum for its audit event) with it | — | — | 0 |
 | API-102-S06 | Sync CSV path for small results (same writer, streamed response, `Content-Disposition` with an ASCII-safe filename) | route | Explorer CSV equals the table rows and totals for the same publication | 2 |
 | API-102-S07 | Evidence bundle export (Explain) and saved-view "export definition" (JSON of the semantic request, no data) | routes | Bundle root equals the displayed amount | 2 |
 | API-102-S08 | Tests: formula injection corpus (OWASP CSV injection list + full-width), multi-currency export keeps a currency column, restricted profile export contains only authorized rows, export of a retired publication → 410 | `tests/spec/API-102/` | All pass | 3 |
 | API-102-S09 | Observability + quotas: `exports_total{mode,outcome}`, bytes, per-tenant daily export cap (default 50 exports/day) | dashboards, entitlements | Cap enforced with 429 | 2 |
-| API-102-S10 (R2) | PNG/PDF: submit a render job to RPT-002 with the stored result snapshot + widget spec; deliver through the same download endpoint | integration | PDF numbers equal the CSV of the same job | 5 |
+| API-102-S10 (R2) | PNG/PDF: submit a render job to RPT-002 with the stored result snapshot + widget spec; deliver through the SEC-006-S08 download broker | integration | PDF numbers equal the CSV of the same job | 5 |
 | API-102-S11 (R2) | Visual/regression tests of rendered exports (fixture charts, negative values, long labels) | tests | Baseline diffs reviewed | 4 |
 
 Task acceptance:
@@ -589,11 +589,11 @@ Task acceptance:
 | API-003 | R1 | 36 | 50 |
 | API-004 | R1 | 32 | 46 |
 | API-005 | R1 | 32 | 46 |
-| API-102 (new, CSV/evidence) | R1 | 24 | 34 |
+| API-102 (new, CSV/evidence) | R1 | 22 | 31 |
 | API-104 (new) | R1 | 30 | 42 |
 | API-006 | R2 (R1* if customer integrates by API) | 32 | 46 |
 | API-102 (PNG/PDF steps) | R2 | 8 | 12 |
-| **Total R1** | | **264** | **374** |
+| **Total R1** | | **262** | **371** |
 | **Total R2** | | **40** | **58** |
 
 The original plan was 6 tasks × 2–6 h = 12–36 h. The realistic figure is roughly 10× higher. Most of the gap is the registry, broker, tokens and Explain designs, which the contract leaves implicit.

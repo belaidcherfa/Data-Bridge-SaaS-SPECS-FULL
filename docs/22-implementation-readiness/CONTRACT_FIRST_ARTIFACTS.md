@@ -16,14 +16,14 @@ These gate several lanes at once. Author them in this order; items on the same l
 | 2 | Control-plane kernel DDL (outbox, idempotency, leases, consumed events) + PostgreSQL RLS standard | Hidden SEC↔CTL cycle is broken only by this kernel (G-SEC-11) | CTL-101 · [CTL §3](backlog/CTL.md), [SEC §3](backlog/SEC.md) |
 | 2 | Scope grammar (canonical JSON, PG predicate and Snowflake entitlement compilation) + capability × role matrix with maker-checker rules | Authorization everywhere; approvals for close, rules, prices | SEC-101, SEC-102 · [SEC Appendices B–C](backlog/SEC.md) |
 | 3 | Source registry JSON Schema + one contract per activated source, including the widened QUERY_HISTORY projection requested by INS/ALC/WRK and numeric maturity horizons | Irreversible: fields not extracted now are lost for backfilled history | ING-001, FIN-104 · [ING §3](backlog/ING.md), [INS §3](backlog/INS.md) |
-| 3 | Landing key grammar, manifest schema, file-receipt contract | S3 prefix-escape defense and batch acceptance | INF-003, ING-005, ING-007 · [INF §3](backlog/INF.md), [ING §3](backlog/ING.md) |
+| 3 | Landing key grammar, manifest schema, file-receipt contract | S3 prefix-escape defense and batch acceptance | ING-005 (key grammar ING-005-S01 — INF-003-S04 consumes it; manifest schema), ING-007 (receipts) · [ING §3](backlog/ING.md), [INF §3](backlog/INF.md) (RECONCILIATION §5.2) |
 | 3 | Workload metadata allowlist (dbt comment keys, Power BI tag keys) parsed inside the sanitizer | Irreversible loss otherwise (G-WRK-01) | WRK-101 · [WRK §3](backlog/WRK.md) |
-| 4 | `fct_charge` schema, family-bucket supersession rules, attribution bridge, service authority map, money library contract | The financial kernel's shape | FIN-001, FIN-106 · [FIN §3](backlog/FIN.md) |
+| 4 | `fct_charge` schema, family-bucket supersession rules, attribution bridge, service authority map, money library contract | The financial kernel's shape | FIN-001, FIN-106 (money JSON grammar FIN-106-S04, NUMBER(38,12); RECONCILIATION C-14, U-20) · [FIN §3](backlog/FIN.md) |
 | 4 | Semantic registry schemas + v1 metric/dimension catalog (incl. `attributed_cost`, sketches for percentiles) | API, UX, GOV, RPT, INS all bind to metric IDs | API-001 · [API §3](backlog/API.md) |
-| 5 | OpenAPI conventions, error-code catalog, Decimal-as-string codegen | Every endpoint and generated client | FND-103 · [FND §3](backlog/FND.md) |
-| 5 | State-machine catalog: connection, batch attempt, backfill, onboarding, rule lifecycle, monitor episode, insight, action, period/statement, subscription | Each state machine is shared by API, workers and UI | CON, ING, ONB, ALC, GOV, INS, FIN, LCH backlogs |
+| 5 | OpenAPI conventions, error-code catalog, Decimal-as-string codegen | Every endpoint and generated client | FND-103 (imports the money grammar from FIN-106-S04; RECONCILIATION U-20) · [FND §3](backlog/FND.md) |
+| 5 | State-machine catalog: connection, batch attempt, backfill, onboarding, rule lifecycle, monitor episode, insight, action, period/statement, tenant, subscription | Each state machine is shared by API, workers and UI | CON, ING, ONB, ALC, GOV, INS, FIN, CTL, LCH backlogs (tenant: CTL-102-S01; subscription: LCH-001-S02, not CTL-007 — RECONCILIATION C-08) |
 | 5 | Telemetry log/trace/metric schema, alert catalog | Needed from M1 (G-OPS-01) | OPS-001 · [OPS §3](backlog/OPS.md) |
-| 6 | Environment, service and IAM policy catalogs; test-estate specification; cost baseline and budgets | Infrastructure and live gates | INF-001, INF-005, INF-101, INF-103, INF-105 · [INF §3](backlog/INF.md) |
+| 6 | Environment, service and IAM policy catalogs; test-estate specification; cost baseline and budgets | Infrastructure and live gates | INF-001, INF-005, INF-101, INF-103 (IAM policy templates INF-103-S01…S05 + CON-001-S03 connection policy content; RECONCILIATION U-02), INF-105 · [INF §3](backlog/INF.md) |
 
 ## 2. Full index by domain
 
@@ -44,7 +44,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `AGENTS.md` | FND-006-S08 |
 | `docs/development/snowflake-dev-access.md` | FND-101-S01 |
 | `data/fixtures/recorded/meta.schema.json` | FND-102-S01 |
-| `contracts/.spectral.yaml` + API conventions doc | FND-103-S01/S02 |
+| `contracts/.spectral.yaml` + API conventions doc | FND-103-S01/S02 (money grammar imported from FIN-106-S04; RECONCILIATION U-20, C-14) |
 
 ### INF (14 artifacts) — [details](backlog/INF.md)
 
@@ -54,10 +54,10 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Org and SCP set | INF-001-S02..S04 |
 | Terraform state layout | INF-001-S08/S09 |
 | CIDR/subnet/SG matrix | INF-002-S01/S06 |
-| Egress publication format | INF-002-S03/S13 |
+| Egress publication format | INF-002-S03 + CON-102-S01 (INF-002-S13 generates the file; RECONCILIATION U-24, C-13) |
 | Storage/messaging catalog | INF-003-S01 |
-| Landing key grammar | INF-003-S04 |
-| IAM policy templates | INF-103-S01..S05, INF-005-S06/S08 |
+| Landing key grammar | ING-005-S01 (INF-003-S04 consumes it; RECONCILIATION §5.2) |
+| IAM policy templates | INF-103-S01…S05 (+ CON-001-S03 connection policy content; RECONCILIATION U-02); static task and launcher roles INF-005-S06/S08 |
 | Service catalog `infra/services.yaml` | INF-005-S01 |
 | PG pool budget manifest | INF-004-S04 |
 | Release manifest schema | INF-007-S01 |
@@ -95,7 +95,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Expand/contract protocol | CTL-002-S01 |
 | Redis key/value contract | CTL-006-S01 |
 | Config snapshot contract | CTL-005-S01/S02 |
-| Tenant and subscription state machines | CTL-102-S01, CTL-007-S07 |
+| Tenant and subscription state machines | CTL-102-S01 (tenant), LCH-001-S02 (subscription) (RECONCILIATION C-08) |
 | Control ERD | CTL-001-S10 |
 
 ### CON (10 artifacts) — [details](backlog/CON.md)
@@ -103,7 +103,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Artifact | Produced by |
 |---|---|
 | PG DDL `connection.*` | CON-001-S01, CON-004-S01, CON-005-S01, CON-006-S01 |
-| IAM templates | CON-001-S03 |
+| IAM templates | INF-103-S01…S05 (+ CON-001-S03 policy content; RECONCILIATION U-02) |
 | Install and revoke scripts | CON-003-S02…S06 |
 | Privilege map | CON-003-S01 |
 | Credit estimator | CON-101-S01 |
@@ -111,7 +111,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Probe contract | CON-005-S01…S03 |
 | OpenAPI | CON-001-S07, CON-003-S07, CON-004-S09, CON-005-S11, CON-006-S09…S11, CON-102-S01 |
 | Error codes | CON-002-S05, CON-005-S03 |
-| Egress IP publication | CON-102-S01 |
+| Egress IP publication | INF-002-S03 + CON-102-S01 (RECONCILIATION U-24) |
 
 ### ING (10 artifacts) — [details](backlog/ING.md)
 
@@ -122,7 +122,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Transport schema | ING-001-S05, ING-004-S01 |
 | Key grammar | ING-005-S01 |
 | Manifest v1 JSON Schema | ING-005-S05 |
-| PG DDL `sync.*` | ING-002-S05, ING-005-S07, ING-007-S01, ING-010-S01, ING-011-S01, ING-106-S01 |
+| PG DDL `sync.*` | ING-002-S05, ING-005-S07, ING-007-S01, ING-010-S01, ING-011-S01; cycle table `sync.account_cycles` ORC-003-S01 (RECONCILIATION U-12) |
 | Snowflake DDL | ING-006-S01…S05, ING-007-S01 |
 | Decision tables | ING-007-S05, ING-008-S03, ING-009-S02, ING-012-S01 |
 | APIs | ING-010-S01, ING-011-S01, ING-012-S03, ING-106-S02 |
@@ -133,7 +133,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Artifact | Produced by |
 |---|---|
 | `services/orchestrator/dagster.yaml` + `workspace.yaml` | ORC-001-S01, ORC-003-S06 |
-| Launcher contract | ORC-001-S05/S07 |
+| Extraction launcher contract | ING-106-S03 (ORC-001-S05…S07 retired; RECONCILIATION C-04, U-12) |
 | PostgreSQL `sync.account_cycles`, `sync.lane_budget`, `sync.tenant_weight` | ORC-003-S01 |
 | Error-class catalog | ORC-003-S07 |
 | `data/contracts/dagster_metadata.json` | ORC-002-S10 |
@@ -142,7 +142,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `data/contracts/publication.json` | ORC-005-S06/S09 |
 | `data/contracts/py_outputs.json` | ORC-103-S01 |
 | `data/contracts/recovery_plan.json` | ORC-006-S01 |
-| Query-tag schema | ORC-104-S01 |
+| Query-tag schema (QUERY_TAG JSON v1) | OPS-109-S03 (RECONCILIATION U-06) |
 
 ### DBT (11 artifacts) — [details](backlog/DBT.md)
 
@@ -172,7 +172,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `data/dbt/seeds/ref_source_maturity_policy.csv` (versioned) | FIN-104-S01 |
 | `data/contracts/reconciliation/controls.yaml` | FIN-009-S01 |
 | `data/contracts/finance/period_state_machine.md` + PG DDL `finance.*` | FIN-010-S01, FIN-107-S01 |
-| `packages/bridge_money` API + `data/contracts/money.schema.json` | FIN-106-S01…S04 |
+| `packages/bridge_money` API + `data/contracts/money.schema.json` (money JSON grammar: FIN-106-S04; FND-103 imports it) | FIN-106-S01…S04 |
 | OpenAPI: `/v1/pricing/*`, `/v1/billing-references/*`, `/v1/reconciliation/*`, `/v1/periods/*`, `/v1/statements/*` | FIN-105-S05, FIN-101-S06, FIN-009-S12, FIN-010-S11 |
 | UX screen specs `/settings-pricing`, `/reconciliation-close`, `/reconciliation-references` | UX owner, before FIN-105-S08 / FIN-010-S12 / FIN-101-S09 |
 | Fixture pack `data/fixtures/finance/` | FIN-001, per-task fixture steps |
@@ -240,7 +240,7 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Precedence spec `docs/…/alc-precedence.md` | ALC-002-S04 |
 | Snowflake CONFIG DDL | ALC-002-S07, ALC-004-S04, ALC-005-S02 |
 | dbt model contracts | ALC-001/002/004/005/006/008, ALC-101 |
-| Rounding spec + fixtures | ALC-005-S04, ALC-008-S03 |
+| Rounding spec + fixtures | ALC-005-S04, FIN-106-S03 (ALC-008's mixed-sign fixtures moved there; RECONCILIATION U-20) |
 | State machines | ALC-003-S01, ALC-008-S01 |
 | Access-impact & disclosure spec | ALC-003-S05, ALC-101-S01/S05 |
 | OpenAPI | ALC-001…008 |
@@ -295,9 +295,9 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | Narrative grammar v1 | RPT-001-S06 |
 | State machines | RPT-002-S01, RPT-004-S01 |
 | Schedule schema + resolver spec | RPT-004-S01..S03 |
-| CSV serialization spec | RPT-002-S08 |
+| CSV serialization spec | API-102-S03 (RPT-002-S08 adds the G-RPT-09 vectors; RECONCILIATION U-10) |
 | S3 layout + lifecycle | RPT-002-S10, RPT-005-S08 |
-| IAM | RPT-002-S12, RPT-005-S04 |
+| IAM | RPT-002-S12 (presign signer: SEC-006-S08 broker; RECONCILIATION U-10) |
 | Renderer image spec | RPT-002-S04 |
 | OpenAPI | RPT-001, RPT-002, RPT-004, RPT-005 |
 | Error codes | all |
@@ -312,11 +312,11 @@ Artifact names and producing micro-steps, extracted from section 3 of each backl
 | `docs/operations/propagation.md` | OPS-001-S03 |
 | `infra/observability/slo/slo-catalog.yaml` | OPS-003-S01 |
 | `data/quality/gate-catalog.yaml` | OPS-002-S01 |
-| DDL `ops.quality_results` (Snowflake) | OPS-002-S02 |
+| DDL `QUALITY.CHECK_RESULT` (single result store keyed by candidate revision; replaces `ops.quality_results`) | DBT-005-S01 (RECONCILIATION U-19) |
 | DDL `privacy.tombstones` (PG) + S3 object schema `tombstone.v1.json` | OPS-104-S01 |
 | DDL `privacy.deletion_requests`, `privacy.deletion_stages`, `privacy.legal_holds` (PG) | OPS-005-S01 |
 | `data/contracts/recovery-manifest.v1.json` | OPS-007-S01 |
-| DDL `ops.processing_ledger` (Snowflake, internal) | OPS-109-S02 |
+| Per-tenant build rows `OPS_INTERNAL.BUILD_MODEL_TENANT_ROWS` (replaces `ops.processing_ledger`) | ORC-104-S02 (RECONCILIATION U-06, U-25) |
 | DDL `internal_cost.*` (separate Snowflake database, no customer grants) | OPS-009-S01 |
 | `support.access_grants` (PG) + ops API OpenAPI `ops-api.v1.yaml` | OPS-106-S01 |
 | `docs/operations/oncall-policy.md` | OPS-102-S01 |

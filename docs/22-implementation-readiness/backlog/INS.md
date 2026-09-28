@@ -250,18 +250,18 @@ Affects: INS-101, INS-006, INS-007.
 ## 4. Revised production backlog
 
 ### INS-001 — Build insight registry and evidence publication
-Release: R1 · Estimate: 40–60 h · Risk: M · Decisions: D-05, D-06, D-10, D-12, D-13 · Closes: G-INS-01 (manifest gate), G-INS-08, G-INS-10, G-INS-11
-Dependency changes: `−WRK-005` (only needed by R2 query/pipeline detectors → INS-103); `+CTL-004` (outbox link); `+CTL-005` (tenant-overridable detector parameters published as config versions).
+Release: R1 · Estimate: 36–54 h · Risk: M · Decisions: D-05, D-06, D-10, D-12, D-13 · Closes: G-INS-01 (manifest gate), G-INS-08, G-INS-10, G-INS-11
+Dependency changes: `−WRK-005` (only needed by R2 query/pipeline detectors → INS-103); `+CTL-004` (outbox link); `+CTL-005` (tenant-overridable detector parameters published as config versions); `−GOV-005`, `+GOV-101` (statistics and the monetary impact floor; RECONCILIATION U-09); `+ORC-103` (observations land through ORC-103's writer, not the ING-005 journal; U-18, C-17).
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-001-S01 | Author the observation, evidence, detector-evaluation JSON Schemas and the reason-code enum (§3); money as decimal strings, units mandatory | `data/contracts/insight_observation.schema.json`, `insight_evidence.schema.json`, `detector_evaluation.schema.json` | Schema tests reject: a missing unit, a float money value, an unknown reason code, a potential without potential_method | 3 |
 | INS-001-S02 | Implement the detector manifest loader; cross-check every `required_inputs` column against the ING-001 source-registry projection JSON | `services/intelligence/registry.py`, `detectors.v1.yaml` (41 rows, release flags) | A manifest requiring `QUERY_HISTORY.BYTES_SPILLED_TO_REMOTE_STORAGE` fails CI while the column is absent from the projection; all 41 IDs are present with the release flag of §2 | 3 |
 | INS-001-S03 | Capability resolver per (tenant, account): combine CON-005 probe status + source activation; emit a SUPPRESSED(MISSING_CAPABILITY:<key>) evaluation row instead of silence | `services/intelligence/capabilities.py` | An account with QAH DENIED yields a Q01 evaluation row `suppressed_by_reason={"MISSING_CAPABILITY:QAH":n}`; no Q01 observations | 3 |
-| INS-001-S04 | Money utilities: 30-day run-rate `amount×30/window_days` (Decimal, context precision 38), `impact_floor(currency, tenant)` from config, strict `>` comparison, presentation rounding HALF_EVEN only at the API edge | `services/intelligence/money.py` | 60 over 14 d → 128.5714…; floor 25.00 with run-rate exactly 25.00 → BELOW_IMPACT_FLOOR; EUR floor is used for EUR, never converted | 2 |
+| INS-001-S04 | Money utilities: 30-day run-rate `amount×30/window_days` (Decimal, context precision 38), `impact_floor(currency, tenant)` from GOV-101-S03's single implementation with INS-supplied config (RECONCILIATION U-09), strict `>` comparison, presentation rounding HALF_EVEN only at the API edge | `services/intelligence/money.py` | 60 over 14 d → 128.5714…; floor 25.00 with run-rate exactly 25.00 → BELOW_IMPACT_FLOOR; EUR floor is used for EUR, never converted | 1 |
 | INS-001-S05 | Fingerprint + observation_id per G-INS-10 | `services/intelligence/identity.py` | Tests: warehouse rename keeps fp; drop/recreate (new WAREHOUSE_ID) → new fp; minor bump keeps fp, major changes it; tenants A/B with identical native IDs → different fp; same inputs → same observation_id | 3 |
 | INS-001-S06 | Pure engine runner `run(context, feature_snapshot)`: logical `as_of` from context, no wall clock or unseeded randomness (lint rule bans `datetime.now`, `random`, `uuid4` in `detectors/`), canonical sorted-key JSON output | `services/intelligence/engine.py`, lint config | 10 identical runs → byte-identical output and one logical observation per fingerprint (oracle) | 3 |
 | INS-001-S07 | Feature snapshot loader: read accepted feature marts pinned to the publication set via the central WIF identity, Arrow batches per tenant; 15-min family timeout → FAILED with the last accepted publication untouched | `services/intelligence/features.py` | Timeout test leaves the prior `insight_observation` pointer unchanged; the loader refuses an unaccepted publication ID | 3 |
-| INS-001-S08 | Publish observation/evidence/evaluation batches via the ING-005 batch-commit contract into insert-only revisioned tables (D-05); per-tenant pointer advance (D-06); reject on schema-hash drift | dbt models `data/dbt/models/marts/insights/*`, Snowflake DDL | Failing tenant B partition does not block tenant A pointer; a batch with an extra column is rejected with SCHEMA_DRIFT | 4 |
+| INS-001-S08 | Publish observation/evidence/evaluation batches through ORC-103's Python-output writer (the customer journal and its manifests are reserved for customer-sourced data; RECONCILIATION U-18, C-17) into insert-only revisioned tables (D-05); per-tenant pointer advance (D-06); reject on schema-hash drift | dbt models `data/dbt/models/marts/insights/*`, Snowflake DDL | Failing tenant B partition does not block tenant A pointer; a batch with an extra column is rejected with SCHEMA_DRIFT | 1 |
 | INS-001-S09 | Evidence bounding + privacy: ≤ 200 rows/observation ordered by cost desc then stable key; query evidence = sanitized query IDs/param hash only (ADR-009); user identifiers as D-10 HMAC | `services/intelligence/evidence.py` | 10,000-candidate evidence fixture is truncated to 200 with `truncated_count=9800`; no plaintext USER_NAME in any evidence row (grep test) | 2 |
 | INS-001-S10 | Cost-pool tree + opportunity grouping DP per (tenant, account, currency) per G-INS-11 | `services/intelligence/opportunity.py`, `insight_opportunity_group` | Fixtures 60/45→45; 45+30→75; WH03 100 vs 75→100; USD+EUR members → two groups; null potentials counted, not summed | 4 |
 | INS-001-S11 | Outbox link: `insights.published` after acceptance; the PG consumer upserts `insight_workflow` by (tenant, fingerprint); a retracted publication (ADR-011) reverts `last_observation_id` or sets STALE_EVIDENCE | `apps/api/insights/consumer.py` | Replaying the same event 3× → one row, same revision; a retraction test restores the prior observation reference | 3 |
@@ -277,7 +277,7 @@ Task acceptance:
 
 ### INS-002 — Implement warehouse optimization detectors (R1: WH01 incl. WH04 tier, WH02)
 Release: R1 · Estimate: 38–56 h · Risk: M · Decisions: D-08, D-11, D-13 · Closes: G-INS-02 (consumer side), G-INS-07
-Dependency changes: `+FIN-003` (classic idle/attribution ledgers are the actual input), `+INS-102` (warehouse config), `−UX-005` (only a drilldown link; not blocking). Keep `FIN-004` (Adaptive flag). WH03/WH05–WH08 move to INS-106.
+Dependency changes: `+FIN-003` (classic idle/attribution ledgers are the actual input), `+INS-102` (warehouse config), `−UX-005` (only a drilldown link; not blocking), `−FIN-004` (FIN-004 is R1*; WH detectors read the Adaptive capability flag from CON-005 — RECONCILIATION C-22); keep INS-001. WH03/WH05–WH08 move to INS-106.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-002-S01 | Build fixtures: classic 14 d (metered 200, attributed 140, idle 60 USD @ 2 USD/credit), equality (idle exactly 25 %), Adaptive (attributed null), 335/336 hours, attributed>used hours, gap sets (below), config absent, multi-cluster without CLUSTER_NUMBER | `tests/spec/INS-002/fixtures/*.parquet` + expected JSON | Fixture checksums recorded; expected outputs reviewed | 3 |
@@ -302,12 +302,12 @@ Task acceptance:
 - [ ] WH04 never appears as a separate insight from WH01 for the same warehouse.
 
 ### INS-003 — Implement query optimization detectors (R1: Q01, Q02, Q03, Q07)
-Release: R1 · Estimate: 34–50 h · Risk: M · Decisions: D-10, D-11, D-08 · Closes: G-INS-01 (Q columns), G-INS-14, G-INS-15, G-INS-16
-Dependency changes: `−WRK-002`, `−WRK-004` (only PL detectors need them → INS-103); `+FIN-003`; `+ING-001` (projection must include hash version + spill columns before activation). Q04–Q06, Q08, PL01–PL05 → INS-103.
+Release: R1 · Estimate: 31–46 h · Risk: M · Decisions: D-10, D-11, D-08 · Closes: G-INS-01 (Q columns), G-INS-14, G-INS-15, G-INS-16
+Dependency changes: `−WRK-002`, `−WRK-004` (only PL detectors need them → INS-103); `+FIN-003`; `+ING-101` (the projection with hash version + spill columns is frozen and activated there; RECONCILIATION C-10 — INS asked ING-001); `+WRK-104` (family × day base model; U-17); `+GOV-005` (Q07 calls the anomaly evaluator; U-09); keep INS-001. Q04–Q06, Q08, PL01–PL05 → INS-103.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-003-S01 | Fixtures: family 10 runs@2 → 20@3; 20 % equality; attribution coverage 0.85; hash-version change; frequency 10→20/day and 10→15/day; identity shift; 3 × 1 GiB remote spill vs local-only; cloud services MAD=0 (5.0→6.5) and gross-absorbed case; Bridge-tagged family | `tests/spec/INS-003/fixtures/` | Expected JSON reviewed | 3 |
-| INS-003-S02 | dbt `fct_ins_query_family_day` (extends the D-11 aggregate): (tenant, account, param_hash, hash_version, usage_date, warehouse_id) → executions_total, executions_success, executions_attributed, attributed_credits (+QAS), cost, spill_remote_exec_count, spill_remote_bytes, identity tuple counts (user_hmac, role, warehouse); Adaptive credits from QMH summed across hours | `fct_ins_query_family_day.sql` | Row count = distinct family-days; cost reconciles to `ledger_query_compute` for the fixture | 4 |
+| INS-003-S02 | dbt view `fct_ins_query_family_day` over WRK-104's `fct_query_family_daily` (single D-11 aggregate; INS's measures are columns there — RECONCILIATION U-17, C-01): (tenant, account, param_hash, hash_version, usage_date, warehouse_id) → executions_total, executions_success, executions_attributed, attributed_credits (+QAS), cost, spill_remote_exec_count, spill_remote_bytes, identity tuple counts (user_hmac, role, warehouse); Adaptive credits from QMH summed across hours | `fct_ins_query_family_day.sql` | Row count = distinct family-days; cost reconciles to `ledger_query_compute` for the fixture | 1 |
 | INS-003-S03 | Q01: cohorts B = [D−27, D−14], C = [D−13, D]; u = cost/attributed executions; QUALIFIED iff n_B, n_C ≥ 10, coverage ≥ 0.90 in both, u_C/u_B − 1 > 0.20; unit_effect = (u_C − u_B)·n_C; volume_effect = (n_C − n_B)·u_B; assert cost_C − cost_B = unit + volume; potential_30d = unit_effect × 30/14 (ESTIMATE "if unit cost returns to baseline") | `detectors/q01_cost_regression.py` | Fixture: unit 20, volume 20, total Δ 40 = 60 − 20; +20 % exactly → NOT_QUALIFIED; coverage 0.85 → SUPPRESSED(ATTRIBUTION_COVERAGE) | 3 |
 | INS-003-S04 | Q01 confounder evidence: warehouse-size mix per cohort, warehouse move, hash-version change (families with different versions are never compared) | same module | Hash-version fixture yields no Q01 observation and no "new family" insight; size-mix change shown as evidence | 2 |
 | INS-003-S05 | Q02: executions/day C vs B; QUALIFIED iff ratio > 1.5, n_B ≥ 10, dominant identity tuple ≥ 0.80 of executions in both cohorts; impact OBSERVED_EXCESS = volume_effect; potential null | `detectors/q02_frequency.py` | 10→20/day QUALIFIED (+100 %); 10→15 NOT (equality); identity shift → SUPPRESSED(WORKLOAD_IDENTITY_CHANGED) | 3 |
@@ -345,7 +345,7 @@ Task acceptance:
 - [ ] Exposure uses the FIN-006 storage rate in native currency.
 
 ### INS-005 — Implement Cortex and container optimization detectors
-Release: R2 (AI01/AI04 → R1 only if D-20 reports Cortex spend at the first customer) · Estimate: 36–54 h · Risk: H · Decisions: D-10, D-20 · Closes: G-INS-06
+Release: R2 (AI01/AI04 → R1\* only if D-20 reports Cortex spend at the first customer; carried as a `release_note` in revised-task-graph.json, RELEASE_PLAN §2 follows — RECONCILIATION C-30) · Estimate: 36–54 h · Risk: H · Decisions: D-10, D-20 · Closes: G-INS-06
 Dependency changes: none added; SP01/SP03 capability-gated; AI02/AI07 need the new customer-input contracts in S02.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
@@ -443,7 +443,7 @@ Task acceptance:
 
 ### INS-102 — Warehouse configuration snapshot source (cross-domain; execute with ING/CON owners)
 Release: R1 · Estimate: 23–34 h · Risk: M · Decisions: D-07, D-08, D-21 · Closes: G-INS-02
-Why/where: WH02 and config-detected implementation need current configuration, which no source provides. Deps: CON-003 (grant), CON-005 (probe), ING-005/006 (batch path). Feeds INS-002, INS-006, INS-007, INS-106.
+Why/where: WH02 and config-detected implementation need current configuration, which no source provides. Deps: CON-003 (grant), CON-005 (probe), ING-005/006 (batch path), ING-106 (the snapshot runs inside the account-cycle executor; RECONCILIATION U-12). Feeds INS-002, INS-006, INS-007, INS-106.
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-102-S01 | Live probe (TO VERIFY LIVE): does account-level MONITOR USAGE make `SHOW WAREHOUSES` list all warehouses? Compare with per-warehouse MONITOR; record the column list incl. new BCR columns and whether a warehouse ID column exists | `docs/evidence/INS-102/probe.md` | Evidence from one Standard and one Enterprise trial account | 3 |
@@ -499,7 +499,7 @@ Task acceptance:
 
 ### INS-105 — Detector qualification: backtest and false-positive review
 Release: R1 · Estimate: 25–38 h · Risk: M · Decisions: D-20 · Closes: G-INS-19
-Why/where: The contract mandates a retrospective FP review; no owner exists. Runs in parallel with INS-002..004; gates enabling each R1 detector for customers.
+Why/where: The contract mandates a retrospective FP review; no owner exists. Deps: INS-002, INS-003, INS-004 (qualification needs the detectors); gates enabling each R1 detector for customers and is release evidence through OPS-011 (RECONCILIATION C-29).
 | Step | Micro-task | Deliverable | Done when | h |
 |---|---|---|---|---|
 | INS-105-S01 | Precision register table per detector version fed by DISMISSED(FALSE_POSITIVE) and reviewer verdicts | `insight_detector_quality` (PG) | Metric computed per version | 3 |
@@ -535,9 +535,9 @@ Task acceptance:
 
 | Task | Release | Low h | High h |
 |---|---|---:|---:|
-| INS-001 | R1 | 40 | 60 |
+| INS-001 | R1 | 36 | 54 |
 | INS-002 | R1 | 38 | 56 |
-| INS-003 | R1 | 34 | 50 |
+| INS-003 | R1 | 31 | 46 |
 | INS-004 | R1 | 20 | 30 |
 | INS-006 | R1 | 44 | 64 |
 | INS-007 | R1 | 45 | 66 |
@@ -548,7 +548,7 @@ Task acceptance:
 | INS-103 | R2 | 48 | 72 |
 | INS-104 | R2 | 40 | 60 |
 | INS-106 | R2 | 34 | 51 |
-| **Total R1** | | **304** | **450** |
+| **Total R1** | | **297** | **440** |
 | **Total R2** | | **158** | **237** |
 
 ## 7. Owner questions

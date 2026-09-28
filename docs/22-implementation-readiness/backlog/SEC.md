@@ -350,7 +350,7 @@ Task acceptance:
 - [ ] ADR-005 amendment accepted.
 
 ### SEC-006 — Enforce revocation across sessions, jobs, caches and downloads
-Release: R1 · Estimate: 44–68 h · Risk: H · Decisions: D-02, D-22 · Closes: G-SEC-12
+Release: R1 · Estimate: 41–64 h · Risk: H · Decisions: D-02, D-22 · Closes: G-SEC-12
 Dependency changes: `+SEC-002` (sessions), `+CTL-101` (outbox emit), `+SEC-105` (profile activation/retirement); keep SEC-004, SEC-005.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
@@ -360,9 +360,9 @@ Dependency changes: `+SEC-002` (sessions), `+CTL-101` (outbox emit), `+SEC-105` 
 | SEC-006-S03 | Implement epoch mutations: `memberships.permission_epoch` on any grant/membership/status change; `tenants.authz_epoch` only on data-visibility events (profile retirement, privacy-mode change, access-relevant group-set publication); both via `UPDATE … SET x=x+1 RETURNING` | `packages/authz/epochs.py` | Property test: epochs strictly increase under 50 concurrent edits | 2 |
 | SEC-006-S04 | Implement narrowing vs broadening: new profile subsumes old → keep old until new ACTIVE; otherwise set `profile_id=NULL` immediately (analytics → 503 `ACCESS_UPDATING`, `Retry-After: 10`) | `packages/authz/profile_switch.py` | Narrowing test: next analytical request after commit is denied even though SEC-105 has not run | 4 |
 | SEC-006-S05 | Broker recheck: re-read authz before each statement and every 10 s while running; on mismatch cancel the statement (`SYSTEM$CANCEL_QUERY` / connector cancel), discard fetched rows, return 403 `AUTHZ_REVOKED` | `packages/query_broker_core/recheck.py` | 60-s synthetic query cancelled ≤15 s after revoke commit | 4 |
-| SEC-006-S06 | Signed cursors: HMAC-SHA256, two active keys (kid) in Secrets Manager; payload `{t,s,m_epoch,p,q_hash,pub,sort,exp≤15 min}`; validation order signature → expiry → tenant/subject → epoch (stale → 409 `CURSOR_STALE`) | `packages/cursors/` | ATK-04 (stale epoch) 409; ATK-05 (other user's cursor) 400 `CURSOR_INVALID` | 3 |
+| SEC-006-S06 | Moved to API-003-S05 per RECONCILIATION U-21, C-07 (sealed AES-256-GCM cursor tokens, TTL 1 h from config key `cursor_ttl_seconds`, every page re-checks membership epoch and profile hash, stale → 409 `SCOPE_CHANGED`; cursors create no pins) — consume its library here; binding rules (S01) and revocation tests ATK-04/ATK-05 (S12) stay in SEC-006 | — | ATK-04 (stale epoch) 409 `SCOPE_CHANGED`; ATK-05 (other user's cursor) 400 `CURSOR_INVALID` (asserted in S12) | 0 |
 | SEC-006-S07 | Async jobs: store submit subject, membership, epoch, profile_hash, canonical scope; result read requires current profile ⊇ job profile (SEC-101 `subsumes`); reaper cancels running jobs of removed/narrowed members within 30 s | `apps/api/jobs/authz.py` | ATK-08: job finishing after revoke is not delivered (403 `RESULT_SCOPE_REVOKED`) | 4 |
-| SEC-006-S08 | Downloads: `GET /v1/artifacts/{id}/download` rechecks artifact scope ⊆ current scope, then 302 to presigned URL TTL 30 s with `response-content-disposition=attachment`; emailed links point to the app route only | `apps/api/artifacts/download.py` | ATK-09: link issued before revoke fails after revoke; presigned URL expires at 30 s | 3 |
+| SEC-006-S08 | Single artifact download broker for every artifact kind (reports, exports, evidence bundles, statements, uploaded billing references; RPT-005 plugs in its report authorization resolver; RECONCILIATION U-10, C-12): `GET /v1/artifacts/{id}/download` rechecks artifact scope ⊆ current scope, then 302 to presigned URL TTL 30 s (signer credentials ≥ 15 min remaining) with `response-content-disposition=attachment`; emailed links point to the app route only | `apps/api/artifacts/download.py` | ATK-09: link issued before revoke fails after revoke; presigned URL expires at 30 s | 3 |
 | SEC-006-S09 | Bind cache keys (CTL-006) to profile_hash + tenant authz_epoch; test stale-epoch key unreachable | `tests/cache/test_epoch_binding.py` | Pre-seeded stale key never returned | 2 |
 | SEC-006-S10 | Browser contract: responses carry `X-Bridge-Tenant` and `X-Bridge-Authz` (opaque epoch digest); client drops mismatching responses, purges query cache on 403 `AUTHZ_REVOKED`/tenant switch, polls `GET /v1/auth/session` every 60 s while visible | `apps/web/lib/authzGuard.ts` | Playwright: revoke during pending request → no rows rendered | 3 |
 | SEC-006-S11 | Membership removal clears `active_tenant_id` on that tenant's sessions; next request → 403 `TENANT_ACCESS_REVOKED` with tenant picker | `packages/authz/membership_removal.py` | Removed member cannot load any tenant route | 2 |
@@ -379,8 +379,8 @@ Task acceptance:
 - [ ] RB-09 kill switch drill measured.
 
 ### SEC-007 — Sanitize SQL, tags and errors before persistence
-Release: R1 · Estimate: 50–78 h · Risk: H · Decisions: D-10, D-11 · Closes: G-SEC-14, G-SEC-15, G-SEC-23
-Dependency changes: none as a start dependency (SEC-001, FND-004 kept). Step S11 (FULL-mode enablement) additionally needs SEC-102; until SEC-102 lands FULL cannot be enabled (default SANITIZED), so no hard edge is added on the ingestion path. Consumers: `ING-003 +SEC-103` edge added via SEC-103.
+Release: R1 · Estimate: 47–73 h · Risk: H · Decisions: D-10, D-11 · Closes: G-SEC-14, G-SEC-15, G-SEC-23
+Dependency changes: `+WRK-101` (workload-metadata library = step (1) of `sanitize()`; requested by WRK, confirmed by RECONCILIATION U-04); SEC-001, FND-004 kept. Step S11 (FULL-mode enablement) additionally needs SEC-102; until SEC-102 lands FULL cannot be enabled (default SANITIZED), so no hard edge is added on the ingestion path. Consumers: `ING-003 +SEC-103` edge added via SEC-103.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
@@ -390,8 +390,8 @@ Dependency changes: none as a start dependency (SEC-001, FND-004 kept). Step S11
 | SEC-007-S04 | Implement AST tier: pinned sqlglot, `read="snowflake"`; replace string/number/hex/national/raw-string literals with `?`; strip comments; regenerate | `packages/query_privacy/ast_sanitizer.py` | Unit tests over 200 labelled statements | 4 |
 | SEC-007-S05 | Add safety guards: `sqlglot` logger set to CRITICAL + filter dropping `sqlglot.*` records; convert exceptions to class names; reject trees containing `exp.Command` or unknown nodes; input ≤100k chars; run in a process pool with 2 s timeout; re-tokenize output and assert zero literal/comment tokens | `packages/query_privacy/guards.py` | Sentinel in a `COPY … CREDENTIALS` statement never reaches captured logs (incl. sqlglot WARNING) | 4 |
 | SEC-007-S06 | Implement lexical tier: sqlglot tokenizer; any unterminated token → fail; replace literal/comment tokens with `?`; mark `sanitizer_mode=LEXICAL` | `packages/query_privacy/lexical.py` | Truncated 100k-char statement with open quote → METADATA_ONLY | 3 |
-| SEC-007-S07 | Extract leading and trailing block comments and QUERY_TAG before sanitizing; parse JSON ≤4 KB; keep allowlisted keys (`app, dbt_version, profile_name, target_name, node_id, invocation_id, bridge_finops`) matching `^[A-Za-z0-9_.:\-/]{1,256}$`; hash other tag values with the tenant HMAC (SEC-103) | `packages/query_privacy/workload_metadata.py` | dbt appended comment yields node_id/invocation_id; unknown key dropped | 3 |
-| SEC-007-S08 | Implement sanitized-body cache keyed `(tenant, account, QUERY_PARAMETERIZED_HASH_VERSION, QUERY_PARAMETERIZED_HASH, sanitizer_version)` LRU 100k per account-cycle process; metadata never cached | `packages/query_privacy/cache.py` | Two queries differing only in comments get their own invocation_id | 2 |
+| SEC-007-S07 | Moved to WRK-101 per RECONCILIATION U-04 (workload-metadata library and allowlist v1; SEC reviews it and `privacy-policy.json` references it) — call it as step (1) of `sanitize()` here | — | — | 0 |
+| SEC-007-S08 | Implement the single sanitized-body cache (ING-107 uses it in the extractor; RECONCILIATION U-04) keyed `(tenant, account, QUERY_PARAMETERIZED_HASH_VERSION, QUERY_PARAMETERIZED_HASH, sanitizer_version)` LRU 100k per account-cycle process; metadata never cached | `packages/query_privacy/cache.py` | Two queries differing only in comments get their own invocation_id | 2 |
 | SEC-007-S09 | Error scrubbing (G-SEC-23): FastAPI/Pydantic handler without `input/ctx`; Snowflake errors → `(error_code, sql_state, error_class)`; asyncpg IntegrityError → constraint name; structlog processor removing messages of sensitive exception classes | `packages/query_privacy/errors.py`, `apps/api/errors.py` | Secret in a rejected request field never appears in response or logs | 4 |
 | SEC-007-S10 | Apply identifier policy: SANITIZED keeps object identifiers; `USER_NAME`/emails routed to SEC-103 pseudonymizer; object tag values hashed unless allowlisted | `packages/query_privacy/fields.py` | Arrow output of fixture contains no plaintext user name | 2 |
 | SEC-007-S11 | FULL mode: tenant setting requires approval (Appendix C.4) and capability `sql_text.read_full`; store in `QUERY_TEXT_FULL` masked by `MP_SQL_TEXT_FULL`; 30-day retention; METADATA_ONLY drops both | `packages/query_privacy/full_mode.py` | Viewer without capability reads NULL; FULL enable without approval → 409 `APPROVAL_REQUIRED` | 3 |
@@ -485,7 +485,7 @@ Task acceptance:
 - [ ] Step-up is enforced for listed actions with a 10-minute `auth_time` window.
 
 ### SEC-103 — Pseudonymization and deletable identity dictionary (D-10)
-Release: R1 · Estimate: 40–64 h · Risk: H · Decisions: D-10, D-16 · Closes: G-SEC-16
+Release: R1 · Estimate: 35–56 h · Risk: H · Decisions: D-10, D-16 · Closes: G-SEC-16
 Why: user identifiers must be pseudonymized before the immutable journal from the first extraction; retrofitting after data exists requires re-extraction. Plugs in: before ING-003 (`ING-003 +SEC-103`), CTL-005 (`+SEC-103`), OPS-005.
 Dependency changes: `+INF-003` (KMS), `+CTL-101`, `+SEC-001`.
 
@@ -494,12 +494,12 @@ Dependency changes: `+INF-003` (KMS), `+CTL-101`, `+SEC-001`.
 | SEC-103-S01 | Write design (Appendix G.2) incl. legal-review note on residual windows | `docs/security/pseudonymization.md` | Legal/owner acknowledgement recorded | 2 |
 | SEC-103-S02 | Tenant key lifecycle: 32-byte key at tenant creation, KMS `Encrypt` with encryption context `{tenant_id}`; `privacy.tenant_keys(tenant_id, key_version, ciphertext, created_at, destroyed_at)`; KMS key policy requires matching context and principal tag | migration, `infra/terraform/modules/kms/pseudonym.tf` | Task role of tenant A cannot decrypt B's key (AccessDenied) | 4 |
 | SEC-103-S03 | Pseudonymizer: `u1_` + base32(HMAC-SHA256(key, "sf_user\|"+account_id+"\|"+upper(NFKC(name))))[:26]; `e1_` for emails in tags | `packages/query_privacy/pseudonym.py` | Case variants map to same value; tenants differ | 3 |
-| SEC-103-S04 | Extraction contract for ING-003: decrypt once per account-cycle, pseudonymize USER_NAME (QUERY_HISTORY, LOGIN_HISTORY if projected), emit dictionary deltas to the control API (never S3) | `packages/extraction/privacy_hook.py` contract + test double | Parquet fixture contains zero plaintext names | 4 |
-| SEC-103-S05 | Internal endpoint `POST /internal/v1/identity-dictionary:batchUpsert` (SigV4/mTLS, account-cycle identity bound to tenant) with tombstone suppression | `apps/api/internal/identity_dictionary.py` | Tombstoned pseudonym is not re-populated | 3 |
+| SEC-103-S04 | Extraction contract only: pseudonym scheme, key-access interface and dictionary-delta format (deltas to the control API, never S3) for USER_NAME (QUERY_HISTORY, LOGIN_HISTORY if projected); in-extractor key handling (decrypt once per task) and pseudonymization are ING-107-S03 (RECONCILIATION U-04) | `packages/extraction/privacy_hook.py` contract + test double | ING-107-S03 pipeline test over the test double: Parquet fixture contains zero plaintext names | 2 |
+| SEC-103-S05 | Internal endpoint `POST /internal/v1/identity-dictionary:batchUpsert` (SigV4/mTLS, account-cycle identity bound to tenant) with tombstone suppression read from the OPS-104 tombstone registry (RECONCILIATION U-11, C-19) | `apps/api/internal/identity_dictionary.py` | Tombstoned pseudonym is not re-populated | 3 |
 | SEC-103-S06 | Post-query resolver in API for callers with `identity.resolve` (≤500 pseudonyms, one PG query); response `{pseudonym, display_name\|null, resolution: RESOLVED\|HIDDEN\|ERASED}` | `packages/semantic/identity_resolver.py` | Viewer without capability sees HIDDEN | 3 |
 | SEC-103-S07 | Name search: PG lookup → pseudonym list (cap 1,000) → Snowflake `IN`; above cap → 422 `FILTER_TOO_BROAD` | `packages/semantic/user_filter.py` | Search for erased user returns nothing | 3 |
 | SEC-103-S08 | Config-publication helper: user-dimension `eq/in` values → pseudonyms; reject prefix/contains on user names in R1 (`OPERATOR_NOT_SUPPORTED_FOR_PSEUDONYMIZED_DIMENSION`) | `packages/governance/pseudonymize_rules.py` | ALC rule with user `contains` rejected with that code | 2 |
-| SEC-103-S09 | Erasure flow: `POST /v1/privacy/erasure-requests` → approval (SEC-102) → delete dictionary rows, insert tombstones, bump tenant authz_epoch (cache), audit, residual report (PITR 35 d, Redis TTL) | `apps/api/routes/privacy_erasure.py` | After erasure no API response contains the name | 4 |
+| SEC-103-S09 | Erasure primitive `erase_subject(tenant, pseudonym, request_id)`, called as a stage handler by OPS-005's `POST /v1/privacy/requests` workflow (SUBJECT_ERASURE, approval via SEC-102): delete dictionary rows, write a SUBJECT tombstone to OPS-104, bump tenant authz_epoch (cache), audit, residual report (PITR 35 d, Redis TTL); the request API and workflow are OPS-005's (RECONCILIATION U-11, C-20) | `packages/privacy/erase_subject.py` | After erasure no API response contains the name | 1 |
 | SEC-103-S10 | Tenant offboarding: delete key ciphertext rows; document backup expiry | `packages/privacy/offboarding.py` | Pseudonyms no longer computable post-deletion (test) | 2 |
 | SEC-103-S11 | Tests: replay reproduces identical pseudonyms; erased user stays hidden after re-extraction; email sentinel in QUERY_TAG never plaintext | `tests/security/privacy/test_pseudonym.py` | PASS | 4 |
 | SEC-103-S12 | UX contract note for "top users" (pseudonym chip + resolution state) handed to UX backlog | `docs/security/pseudonym-ux.md` | Reviewed by UX | 1 |
@@ -512,15 +512,15 @@ Task acceptance:
 - [ ] KMS denial makes extraction fail closed rather than store plaintext.
 
 ### SEC-104 — Time-bound, customer-approved support access
-Release: R1 · Estimate: 24–40 h · Risk: M · Decisions: D-25 · Closes: G-SEC-18
-Why: launch support needs a sanctioned, audited path; otherwise standing cross-tenant access appears. Plugs in after SEC-102, SEC-006 and SEC-105; consumed by OPS-010.
+Release: R1 · Estimate: 25–42 h · Risk: M · Decisions: D-25 · Closes: G-SEC-18
+Why: launch support needs a sanctioned, audited path; otherwise standing cross-tenant access appears. Plugs in after SEC-102, SEC-006 and SEC-105; consumed by OPS-010 and OPS-004 (attack surface). SEC-104 owns support-access grants end to end; OPS-106-S06…S09 fold into it (RECONCILIATION U-05, C-15).
 Dependency changes: `+SEC-102`, `+SEC-006`, `+SEC-105`, `+CTL-102` (internal console operator authentication).
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
-| SEC-104-S01 | Migrate `identity.support_access_grants` (tenant_id, id, operator_subject, reason_code, case_ref, scope jsonb, capabilities[], approved_by, starts_at, expires_at ≤ starts_at+8 h, revoked_at, status) | migration | CHECK rejects >8 h | 2 |
+| SEC-104-S01 | Migrate `identity.support_access_grants` (tenant_id, id, operator_subject, reason_code, case_ref, scope jsonb ∈ {`health_read`, `analytics_read`} in R1 — `config_write` is not a support scope, capabilities[], approved_by, starts_at, expires_at default starts_at+4 h and ≤ starts_at+8 h, revoked_at, status) (RECONCILIATION C-15) | migration | CHECK rejects >8 h and scope `config_write` | 2 |
 | SEC-104-S02 | Reuse CTL-102 operator authentication (IAM Identity Center OIDC, hardware-key MFA); add operator role `support_agent` and bind each support session to a case reference | `apps/internal_console/support/` | Customer Cognito user cannot reach console; operator without `support_agent` cannot request | 4 |
-| SEC-104-S03 | Request/approve flow: operator requests; tenant member with `support.grant` approves scope/duration (step-up) | `apps/api/routes/support_access.py` | Operator cannot approve own request | 3 |
+| SEC-104-S03 | Request/approve flow: operator requests; tenant member with `support.grant` approves scope/duration (step-up); tenant approval policy incl. the optional `health_read` auto-approve (absorbed from OPS-106-S07; RECONCILIATION U-05) | `apps/api/routes/support_access.py` | Operator cannot approve own request; `health_read` auto-approved only when the tenant policy enables it | 4 |
 | SEC-104-S04 | Materialize as synthetic membership `kind=SUPPORT`, read-only capability set, profile with sanitized SQL + pseudonymous identities; banner header `X-Bridge-Support-Session` | `packages/authz/support_membership.py` | Write endpoints → 403; FULL SQL masked | 4 |
 | SEC-104-S05 | Expiry reaper and revoke (≤30 s, SEC-006 mechanisms) | `services/workers/support_expiry.py` | Access denied within 30 s of expiry | 2 |
 | SEC-104-S06 | Audit every support request (`support.access.used`) and show in tenant audit log | `packages/audit/support.py` | Tenant auditor sees each access | 2 |
@@ -532,21 +532,21 @@ Task acceptance:
 - [ ] Support sessions are read-only, sanitized, pseudonymous, bannered and audited.
 
 ### SEC-105 — Tenant serving principal and profile-role provisioner
-Release: R1 · Estimate: 48–76 h · Risk: H · Decisions: D-02, D-21, D-22 · Closes: G-SEC-01 (lifecycle), G-SEC-21, G-SEC-22
+Release: R1 · Estimate: 40–63 h · Risk: H · Decisions: D-02, D-21, D-22 · Closes: G-SEC-01 (lifecycle), G-SEC-21, G-SEC-22
 Why: SEC-005 proves the policy model with scripted fixtures; production needs an idempotent, least-privileged provisioner with GC and drift detection. Plugs in after SEC-005 and CTL-004; required by SEC-006, CTL-102, OPS-004, OPS-007.
-Dependency changes: `+SEC-005`, `+CTL-004`, `+INF-005`, `+SEC-101`.
+Dependency changes: `+SEC-005`, `+CTL-004`, `+INF-005`, `+SEC-101`, `+INF-103` (the tenant serving IAM role is created by the single runtime IAM provisioner; RECONCILIATION U-02). SEC-105 keeps everything Snowflake-side.
 
 | Step | Micro-task (imperative, precise) | Deliverable (path / artifact / interface) | Done when (verifiable oracle) | h |
 |---|---|---|---|---|
 | SEC-105-S01 | Service skeleton consuming `tenant.principal.requested` and `authz.profile.provision_requested` from FIFO SQS (MessageGroupId = tenant_id) | `services/authz_provisioner/` | Duplicate message → single effect | 3 |
-| SEC-105-S02 | AWS: `tenant-serving-provisioner` role may `iam:CreateRole/TagRole/DeleteRole` only under path `/bridge/tenant-serving/` with mandatory permissions boundary `bridge-deny-all`; role trust = broker task role with `aws:PrincipalTag/component=query-broker`; idempotent GetRole-first | `services/authz_provisioner/aws.py`, `infra/terraform/modules/iam/tenant_serving.tf` | Attaching any policy to a created role fails (boundary) | 4 |
+| SEC-105-S02 | Moved to INF-103 per RECONCILIATION U-02, C-11 — request the tenant serving role `bridge-<env>-srv-<uuid32>` (no IAM path, srv boundary, broker-only trust) through INF-103's provisioner and consume its ARN here | — | — | 0 |
 | SEC-105-S03 | Snowflake onboarding as `TENANT_ONBOARDER`: `CREATE USER IF NOT EXISTS … TYPE=SERVICE WORKLOAD_IDENTITY=(TYPE=AWS ARN=…) DEFAULT_SECONDARY_ROLES=()`, attach session policy, insert `TENANT_PRINCIPAL`; retry WIF test login up to 5 min for IAM propagation | `services/authz_provisioner/snowflake_onboard.py` | New tenant principal can log in via broker test path | 5 |
 | SEC-105-S04 | Profile provisioning as `PROFILE_PROVISIONER`: `CREATE ROLE IF NOT EXISTS`, `GRANT ROLE BRIDGE_SERVING_BASE`, MERGE entitlement rows keyed `(role_name, atom_hash)`, `GRANT ROLE … TO USER <tenant user>`, verify entitlement count via a broker test query | `services/authz_provisioner/profiles.py` | Re-run is a no-op (grant diff empty) | 5 |
 | SEC-105-S05 | PG transitions: profile PROVISIONING→ACTIVE, pending memberships attached, epochs bumped, latency recorded | `services/authz_provisioner/pg_state.py` | p95 commit→ACTIVE ≤60 s (S12) | 3 |
 | SEC-105-S06 | GC: unreferenced >15 min → RETIRING (entitlements ACTIVE=FALSE, revoke from user); >24 h → DROP ROLE; never touch referenced profiles | `services/authz_provisioner/gc.py` | Referenced profile untouched after 25 h | 3 |
-| SEC-105-S07 | Tenant disable/offboard: principal DISABLED, `ALTER USER … SET DISABLED=TRUE`, drop roles, delete IAM role after 7 d | `services/authz_provisioner/offboard.py` | Offboarded tenant user cannot log in | 3 |
-| SEC-105-S08 | Admission quotas: ≤200 active profiles/tenant (entitlement), IAM roles used ≥80 % → block new tenants/connections + page | `services/authz_provisioner/quotas.py` | Quota breach returns `QUOTA_EXCEEDED` | 2 |
-| SEC-105-S09 | Nightly drift reconciliation: IAM roles ↔ `SHOW USERS`/workload identity ↔ `TENANT_PRINCIPAL` ↔ PG; profile roles' grants must equal {BRIDGE_SERVING_BASE}; each user holds only own-tenant profile roles | `services/authz_provisioner/drift.py` | Injected extra grant pages within one run | 5 |
+| SEC-105-S07 | Tenant disable/offboard as a stage handler of OPS-005's deletion orchestrator (U-11): principal DISABLED, `ALTER USER … SET DISABLED=TRUE`, drop roles; request IAM role deletion from INF-103 after 7 d (INF-103-S08 revocation order; RECONCILIATION U-02) | `services/authz_provisioner/offboard.py` | Offboarded tenant user cannot log in | 2 |
+| SEC-105-S08 | Admission quota: ≤200 active profiles/tenant (entitlement); the IAM role quota guard (alarm 70 %, block 80 %, metric `iam_roles_used_ratio`) is INF-103-S07's (RECONCILIATION C-11) | `services/authz_provisioner/quotas.py` | Quota breach returns `QUOTA_EXCEEDED` | 1 |
+| SEC-105-S09 | Nightly Snowflake/PG drift reconciliation: `SHOW USERS`/workload identity ARN (must equal INF-103's registered `bridge-<env>-srv-<uuid32>` ARN) ↔ `TENANT_PRINCIPAL` ↔ PG; profile roles' grants must equal {BRIDGE_SERVING_BASE}; each user holds only own-tenant profile roles; IAM-side reconcile/quarantine is INF-103-S09 (RECONCILIATION U-02) | `services/authz_provisioner/drift.py` | Injected extra grant pages within one run | 3 |
 | SEC-105-S10 | Failure handling: partial provisioning retried idempotently; poison → DEAD + alarm; memberships stay pending (fail closed) | `services/authz_provisioner/errors.py` | Crash after CREATE ROLE before GRANT recovers on retry | 3 |
 | SEC-105-S11 | Privilege tests: provisioner cannot write `TENANT_PRINCIPAL`, cannot CREATE USER, reads zero serving rows; onboarder cannot CREATE ROLE | `tests/security/provisioner/` | All denied live | 4 |
 | SEC-105-S12 | Benchmark 50 concurrent profile creations; record p50/p95 | `docs/evidence/SEC-105/latency.md` | p95 ≤60 s or documented | 2 |
@@ -587,16 +587,16 @@ Task acceptance:
 | SEC-003 | R1* (D-20) | 56 | 84 |
 | SEC-004 | R1 | 52 | 80 |
 | SEC-005 | R1 | 60 | 92 |
-| SEC-006 | R1 | 44 | 68 |
-| SEC-007 | R1 | 50 | 78 |
+| SEC-006 | R1 | 41 | 64 |
+| SEC-007 | R1 | 47 | 73 |
 | SEC-008 | R1 | 56 | 86 |
 | SEC-101 | R1 | 24 | 38 |
 | SEC-102 | R1 | 36 | 56 |
-| SEC-103 | R1 | 40 | 64 |
-| SEC-104 | R1 | 24 | 40 |
-| SEC-105 | R1 | 48 | 76 |
+| SEC-103 | R1 | 35 | 56 |
+| SEC-104 | R1 | 25 | 42 |
+| SEC-105 | R1 | 40 | 63 |
 | SEC-106 | R2 | 40 | 64 |
-| **Total R1** (excl. SEC-003) | \| **522** | **814** |
+| **Total R1** (excl. SEC-003) | \| **504** | **786** |
 | **Total R1\*** (SEC-003 if required) | \| **56** | **84** |
 | **Total R2** | \| **40** | **64** |
 
@@ -617,7 +617,7 @@ Task acceptance:
 ## Appendix A — ADR-005 amendment: tenant WIF user + per-profile Snowflake roles (D-02)
 
 ### A.1 Model
-- **Tenant boundary = identity.** One AWS IAM role `arn:aws:iam::<platform>:role/bridge/tenant-serving/bridge-srv-<env>-<tenant_short>` and one Snowflake `TYPE=SERVICE` user `BRIDGE_<ENV>_T_<TENANT_SHORT>` per tenant, bound by `WORKLOAD_IDENTITY=(TYPE=AWS ARN=…)` (syntax VERIFIED via search snippet of docs.snowflake.com/en/user-guide/workload-identity-federation, 2026-09-28). `TENANT_SHORT` = first 12 chars of base32(tenant UUID). The IAM role has **no permission policies** (only identity) and a permissions boundary denying everything; its trust policy allows only the query broker task role.
+- **Tenant boundary = identity.** One AWS IAM role `arn:aws:iam::<platform>:role/bridge-<env>-srv-<uuid32>` (no IAM path, created by INF-103; RECONCILIATION C-11, U-02) and one Snowflake `TYPE=SERVICE` user `BRIDGE_<ENV>_T_<TENANT_SHORT>` per tenant, bound by `WORKLOAD_IDENTITY=(TYPE=AWS ARN=…)` (syntax VERIFIED via search snippet of docs.snowflake.com/en/user-guide/workload-identity-federation, 2026-09-28). `TENANT_SHORT` = first 12 chars of base32(tenant UUID). The IAM role has **no permission policies** (only identity) and a permissions boundary denying everything; its trust policy allows only the query broker task role.
 - **Intra-tenant scope = role.** One Snowflake role per normalized permission profile: `BRIDGE_<ENV>_T_<TENANT_SHORT>_P_<first 16 hex of profile_hash>`. Profile content is immutable: a scope change maps the member to a different profile; it never edits a profile.
 - **Who chooses.** Only the query broker (D-22) maps `AuthContext → (tenant user, profile role)` from PG state. The tenant user is granted all of its tenant's profile roles, so Snowflake alone does not stop a *broker-controlled* session from switching to a broader same-tenant profile; Snowflake does stop any session from reading another tenant, and no other component can open a tenant-user session at all. This is equivalent to ADR-005 as written (where the broker could assume every per-profile principal) and is recorded as residual risk RR-01.
 - **Kill switch.** `SECURITY.TENANT_PRINCIPAL.STATUS='DISABLED'` hides all rows immediately (the policy joins it); `ALTER USER … SET DISABLED=TRUE` blocks logins.
@@ -729,11 +729,11 @@ Normalization guarantees `INCLUDE_SHARED = INCLUDE_UNALLOCATED = TRUE` whenever 
 ### A.6 Privileged identities and blast radius
 | Identity | Privileges | Cannot | Blast radius if compromised |
 |---|---|---|---|
-| `TENANT_ONBOARDER` (WIF service user; runs only in the operator-approved provisioning workflow) | CREATE USER; owns tenant users; INSERT/UPDATE `TENANT_PRINCIPAL` | CREATE ROLE; write entitlements; read serving | Could bind a new user to a tenant — mitigated by ARN path check `^arn:aws:iam::<platform>:role/bridge/tenant-serving/` in the drift job and in the provisioner, and by IAM trust restricted to the broker |
+| `TENANT_ONBOARDER` (WIF service user; runs only in the operator-approved provisioning workflow) | CREATE USER; owns tenant users; INSERT/UPDATE `TENANT_PRINCIPAL` | CREATE ROLE; write entitlements; read serving | Could bind a new user to a tenant — mitigated by ARN name check `^arn:aws:iam::<platform>:role/bridge-<env>-srv-[0-9a-f]{32}$` (C-11) in the drift job and in the provisioner, and by IAM trust restricted to the broker |
 | `PROFILE_PROVISIONER` | CREATE ROLE; owns profile roles and `BRIDGE_SERVING_BASE` (to grant it); INSERT/UPDATE `PROFILE`, `PROFILE_ENTITLEMENT` | CREATE USER; write `TENANT_PRINCIPAL`; MANAGE GRANTS; read serving (not in `TENANT_PRINCIPAL`) | Intra-tenant broadening only: entitlement rows only take effect for users bound to the same tenant in `TENANT_PRINCIPAL` |
 | `SECURITY_POLICY_OWNER` (NOLOGIN role) | Owns SECURITY schema, policies, session policy | — | Used only by the reviewed CI deploy identity `SECURITY_DEPLOYER`; policy changes require PR approval by Security |
-| AWS `tenant-serving-provisioner` | `iam:CreateRole/TagRole/DeleteRole` on `/bridge/tenant-serving/*` with mandatory boundary `bridge-deny-all` | Attach policies; PassRole | Can create identity-only roles that only the broker may assume |
-| Query broker task role | `sts:AssumeRole` on `/bridge/tenant-serving/*` | Anything else in AWS; PG writes | **All tenants' serving data (RR-01)**; mitigations: minimal code, mTLS ingress from API only, CloudTrail alarm when >20 distinct tenant roles assumed per minute per task, planner emits SELECT only |
+| AWS runtime identity provisioner (INF-103; RECONCILIATION U-02) | `iam:CreateRole/TagRole/DeleteRole` on `role/bridge-<env>-srv-*` (and `-conn-*`) with the mandatory matching boundary | Attach policies; PassRole | Can create identity-only roles that only the broker may assume |
+| Query broker task role | `sts:AssumeRole` on `role/bridge-<env>-srv-*` | Anything else in AWS; PG writes | **All tenants' serving data (RR-01)**; mitigations: minimal code, mTLS ingress from API only, CloudTrail alarm when >20 distinct tenant roles assumed per minute per task, planner emits SELECT only |
 
 Whether several Snowflake users may share one AWS ARN is TO VERIFY LIVE and not required by this design. Snowflake role-count limits: no documented hard cap found (search, 2026-09-28) — **TO VERIFY LIVE** in SEC-005-S15; admission cap 200 active profiles/tenant, platform alarm at 5,000 roles.
 
@@ -929,7 +929,7 @@ E.7 Mandatory tests per table (generated): with seeded A and B rows, (1) no cont
 | QUERY_HASH / QUERY_PARAMETERIZED_HASH | preserved unchanged in all modes |
 
 ### G.2 Pseudonymization (D-10 refined)
-Per-tenant key (KMS envelope, encryption context `tenant_id`); `u1_`/`e1_`/`t1_` prefixes denote scheme version. Dictionary `privacy.identity_dictionary(tenant_id, pseudonym, kind, display_name, email_norm NULL, first_seen, last_seen, source_account_id)` and `privacy.identity_tombstones(tenant_id, pseudonym, erased_at, request_id)` in PostgreSQL only. Resolution in the API after Snowflake returns rows. Erasure = delete dictionary row + tombstone + tenant authz_epoch bump; residuals: Aurora PITR (35 days), Redis TTL (≤30 min), already-delivered reports/exports (documented). Limitation: anyone holding the tenant key can recompute a candidate name's pseudonym (linkability) — "crypto-shredding-lite"; tenant offboarding deletes the key.
+Per-tenant key (KMS envelope, encryption context `tenant_id`); `u1_`/`e1_`/`t1_` prefixes denote scheme version. Dictionary `privacy.identity_dictionary(tenant_id, pseudonym, kind, display_name, email_norm NULL, first_seen, last_seen, source_account_id)` in PostgreSQL only; erasure tombstones `(tenant_id, pseudonym, erased_at, request_id)` are kind SUBJECT in the OPS-104 tombstone registry with its S3 mirror outside restore scope, never a PostgreSQL-only table (RECONCILIATION U-11, C-19). Resolution in the API after Snowflake returns rows. Erasure = delete dictionary row + tombstone + tenant authz_epoch bump; residuals: Aurora PITR (35 days), Redis TTL (≤30 min), already-delivered reports/exports (documented). Limitation: anyone holding the tenant key can recompute a candidate name's pseudonym (linkability) — "crypto-shredding-lite"; tenant offboarding deletes the key.
 
 ## Appendix H — Audit
 H.1 Event fields: `event_id, tenant_id NULL (platform events), occurred_at (UTC, µs), actor_type (MEMBER|SUPPORT|SERVICE|OPERATOR|ANONYMOUS), actor_subject_id, actor_service, action, object_type, object_id, object_version, outcome (ALLOWED|DENIED|FAILED), reason_code, request_id, session_id_hash, ip, user_agent (≤256), before_redacted jsonb, after_redacted jsonb, approval_id`. Action names `<domain>.<object>.<verb>`, e.g. `auth.login.succeeded`, `auth.session.revoked`, `member.grant.updated`, `authz.profile.activated`, `connection.credentials.rotated`, `sync.replay.requested`, `rule.ruleset.published`, `price.rate.approved`, `period.close.executed`, `statement.issued`, `export.bulk.downloaded`, `privacy.mode.changed`, `support.access.used`, `api_client.secret.rotated`, `operator.recovery.executed`, `authz.request.denied`.
@@ -943,7 +943,7 @@ H.4 Retention/erasure: PG 365 days; S3 365 days (lock) then lifecycle delete; us
 | ATK-01 | Foreign tenant UUID in path (`GET /v1/budgets/{B-id}` as A) | 404 identical to nonexistent | SEC-004/SEC-008 |
 | ATK-02 | Foreign account/group ID in analytics filter body | 422 `SCOPE_REFERENCE_INVALID` (non-enumerating) or empty authorized result | API-002 |
 | ATK-03 | Drop tenant/scope filter (planner bug simulation) | Snowflake policy returns only own rows | SEC-005 |
-| ATK-04 | Replay cursor after permission change | 409 `CURSOR_STALE` | SEC-006 |
+| ATK-04 | Replay cursor after permission change | 409 `SCOPE_CHANGED` (RECONCILIATION C-07) | SEC-006 |
 | ATK-05 | Use another user's cursor | 400 `CURSOR_INVALID` | SEC-006 |
 | ATK-06 | Send `X-Tenant-Id`/JSON tenant of B | ignored; A context only | SEC-004 |
 | ATK-07 | Cache poisoning via crafted filter hash collision | digest mismatch → miss | CTL-006 |
